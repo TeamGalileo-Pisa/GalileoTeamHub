@@ -5,6 +5,8 @@ Gestionale ufficiale per organizzare i recruitment del Team Galileo Pisa.
 Il progetto usa React, TypeScript e Vite su Netlify, con Supabase per database,
 autenticazione, Row Level Security ed Edge Functions.
 
+Supabase production deployment initialized.
+
 ## Funzionalità incluse
 
 - accesso globale Amministrazione;
