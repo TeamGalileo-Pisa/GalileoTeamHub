@@ -131,7 +131,21 @@ alter table public.audit_logs enable row level security;
 
 revoke all on all tables in schema public from anon, authenticated;
 grant usage on schema public to authenticated, service_role;
-grant usage on all types in schema public to authenticated, service_role;
+grant usage on type
+  public.app_role,
+  public.profile_status,
+  public.area_membership_role,
+  public.campaign_status,
+  public.availability_status,
+  public.allocation_status,
+  public.session_status,
+  public.booking_link_status,
+  public.slot_status,
+  public.booking_status,
+  public.email_kind,
+  public.delivery_status,
+  public.audit_actor_type
+to authenticated, service_role;
 
 grant select on public.profiles to authenticated;
 grant update (display_name) on public.profiles to authenticated;
