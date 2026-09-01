@@ -65,21 +65,28 @@ supabase secrets set APP_ORIGINS=https://your-site.netlify.app
 supabase secrets set EMAIL_PROVIDER=development
 ```
 
-Quando viene scelto il provider reale, configurare anche `EMAIL_FROM` e la sua
-API key. Non inserire questi valori in file tracciati.
+Il mittente applicativo di tutte le notifiche è fissato a
+`Team Galileo Pisa <info.teamgalileo@gmail.com>`. Quando viene scelto il
+provider reale, configurare soltanto la relativa API key nei secret Supabase;
+non inserire password Google o token in file tracciati.
 
-### Primo account Amministrazione
+### Account iniziali
 
-Dopo le migration, configurare localmente le variabili indicate in
-`.env.example` e lanciare:
+Dopo le migration, creare il file locale `.env.bootstrap.local` con
+`SUPABASE_URL`, `SUPABASE_SECRET_KEY` e le dieci variabili
+`BOOTSTRAP_*_PASSWORD` elencate in `.env.example`, quindi lanciare:
 
 ```bash
-pnpm bootstrap:admin
+pnpm bootstrap:accounts
 ```
 
-Lo script legge la password da `BOOTSTRAP_ADMIN_PASSWORD`, non la stampa e non
-la salva nel repository. Gli altri account vengono creati dalla pagina
-**Account** del gestionale.
+Il file locale è escluso da Git. Lo script crea o riconcilia in modo idempotente
+l'amministratore e i nove Capi Area, usa solo indirizzi Auth sintetici nel
+dominio `auth.teamgalileo.local`, conferma automaticamente tali indirizzi e non
+stampa né salva le password. Ogni esecuzione riconcilia profili e autorizzazioni
+senza duplicati e imposta `must_change_password=true` insieme alle password
+iniziali fornite nell'ambiente locale. Per compatibilità con progetti meno
+recenti, `SUPABASE_SERVICE_ROLE_KEY` resta disponibile come fallback locale.
 
 ## Netlify
 

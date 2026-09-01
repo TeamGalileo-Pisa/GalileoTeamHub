@@ -15,6 +15,9 @@ interface DeliveryPayload {
   ends_at: string;
 }
 
+const OFFICIAL_EMAIL_FROM =
+  "Team Galileo Pisa <info.teamgalileo@gmail.com>";
+
 const formatter = new Intl.DateTimeFormat("it-IT", {
   timeZone: "Europe/Rome",
   weekday: "long",
@@ -93,8 +96,7 @@ export async function sendQueuedEmail(
     }
 
     const apiKey = Deno.env.get("RESEND_API_KEY");
-    const from = Deno.env.get("EMAIL_FROM");
-    if (!apiKey || !from) throw new Error("Missing email provider configuration");
+    if (!apiKey) throw new Error("Missing email provider configuration");
 
     const message = emailCopy(payload);
     const response = await fetch("https://api.resend.com/emails", {
@@ -105,7 +107,7 @@ export async function sendQueuedEmail(
         "Idempotency-Key": deliveryId,
       },
       body: JSON.stringify({
-        from,
+        from: OFFICIAL_EMAIL_FROM,
         to: [payload.to_email],
         subject: message.subject,
         text: message.text,

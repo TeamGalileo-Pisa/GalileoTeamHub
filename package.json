@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
-    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "bootstrap:accounts": "node --env-file-if-exists=.env.bootstrap.local scripts/bootstrap-initial-accounts.mjs",
     "test:booking-race": "node scripts/test-booking-race.mjs"
   },
   "dependencies": {
