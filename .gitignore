@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.netlify/
+.supabase/
+
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+Thumbs.db
+
+supabase/.temp/
+supabase/functions/.env
+
