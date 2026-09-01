@@ -38,6 +38,7 @@ export interface Room {
   name: string;
   location: string | null;
   active: boolean;
+  maxSimultaneousInterviewsLimit: number | null;
 }
 
 export interface RoomAvailability {
@@ -47,7 +48,18 @@ export interface RoomAvailability {
   startsAt: string;
   endsAt: string;
   status: "active" | "cancelled";
+  roomPhysicalLimit: number | null;
+  maxSimultaneousInterviews: number;
+  simultaneousUsage: number;
+  areaNote: string;
   bookedInterviews: number;
+}
+
+export interface RoomAvailabilityUsage {
+  usage: number;
+  capacity: number;
+  remaining: number;
+  complete: boolean;
 }
 
 export interface RecruitmentCampaign {
@@ -121,4 +133,32 @@ export interface BookingConfirmation {
   roomName: string;
   startsAt: string;
   endsAt: string;
+}
+
+export interface Announcement {
+  id: string;
+  title: string;
+  body: string;
+  allAreas: boolean;
+  targetAreaIds: string[];
+  targetAreaNames: string[];
+  publishedAt: string;
+  expiresAt: string | null;
+  important: boolean;
+  pinned: boolean;
+  isActive: boolean;
+  isRead: boolean;
+  readCount: number;
+  createdAt: string;
+}
+
+export interface AnnouncementInput {
+  title: string;
+  body: string;
+  allAreas: boolean;
+  targetAreaIds: string[];
+  publishedAt: string;
+  expiresAt?: string;
+  important: boolean;
+  pinned: boolean;
 }

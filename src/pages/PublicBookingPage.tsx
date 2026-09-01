@@ -247,9 +247,7 @@ export function PublicBookingPage() {
               </div>
               {bookingMutation.error && (
                 <div className="form-error" role="alert">
-                  {bookingMutation.error.message.includes("SLOT_UNAVAILABLE")
-                    ? "Questo slot è appena stato prenotato. Scegline un altro."
-                    : "Non è stato possibile completare la prenotazione. Riprova."}
+                  {bookingMutation.error.message}
                 </div>
               )}
               <button

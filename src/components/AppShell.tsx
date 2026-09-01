@@ -4,25 +4,32 @@ import {
   ChevronDown,
   ClipboardList,
   LayoutDashboard,
+  HelpCircle,
   LogOut,
   Menu,
   PanelsTopLeft,
+  Megaphone,
   UsersRound,
   Warehouse,
   X,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { getUnreadAnnouncementCount } from "../lib/data";
 import { Brand } from "./Brand";
 
 const adminNavigation = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/disponibilita", label: "Disponibilità", icon: Warehouse },
   { to: "/admin/calendario", label: "Calendario", icon: CalendarDays },
+  { to: "/admin/sessioni", label: "Sessioni e slot", icon: ClipboardList },
+  { to: "/admin/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
   { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
   { to: "/admin/account", label: "Account", icon: UsersRound },
+  { to: "/admin/assistenza", label: "Assistenza", icon: HelpCircle },
 ];
 
 const areaNavigation = [
@@ -30,11 +37,18 @@ const areaNavigation = [
   { to: "/area/disponibilita", label: "Disponibilità", icon: Warehouse },
   { to: "/area/sessioni", label: "Sessioni e slot", icon: ClipboardList },
   { to: "/area/calendario", label: "Calendario", icon: CalendarDays },
+  { to: "/area/bacheca", label: "Bacheca", icon: Megaphone },
+  { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
 ];
 
 export function AppShell() {
   const { access, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const unreadQuery = useQuery({
+    queryKey: ["unread-announcements", access?.userId],
+    queryFn: getUnreadAnnouncementCount,
+    enabled: Boolean(access),
+  });
   const navigation = access?.isAdmin ? adminNavigation : areaNavigation;
   const areaLabel = access?.isAdmin
     ? "Amministrazione"
@@ -84,6 +98,11 @@ export function AppShell() {
             >
               <Icon size={19} />
               <span>{label}</span>
+              {label === "Bacheca" && (unreadQuery.data ?? 0) > 0 && (
+                <span className="nav-badge" aria-label={`${unreadQuery.data} comunicazioni non lette`}>
+                  {unreadQuery.data}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

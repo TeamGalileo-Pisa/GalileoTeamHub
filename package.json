@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
     "bootstrap:accounts": "node --env-file-if-exists=.env.bootstrap.local scripts/bootstrap-initial-accounts.mjs",
-    "test:booking-race": "node scripts/test-booking-race.mjs"
+    "test:booking-race": "node scripts/test-booking-race.mjs",
+    "test:supabase-races": "node scripts/test-supabase-races.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

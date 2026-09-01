@@ -25,6 +25,9 @@ const schema = z.object({
 export function SessionsPage() {
   const queryClient = useQueryClient();
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
+  const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+  const [createFeedback, setCreateFeedback] = useState<string | null>(null);
   const sessionsQuery = useQuery({
     queryKey: ["interview-sessions"],
     queryFn: listInterviewSessions,
@@ -43,18 +46,43 @@ export function SessionsPage() {
       await generateSessionSlots(sessionId, values.duration);
       return sessionId;
     },
+    onMutate: () => setCreateFeedback(null),
     onSuccess: async () => {
       form.reset({ duration: 30 });
+      setCreateFeedback("Sessione creata e slot generati correttamente.");
       await queryClient.invalidateQueries({ queryKey: ["interview-sessions"] });
     },
   });
   const linkMutation = useMutation({
     mutationFn: rotateBookingLink,
-    onSuccess: async (token) => {
+    onMutate: () => {
+      setGeneratedLink(null);
+      setLinkFeedback(null);
+      setCopyFeedback(null);
+    },
+    onSuccess: async (token, sessionId) => {
+      const wasActive = sessionsQuery.data?.some(
+        (session) => session.id === sessionId && session.bookingLinkActive,
+      );
       setGeneratedLink(`${window.location.origin}/book/${token}`);
+      setLinkFeedback(
+        wasActive
+          ? "Link rigenerato: il link precedente è stato revocato e non funziona più."
+          : "Link candidato generato correttamente.",
+      );
       await queryClient.invalidateQueries({ queryKey: ["interview-sessions"] });
     },
   });
+
+  async function copyGeneratedLink() {
+    if (!generatedLink) return;
+    try {
+      await navigator.clipboard.writeText(generatedLink);
+      setCopyFeedback("Link copiato negli appunti.");
+    } catch {
+      setCopyFeedback("Copia non riuscita: seleziona e copia manualmente il link.");
+    }
+  }
 
   return (
     <div className="page-container">
@@ -120,13 +148,19 @@ export function SessionsPage() {
               {createMutation.error.message}
             </div>
           )}
+          {createFeedback && (
+            <div className="form-success form-field--full" role="status">
+              {createFeedback}
+            </div>
+          )}
           <div className="form-actions">
             <button
               className="button button--primary"
               type="submit"
               disabled={createMutation.isPending}
             >
-              <CalendarPlus size={17} /> Crea e genera slot
+              <CalendarPlus size={17} />
+              {createMutation.isPending ? "Creazione…" : "Crea e genera slot"}
             </button>
           </div>
         </form>
@@ -137,15 +171,23 @@ export function SessionsPage() {
           <div>
             <p>Nuovo link privato</p>
             <strong>{generatedLink}</strong>
+            {linkFeedback && <span>{linkFeedback}</span>}
+            {copyFeedback && <span>{copyFeedback}</span>}
           </div>
           <button
             className="button button--secondary"
             type="button"
-            onClick={() => void navigator.clipboard.writeText(generatedLink)}
+            onClick={() => void copyGeneratedLink()}
           >
-            <ClipboardCopy size={17} /> Copia
+            <ClipboardCopy size={17} /> Copia link
           </button>
         </section>
+      )}
+
+      {linkMutation.error && (
+        <div className="form-error page-feedback" role="alert">
+          {linkMutation.error.message}
+        </div>
       )}
 
       <section className="panel availability-list-panel">
@@ -196,12 +238,25 @@ export function SessionsPage() {
                         <button
                           className="button button--secondary button--small"
                           type="button"
-                          disabled={linkMutation.isPending}
+                          disabled={
+                            linkMutation.isPending &&
+                            linkMutation.variables === session.id
+                          }
                           onClick={() => linkMutation.mutate(session.id)}
                         >
                           <Link2 size={15} />
-                          {session.bookingLinkActive ? "Rigenera" : "Genera"}
+                          {linkMutation.isPending &&
+                          linkMutation.variables === session.id
+                            ? "Generazione…"
+                            : session.bookingLinkActive
+                              ? "Rigenera"
+                              : "Genera"}
                         </button>
+                        {session.bookingLinkActive && (
+                          <span className="table-secondary">
+                            Rigenerando, il link precedente verrà revocato.
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

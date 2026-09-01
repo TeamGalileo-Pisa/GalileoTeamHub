@@ -1,5 +1,7 @@
 import { supabase } from "./supabase";
 import type {
+  Announcement,
+  AnnouncementInput,
   AreaRecord,
   AllocationOption,
   BookingConfirmation,
@@ -10,9 +12,11 @@ import type {
   RecruitmentCampaign,
   Room,
   RoomAvailability,
+  RoomAvailabilityUsage,
   StaffMember,
   UpcomingInterview,
 } from "../types/domain";
+import { friendlyError } from "./errors";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -28,8 +32,28 @@ function asBoolean(value: unknown): boolean {
   return value === true;
 }
 
-function throwIfError(error: { message: string } | null) {
-  if (error) throw new Error(error.message);
+function throwIfError(error: unknown) {
+  if (error) throw friendlyError(error);
+}
+
+async function throwIfFunctionError(error: unknown): Promise<void> {
+  if (!error) return;
+
+  const context =
+    typeof error === "object" && error
+      ? (error as { context?: unknown }).context
+      : undefined;
+  if (context instanceof Response) {
+    let payload: unknown;
+    try {
+      payload = (await context.clone().json()) as unknown;
+    } catch {
+      payload = undefined;
+    }
+    if (payload) throw friendlyError(payload);
+  }
+
+  throw friendlyError(error);
 }
 
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
@@ -66,7 +90,7 @@ export async function listUpcomingInterviews(): Promise<UpcomingInterview[]> {
 export async function listRooms(): Promise<Room[]> {
   const { data, error } = await supabase
     .from("rooms")
-    .select("id, name, location, active")
+    .select("id, name, location, active, max_simultaneous_interviews_limit")
     .order("name");
   throwIfError(error);
 
@@ -75,16 +99,20 @@ export async function listRooms(): Promise<Room[]> {
     name: row.name,
     location: row.location,
     active: row.active,
+    maxSimultaneousInterviewsLimit: row.max_simultaneous_interviews_limit,
   }));
 }
 
 export async function createRoom(input: {
   name: string;
   location?: string;
+  maxSimultaneousInterviewsLimit?: number | null;
 }): Promise<void> {
   const { error } = await supabase.from("rooms").insert({
     name: input.name.trim(),
     location: input.location?.trim() || null,
+    max_simultaneous_interviews_limit:
+      input.maxSimultaneousInterviewsLimit ?? null,
   });
   throwIfError(error);
 }
@@ -97,10 +125,17 @@ export async function listRoomAvailabilities(): Promise<RoomAvailability[]> {
     id: asString(row.id),
     roomId: asString(row.room_id),
     roomName: asString(row.room_name),
+    roomPhysicalLimit:
+      row.room_physical_limit === null || row.room_physical_limit === undefined
+        ? null
+        : asNumber(row.room_physical_limit),
     startsAt: asString(row.starts_at),
     endsAt: asString(row.ends_at),
     status:
       row.status === "cancelled" ? ("cancelled" as const) : ("active" as const),
+    maxSimultaneousInterviews: asNumber(row.max_simultaneous_interviews),
+    simultaneousUsage: asNumber(row.simultaneous_usage),
+    areaNote: asString(row.area_note),
     bookedInterviews: asNumber(row.booked_interviews),
   }));
 }
@@ -109,13 +144,57 @@ export async function createRoomAvailability(input: {
   roomId: string;
   startsAt: string;
   endsAt: string;
+  maxSimultaneousInterviews: number;
+  areaNote: string;
 }): Promise<void> {
   const { error } = await supabase.rpc("create_room_availability", {
     p_room_id: input.roomId,
     p_starts_at: new Date(input.startsAt).toISOString(),
     p_ends_at: new Date(input.endsAt).toISOString(),
+    p_max_simultaneous_interviews: input.maxSimultaneousInterviews,
+    p_area_note: input.areaNote.trim(),
   });
   throwIfError(error);
+}
+
+export async function updateRoomAvailability(input: {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  maxSimultaneousInterviews: number;
+  areaNote: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc("update_room_availability", {
+    p_availability_id: input.id,
+    p_starts_at: new Date(input.startsAt).toISOString(),
+    p_ends_at: new Date(input.endsAt).toISOString(),
+    p_max_simultaneous_interviews: input.maxSimultaneousInterviews,
+    p_area_note: input.areaNote.trim(),
+  });
+  throwIfError(error);
+}
+
+export async function getRoomAvailabilityIntervalUsage(input: {
+  availabilityId: string;
+  startsAt: string;
+  endsAt: string;
+}): Promise<RoomAvailabilityUsage> {
+  const { data, error } = await supabase.rpc(
+    "get_room_availability_interval_usage",
+    {
+      p_availability_id: input.availabilityId,
+      p_starts_at: new Date(input.startsAt).toISOString(),
+      p_ends_at: new Date(input.endsAt).toISOString(),
+    },
+  );
+  throwIfError(error);
+  const row = (data ?? {}) as JsonRecord;
+  return {
+    usage: asNumber(row.usage),
+    capacity: asNumber(row.capacity),
+    remaining: asNumber(row.remaining),
+    complete: asBoolean(row.complete),
+  };
 }
 
 export async function cancelRoomAvailability(id: string): Promise<void> {
@@ -246,7 +325,7 @@ export async function createStaffMember(input: {
   const { error } = await supabase.functions.invoke("staff-admin", {
     body: input,
   });
-  throwIfError(error);
+  await throwIfFunctionError(error);
 }
 
 export async function completePasswordChange(): Promise<void> {
@@ -329,7 +408,7 @@ export async function getPublicBookingAvailability(
   const { data, error } = await supabase.functions.invoke("public-booking", {
     body: { action: "availability", token },
   });
-  throwIfError(error);
+  await throwIfFunctionError(error);
   return data as PublicBookingAvailability;
 }
 
@@ -350,6 +429,96 @@ export async function createPublicBooking(input: {
       email: input.email,
     },
   });
-  throwIfError(error);
+  await throwIfFunctionError(error);
   return data as BookingConfirmation;
+}
+
+export async function listAnnouncements(): Promise<Announcement[]> {
+  const { data, error } = await supabase.rpc("list_announcements");
+  throwIfError(error);
+
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    id: asString(row.id),
+    title: asString(row.title),
+    body: asString(row.body),
+    allAreas: asBoolean(row.all_areas),
+    targetAreaIds: Array.isArray(row.target_area_ids)
+      ? row.target_area_ids.map(asString)
+      : [],
+    targetAreaNames: Array.isArray(row.target_area_names)
+      ? row.target_area_names.map(asString)
+      : [],
+    publishedAt: asString(row.published_at),
+    expiresAt: typeof row.expires_at === "string" ? row.expires_at : null,
+    important: asBoolean(row.important),
+    pinned: asBoolean(row.pinned),
+    isActive: asBoolean(row.is_active),
+    isRead: asBoolean(row.is_read),
+    readCount: asNumber(row.read_count),
+    createdAt: asString(row.created_at),
+  }));
+}
+
+function announcementRpcInput(input: AnnouncementInput) {
+  return {
+    p_title: input.title.trim(),
+    p_body: input.body.trim(),
+    p_all_areas: input.allAreas,
+    p_target_area_ids: input.allAreas ? [] : input.targetAreaIds,
+    p_published_at: new Date(input.publishedAt).toISOString(),
+    p_expires_at: input.expiresAt
+      ? new Date(input.expiresAt).toISOString()
+      : null,
+    p_important: input.important,
+    p_pinned: input.pinned,
+  };
+}
+
+export async function createAnnouncement(input: AnnouncementInput): Promise<void> {
+  const { error } = await supabase.rpc(
+    "create_announcement",
+    announcementRpcInput(input),
+  );
+  throwIfError(error);
+}
+
+export async function updateAnnouncement(
+  input: AnnouncementInput & { id: string },
+): Promise<void> {
+  const { error } = await supabase.rpc("update_announcement", {
+    p_announcement_id: input.id,
+    ...announcementRpcInput(input),
+  });
+  throwIfError(error);
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_announcement", {
+    p_announcement_id: id,
+  });
+  throwIfError(error);
+}
+
+export async function markAnnouncementRead(
+  id: string,
+  read = true,
+): Promise<void> {
+  const { error } = await supabase.rpc("mark_announcement_read", {
+    p_announcement_id: id,
+    p_read: read,
+  });
+  throwIfError(error);
+}
+
+export async function getUnreadAnnouncementCount(): Promise<number> {
+  const { data, error } = await supabase.rpc("get_unread_announcement_count");
+  throwIfError(error);
+  return asNumber(data);
+}
+
+export async function sendAdminTestEmail(toEmail: string): Promise<void> {
+  const { error } = await supabase.functions.invoke("admin-email-test", {
+    body: { toEmail: toEmail.trim() },
+  });
+  await throwIfFunctionError(error);
 }

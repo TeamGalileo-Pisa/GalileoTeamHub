@@ -9,6 +9,11 @@ import { useAuth } from "./hooks/useAuth";
 const AreasPage = lazy(() =>
   import("./pages/AreasPage").then((module) => ({ default: module.AreasPage })),
 );
+const AnnouncementsPage = lazy(() =>
+  import("./pages/AnnouncementsPage").then((module) => ({
+    default: module.AnnouncementsPage,
+  })),
+);
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage").then((module) => ({
     default: module.AvailabilityPage,
@@ -36,6 +41,9 @@ const DashboardPage = lazy(() =>
 );
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
+);
+const HelpPage = lazy(() =>
+  import("./pages/HelpPage").then((module) => ({ default: module.HelpPage })),
 );
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((module) => ({
@@ -78,6 +86,8 @@ export default function App() {
               <Route path="/area/disponibilita" element={<AvailabilityPage />} />
               <Route path="/area/sessioni" element={<SessionsPage />} />
               <Route path="/area/calendario" element={<CalendarPage />} />
+              <Route path="/area/bacheca" element={<AnnouncementsPage />} />
+              <Route path="/area/assistenza" element={<HelpPage />} />
 
               <Route element={<ProtectedRoute adminOnly />}>
                 <Route path="/admin" element={<DashboardPage />} />
@@ -86,6 +96,9 @@ export default function App() {
                   element={<AvailabilityPage />}
                 />
                 <Route path="/admin/calendario" element={<CalendarPage />} />
+                <Route path="/admin/sessioni" element={<SessionsPage />} />
+                <Route path="/admin/bacheca" element={<AnnouncementsPage />} />
+                <Route path="/admin/assistenza" element={<HelpPage />} />
                 <Route path="/admin/aree" element={<AreasPage />} />
                 <Route path="/admin/recruitment" element={<CampaignsPage />} />
                 <Route path="/admin/account" element={<StaffPage />} />

@@ -18,6 +18,7 @@ import { useAuth } from "../hooks/useAuth";
 import { formatDateTime, formatTimeRange } from "../lib/dates";
 import {
   getDashboardMetrics,
+  getUnreadAnnouncementCount,
   listUpcomingInterviews,
 } from "../lib/data";
 
@@ -30,6 +31,11 @@ export function DashboardPage() {
   const interviewsQuery = useQuery({
     queryKey: ["upcoming-interviews", access?.userId],
     queryFn: listUpcomingInterviews,
+  });
+  const unreadQuery = useQuery({
+    queryKey: ["unread-announcements", access?.userId],
+    queryFn: getUnreadAnnouncementCount,
+    enabled: Boolean(access),
   });
 
   const metrics = metricsQuery.data ?? {
@@ -87,6 +93,13 @@ export function DashboardPage() {
           Alcuni dati non sono disponibili. Verifica che le migration Supabase
           siano state applicate.
         </div>
+      )}
+
+      {(unreadQuery.data ?? 0) > 0 && (
+        <Link className="announcement-alert" to={isAdmin ? "/admin/bacheca" : "/area/bacheca"}>
+          <span><strong>{unreadQuery.data} nuove comunicazioni</strong> da Amministrazione</span>
+          <span>Apri Bacheca</span>
+        </Link>
       )}
 
       <section className="stats-grid" aria-label="Riepilogo colloqui">
