@@ -2,8 +2,15 @@
 
 :root {
   font-family:
-    Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
   color: #f9f9f9;
   background: #010711;
   font-synthesis: none;
@@ -53,7 +60,9 @@ body {
       var(--page) 66%
     ),
     radial-gradient(rgba(249, 249, 249, 0.024) 1px, transparent 1px);
-  background-size: 100% 100%, 46px 46px;
+  background-size:
+    100% 100%,
+    46px 46px;
 }
 
 button,
@@ -208,7 +217,11 @@ p {
 .nav-item--active {
   border-color: rgba(43, 141, 204, 0.25);
   color: var(--white);
-  background: linear-gradient(100deg, rgba(1, 70, 126, 0.55), rgba(1, 70, 126, 0.16));
+  background: linear-gradient(
+    100deg,
+    rgba(1, 70, 126, 0.55),
+    rgba(1, 70, 126, 0.16)
+  );
   box-shadow: inset 3px 0 0 var(--azure-light);
 }
 
@@ -351,7 +364,11 @@ p {
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: linear-gradient(145deg, rgba(5, 24, 56, 0.82), rgba(2, 13, 34, 0.86));
+  background: linear-gradient(
+    145deg,
+    rgba(5, 24, 56, 0.82),
+    rgba(2, 13, 34, 0.86)
+  );
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
 }
 
@@ -405,7 +422,11 @@ p {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(150deg, rgba(5, 24, 56, 0.82), rgba(2, 13, 34, 0.88));
+  background: linear-gradient(
+    150deg,
+    rgba(5, 24, 56, 0.82),
+    rgba(2, 13, 34, 0.88)
+  );
   box-shadow: var(--shadow);
 }
 
@@ -847,7 +868,11 @@ p {
   padding: clamp(25px, 5vw, 40px);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(150deg, rgba(5, 24, 56, 0.9), rgba(2, 13, 34, 0.94));
+  background: linear-gradient(
+    150deg,
+    rgba(5, 24, 56, 0.9),
+    rgba(2, 13, 34, 0.94)
+  );
   box-shadow: var(--shadow);
 }
 
@@ -912,7 +937,11 @@ p {
   align-items: stretch;
   padding: clamp(32px, 5vw, 70px);
   background:
-    radial-gradient(circle at 30% 22%, rgba(43, 141, 204, 0.25), transparent 27%),
+    radial-gradient(
+      circle at 30% 22%,
+      rgba(43, 141, 204, 0.25),
+      transparent 27%
+    ),
     linear-gradient(135deg, rgba(5, 24, 56, 0.86), rgba(1, 7, 17, 0.95));
 }
 
@@ -1658,7 +1687,9 @@ p {
 
 .appointment-row {
   display: grid;
-  grid-template-columns: 125px 28px minmax(150px, 1.2fr) minmax(120px, 0.8fr) auto;
+  grid-template-columns:
+    125px 28px minmax(150px, 1.2fr) minmax(120px, 0.8fr)
+    auto;
   align-items: center;
   gap: 12px;
   min-height: 76px;
@@ -1793,7 +1824,11 @@ p {
 .confirmation-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: linear-gradient(150deg, rgba(5, 24, 56, 0.88), rgba(2, 13, 34, 0.94));
+  background: linear-gradient(
+    150deg,
+    rgba(5, 24, 56, 0.88),
+    rgba(2, 13, 34, 0.94)
+  );
   box-shadow: var(--shadow);
 }
 
@@ -2108,4 +2143,162 @@ p {
   .appointment-row > div:first-of-type {
     grid-column: 1 / -1;
   }
+}
+
+/* Functional management surfaces. */
+.management-dialog {
+  width: min(960px, calc(100vw - 24px));
+  max-height: 90vh;
+  padding: 0;
+  color: var(--white);
+  background: var(--page-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+.management-dialog::backdrop {
+  background: rgb(0 0 0 / 0.72);
+}
+.management-dialog .form-actions,
+.management-dialog .table-actions {
+  margin-top: 18px;
+  flex-wrap: wrap;
+}
+.management-dialog .form-grid {
+  margin-block: 18px;
+}
+.filter-bar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.filter-bar label {
+  display: grid;
+  gap: 8px;
+}
+.weekday-picker {
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.weekday-picker label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.daily-preview {
+  max-height: 180px;
+  overflow: auto;
+  padding-left: 20px;
+  margin-bottom: 0;
+}
+.slot-editor {
+  padding-block: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.help-section ol {
+  padding-left: 24px;
+  line-height: 1.75;
+}
+.help-section li + li {
+  margin-top: 8px;
+}
+.week-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.week-grid {
+  display: grid;
+  grid-template-columns: 64px repeat(7, minmax(200px, 1fr));
+  min-width: 1500px;
+  background: var(--page-raised);
+}
+.week-heading {
+  padding: 16px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.week-hours,
+.week-column {
+  position: relative;
+}
+.week-hours time {
+  position: absolute;
+  left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.week-column {
+  border-left: 1px solid var(--border);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 99px,
+    var(--border) 99px,
+    var(--border) 100px
+  );
+}
+.week-appointment {
+  position: absolute;
+  overflow: auto;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  border: 1px solid var(--azure-light);
+  border-left: 3px solid var(--azure-light);
+  border-radius: 5px;
+  color: var(--white);
+  background: var(--navy);
+  cursor: pointer;
+}
+.week-appointment--cancelled {
+  opacity: 0.6;
+  border-color: var(--muted);
+}
+.appointment-button {
+  width: 100%;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+  grid-template-columns: 130px minmax(160px, 1fr) minmax(140px, 1fr) auto;
+}
+.appointment-button:hover {
+  background: var(--navy-soft);
+}
+.appointment-button small {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.area-card {
+  flex-wrap: wrap;
+}
+@media (max-width: 760px) {
+  .appointment-button {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+  .appointment-button > div:nth-of-type(2) {
+    display: block !important;
+  }
+  .filter-bar > label {
+    flex: 1 1 160px;
+  }
+}
+
+.calendar-day {
+  display: block;
 }

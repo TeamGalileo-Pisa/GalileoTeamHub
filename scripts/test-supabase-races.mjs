@@ -43,6 +43,16 @@ for (const name of ["admin", "lead-a", "lead-b", "lead-c"]) {
 }
 
 const admin = users[0];
+await requireData(
+  service
+    .from("profiles")
+    .update({ must_change_password: false })
+    .in(
+      "id",
+      users.map((user) => user.id),
+    ),
+  "fixture password gate",
+);
 const leads = users.slice(1);
 const { id: softwareAreaId } = await requireData(
   service.from("areas").select("id").eq("name", "Software").single(),
@@ -182,14 +192,14 @@ const bookingRace = await Promise.all([
     p_slot_id: slotId,
     p_first_name: "Race",
     p_last_name: "Uno",
-    p_email: `race-one-${suffix}@example.com`,
+    p_email: `race-one-${suffix}@studenti.unipi.it`,
   }),
   service.rpc("book_public_slot", {
     p_token: token,
     p_slot_id: slotId,
     p_first_name: "Race",
     p_last_name: "Due",
-    p_email: `race-two-${suffix}@example.com`,
+    p_email: `race-two-${suffix}@studenti.unipi.it`,
   }),
 ]);
 const bookingSuccesses = bookingRace.filter((result) => !result.error);
@@ -200,6 +210,120 @@ if (bookingSuccesses.length !== 1 || bookingFailures.length !== 1) {
   throw new Error("Race prenotazione: atteso un successo e un rifiuto.");
 }
 
+const firstBookingId = bookingSuccesses[0].data.booking_id;
+const secondBooking = await requireData(
+  service.rpc("book_public_slot", {
+    p_token: token,
+    p_slot_id: availability.slots[1].id,
+    p_first_name: "Second",
+    p_last_name: "Booking",
+    p_email: `second-${suffix}@studenti.unipi.it`,
+  }),
+  "second booking",
+);
+const moveRace = await Promise.all(
+  [firstBookingId, secondBooking.booking_id].map((id, index) =>
+    leadClients[index].rpc("move_booking", {
+      p_booking_id: id,
+      p_new_slot_id: availability.slots[2].id,
+    }),
+  ),
+);
+if (
+  moveRace.filter((r) => !r.error).length !== 1 ||
+  moveRace.filter((r) => r.error?.message.includes("SLOT_UNAVAILABLE"))
+    .length !== 1
+)
+  throw new Error("Race spostamento: atteso un successo e un rifiuto.");
+const claimRace = await Promise.all(
+  [1, 2].map(() =>
+    service.rpc("claim_email_delivery", {
+      p_delivery_id: bookingSuccesses[0].data.delivery_id,
+    }),
+  ),
+);
+if (claimRace.filter((r) => r.data && !r.error).length !== 1)
+  throw new Error("Race email: una sola acquisizione richiesta.");
+await requireData(
+  leadClients[0].rpc("manage_session", {
+    p_session_id: sessionId,
+    p_action: "close",
+  }),
+  "chiusura sessione",
+);
+const afterClose = await service.rpc("book_public_slot", {
+  p_token: token,
+  p_slot_id: availability.slots[3].id,
+  p_first_name: "Closed",
+  p_last_name: "Session",
+  p_email: `closed-${suffix}@studenti.unipi.it`,
+});
+if (!afterClose.error?.message.includes("INVALID_BOOKING_LINK"))
+  throw new Error("Sessione chiusa prenotabile.");
+
+if (process.env.RUN_LOCAL_EDGE_TESTS === "true") {
+  await requireData(
+    leadClients[0].rpc("manage_session", {
+      p_session_id: sessionId,
+      p_action: "reopen",
+    }),
+    "reopen for Edge test",
+  );
+  await requireData(
+    leadClients[0].rpc("manage_slot", {
+      p_slot_id: availability.slots[3].id,
+      p_action: "reopen",
+    }),
+    "reopen Edge slot",
+  );
+  const edgeToken = await requireData(
+    leadClients[0].rpc("rotate_booking_link", { p_session_id: sessionId }),
+    "Edge booking token",
+  );
+  const edgeResponse = await fetch(url + "/functions/v1/public-booking", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: anonKey },
+    body: JSON.stringify({
+      action: "book",
+      token: edgeToken,
+      slotId: availability.slots[3].id,
+      firstName: "Edge",
+      lastName: "Test",
+      email: `edge-${suffix}@studenti.unipi.it`,
+    }),
+  });
+  if (edgeResponse.status !== 201)
+    throw new Error("Edge booking did not return 201: " + edgeResponse.status);
+  const booked = await edgeResponse.json();
+  const { data: persisted } = await service
+    .from("bookings")
+    .select("status")
+    .eq("id", booked.bookingId)
+    .single();
+  if (persisted?.status !== "confirmed")
+    throw new Error("Edge booking not persisted");
+  const denied = await fetch(url + "/functions/v1/process-email-queue", {
+    method: "POST",
+    headers: { "x-queue-token": "0".repeat(64) },
+  });
+  if (denied.status !== 401)
+    throw new Error("Invalid queue credentials accepted");
+  for (const name of ["staff-admin", "admin-email-test"]) {
+    const r = await fetch(url + "/functions/v1/" + name, {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + anonKey,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    if (r.status !== 401)
+      throw new Error("Anonymous admin endpoint access: " + name);
+  }
+  process.stdout.write(
+    "Edge HTTP tests passed: booking persisted, worker/admin endpoints reject anonymous requests.\n",
+  );
+}
 process.stdout.write(
-  "Test concorrenti superati: ultimo posto aula e doppia prenotazione sono serializzati.\n",
+  "Test concorrenti superati: capacità, doppia prenotazione, spostamento e acquisizione email. Sessione chiusa non prenotabile.\n",
 );

@@ -1,5 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { appConfig } from "../lib/config";
 import { usernameToAuthEmail } from "../lib/auth-identifiers";
 import { supabase } from "../lib/supabase";
@@ -82,37 +83,50 @@ function friendlyAuthError(message: string): string {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
+  const previousUser = useRef<string | null>(null);
+  const loadSequence = useRef(0);
   const [session, setSession] = useState<Session | null>(null);
   const [access, setAccess] = useState<AccessContext | null>(null);
-  const [loading, setLoading] = useState(
-    appConfig.hasSupabaseConfiguration,
-  );
+  const [loading, setLoading] = useState(appConfig.hasSupabaseConfiguration);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAccess = useCallback(async (nextSession: Session | null) => {
-    setSession(nextSession);
-    setError(null);
+  const loadAccess = useCallback(
+    async (nextSession: Session | null) => {
+      const sequence = ++loadSequence.current;
+      const nextUser = nextSession?.user.id ?? null;
+      if (previousUser.current !== nextUser) {
+        queryClient.clear();
+        setAccess(null);
+        previousUser.current = nextUser;
+      }
+      setSession(nextSession);
+      setError(null);
 
-    if (!nextSession) {
-      setAccess(null);
-      setLoading(false);
-      return;
-    }
+      if (!nextSession) {
+        setAccess(null);
+        setLoading(false);
+        return;
+      }
 
-    setLoading(true);
-    try {
-      setAccess(await fetchAccessContext(nextSession));
-    } catch (caughtError) {
-      setAccess(null);
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Impossibile caricare i permessi dell'account.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setLoading(true);
+      try {
+        const nextAccess = await fetchAccessContext(nextSession);
+        if (sequence === loadSequence.current) setAccess(nextAccess);
+      } catch (caughtError) {
+        if (sequence !== loadSequence.current) return;
+        setAccess(null);
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Impossibile caricare i permessi dell'account.",
+        );
+      } finally {
+        if (sequence === loadSequence.current) setLoading(false);
+      }
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
     let active = true;
@@ -143,9 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (username: string, password: string) => {
     if (!appConfig.hasSupabaseConfiguration) {
-      throw new Error(
-        "Supabase non è ancora configurato per questo ambiente.",
-      );
+      throw new Error("Supabase non è ancora configurato per questo ambiente.");
     }
 
     const email = usernameToAuthEmail(username, appConfig.authEmailDomain);

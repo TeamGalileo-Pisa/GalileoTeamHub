@@ -9,42 +9,37 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { useParams } from "react-router-dom";
 import { z } from "zod";
 import { Brand } from "../components/Brand";
 import { appConfig } from "../lib/config";
 import { formatBookingDay, formatTimeRange, groupByDay } from "../lib/dates";
-import {
-  createPublicBooking,
-  getPublicBookingAvailability,
-} from "../lib/data";
+import { createPublicBooking, getPublicBookingAvailability } from "../lib/data";
 import type { BookingConfirmation } from "../types/domain";
-
-const schema = z.object({
-  firstName: z.string().trim().min(2, "Inserisci il nome").max(80),
-  lastName: z.string().trim().min(2, "Inserisci il cognome").max(80),
-  email: z.string().trim().email("Inserisci un indirizzo email valido").max(254),
-});
+import { bookingSchema as schema } from "../lib/booking-validation";
 
 export function PublicBookingPage() {
   const { token = "" } = useParams();
-  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
-  const [confirmation, setConfirmation] =
-    useState<BookingConfirmation | null>(null);
+  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
+    null,
+  );
   const availabilityQuery = useQuery({
     queryKey: ["public-booking", token],
     queryFn: () => getPublicBookingAvailability(token),
     enabled: Boolean(token && appConfig.hasSupabaseConfiguration),
     retry: false,
   });
-  const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+    defaultValues: { slotId: "", firstName: "", lastName: "", email: "" },
+  });
+  const selectedSlotId = useWatch({ control: form.control, name: "slotId" });
   const bookingMutation = useMutation({
     mutationFn: (values: z.infer<typeof schema>) => {
       if (!selectedSlotId) throw new Error("Seleziona prima uno slot");
       return createPublicBooking({
         token,
-        slotId: selectedSlotId,
         ...values,
       });
     },
@@ -68,10 +63,7 @@ export function PublicBookingPage() {
             <CheckCircle2 size={34} />
           </span>
           <p className="eyebrow">Operazione completata</p>
-          <h1>Prenotazione confermata</h1>
-          <p>
-            La conferma verrà inviata all’indirizzo email che hai indicato.
-          </p>
+          <h1>Grazie per la tua prenotazione!</h1>
           <dl className="confirmation-details">
             <div>
               <dt>Nome</dt>
@@ -96,6 +88,15 @@ export function PublicBookingPage() {
               <dd>{confirmation.roomName}</dd>
             </div>
           </dl>
+          <p>
+            La conferma che questa prenotazione è valida ti arriverà
+            automaticamente all’indirizzo email che hai indicato entro massimo 5
+            minuti.
+          </p>
+          <p>
+            Ricordati di controllare anche la cartella Spam nel caso non la
+            vedessi arrivare.
+          </p>
         </section>
       </main>
     );
@@ -124,11 +125,13 @@ export function PublicBookingPage() {
           Il servizio di prenotazione non è ancora configurato.
         </section>
       ) : availabilityQuery.isLoading ? (
-        <section className="public-loading">Caricamento orari disponibili…</section>
+        <section className="public-loading">
+          Caricamento orari disponibili…
+        </section>
       ) : availabilityQuery.error ? (
         <section className="public-error-card" role="alert">
-          Questo link non è valido, è scaduto oppure è stato disattivato.
-          Chiedi un nuovo invito al tuo Capo Area.
+          Questo link non è valido, è scaduto oppure è stato disattivato. Chiedi
+          un nuovo invito al tuo Capo Area.
         </section>
       ) : (
         <div className="booking-layout">
@@ -155,7 +158,11 @@ export function PublicBookingPage() {
                           type="button"
                           key={slot.id}
                           aria-pressed={selectedSlotId === slot.id}
-                          onClick={() => setSelectedSlotId(slot.id)}
+                          onClick={() =>
+                            form.setValue("slotId", slot.id, {
+                              shouldValidate: true,
+                            })
+                          }
                         >
                           <Clock3 size={15} />
                           <strong>
@@ -191,7 +198,11 @@ export function PublicBookingPage() {
                 <span>
                   <strong>{formatBookingDay(selectedSlot.startsAt)}</strong>
                   <small>
-                    {formatTimeRange(selectedSlot.startsAt, selectedSlot.endsAt)} · {selectedSlot.roomName}
+                    {formatTimeRange(
+                      selectedSlot.startsAt,
+                      selectedSlot.endsAt,
+                    )}{" "}
+                    · {selectedSlot.roomName}
                   </small>
                 </span>
               </div>
@@ -202,11 +213,18 @@ export function PublicBookingPage() {
             )}
 
             <form
+              noValidate
               className="public-booking-form"
               onSubmit={form.handleSubmit((values) =>
                 bookingMutation.mutate(values),
               )}
             >
+              <input type="hidden" {...form.register("slotId")} />
+              {form.formState.errors.slotId && (
+                <span className="field-error" role="alert">
+                  {form.formState.errors.slotId.message}
+                </span>
+              )}
               <div className="form-field">
                 <label htmlFor="candidate-first-name">Nome</label>
                 <input
@@ -229,14 +247,20 @@ export function PublicBookingPage() {
                   autoComplete="family-name"
                   {...form.register("lastName")}
                 />
+                {form.formState.errors.lastName && (
+                  <span className="field-error">
+                    {form.formState.errors.lastName.message}
+                  </span>
+                )}
               </div>
               <div className="form-field">
-                <label htmlFor="candidate-email">Email</label>
+                <label htmlFor="candidate-email">Email universitaria</label>
                 <input
                   id="candidate-email"
                   className="input"
                   type="email"
                   autoComplete="email"
+                  placeholder="nome.cognome@studenti.unipi.it"
                   {...form.register("email")}
                 />
                 {form.formState.errors.email && (
@@ -253,7 +277,7 @@ export function PublicBookingPage() {
               <button
                 className="button button--primary public-submit"
                 type="submit"
-                disabled={!selectedSlotId || bookingMutation.isPending}
+                disabled={bookingMutation.isPending || !slots.length}
               >
                 {bookingMutation.isPending
                   ? "Conferma in corso…"

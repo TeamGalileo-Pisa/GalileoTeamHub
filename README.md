@@ -18,7 +18,10 @@ Supabase production deployment initialized.
 - link candidato privati, revocabili e non prevedibili;
 - prenotazione senza account candidato;
 - vincolo atomico contro le doppie prenotazioni;
-- coda email server-side con adapter development/Resend;
+- coda email Gmail API con worker automatico, retry e diagnostica;
+- disponibilità giornaliere create in gruppo con anteprima;
+- gestione sessioni/slot, calendario settimanale e spostamenti;
+- gestione sicura di aree, campagne e account;
 - audit log e policy RLS.
 
 ## Avvio frontend
@@ -43,7 +46,7 @@ VITE_AUTH_EMAIL_DOMAIN=...
 
 ```bash
 supabase start
-supabase db reset
+supabase db reset --local
 supabase test db
 supabase functions serve
 ```
@@ -55,6 +58,8 @@ supabase link --project-ref YOUR_PROJECT_REF
 supabase db push
 supabase functions deploy public-booking
 supabase functions deploy staff-admin
+supabase functions deploy admin-email-test
+supabase functions deploy process-email-queue
 ```
 
 Configurare i secret server-side:
@@ -62,13 +67,25 @@ Configurare i secret server-side:
 ```bash
 supabase secrets set AUTH_EMAIL_DOMAIN=...
 supabase secrets set APP_ORIGINS=https://your-site.netlify.app
-supabase secrets set EMAIL_PROVIDER=development
+supabase secrets set EMAIL_PROVIDER=gmail
 ```
 
 Il mittente applicativo di tutte le notifiche è fissato a
-`Team Galileo Pisa <info.teamgalileo@gmail.com>`. Quando viene scelto il
-provider reale, configurare soltanto la relativa API key nei secret Supabase;
-non inserire password Google o token in file tracciati.
+`Team Galileo Pisa <info.teamgalileo@gmail.com>`. Configurare `GMAIL_CLIENT_ID`,
+`GMAIL_CLIENT_SECRET` e `GMAIL_REFRESH_TOKEN` nel pannello **Edge Functions >
+Secrets**, non nei comandi conservati nella cronologia e mai in Netlify/Vite.
+Il token deve autorizzare proprio la casella mittente. Senza configurazione,
+le consegne restano fallite/in coda e non sono dichiarate inviate.
+
+Il reset account richiede anche `DEFAULT_PASSWORD_SUFFIX` nei secret server:
+il valore della regola concordata con Amministrazione non va riportato in Git.
+Lo username usato è quello già salvato, preservandone le maiuscole.
+
+Per attivare il worker usare **Assistenza > Email di prova** dopo la
+configurazione OAuth. La funzione inizializza URL e token casuale in Vault;
+la migration installa il job Cron ogni minuto. Nessun token Cron va copiato
+nel browser. La ricevuta reale deve essere verificata nella casella destinataria.
+Vedi [setup Gmail e revisione funzionale](docs/functional-revision.md).
 
 ### Account iniziali
 

@@ -17,6 +17,7 @@ import type {
   UpcomingInterview,
 } from "../types/domain";
 import { friendlyError } from "./errors";
+import { romeInputToIso } from "./scheduling";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -137,6 +138,7 @@ export async function listRoomAvailabilities(): Promise<RoomAvailability[]> {
     simultaneousUsage: asNumber(row.simultaneous_usage),
     areaNote: asString(row.area_note),
     bookedInterviews: asNumber(row.booked_interviews),
+    seriesId: typeof row.series_id === "string" ? row.series_id : null,
   }));
 }
 
@@ -149,8 +151,8 @@ export async function createRoomAvailability(input: {
 }): Promise<void> {
   const { error } = await supabase.rpc("create_room_availability", {
     p_room_id: input.roomId,
-    p_starts_at: new Date(input.startsAt).toISOString(),
-    p_ends_at: new Date(input.endsAt).toISOString(),
+    p_starts_at: romeInputToIso(input.startsAt),
+    p_ends_at: romeInputToIso(input.endsAt),
     p_max_simultaneous_interviews: input.maxSimultaneousInterviews,
     p_area_note: input.areaNote.trim(),
   });
@@ -166,8 +168,8 @@ export async function updateRoomAvailability(input: {
 }): Promise<void> {
   const { error } = await supabase.rpc("update_room_availability", {
     p_availability_id: input.id,
-    p_starts_at: new Date(input.startsAt).toISOString(),
-    p_ends_at: new Date(input.endsAt).toISOString(),
+    p_starts_at: romeInputToIso(input.startsAt),
+    p_ends_at: romeInputToIso(input.endsAt),
     p_max_simultaneous_interviews: input.maxSimultaneousInterviews,
     p_area_note: input.areaNote.trim(),
   });
@@ -183,8 +185,8 @@ export async function getRoomAvailabilityIntervalUsage(input: {
     "get_room_availability_interval_usage",
     {
       p_availability_id: input.availabilityId,
-      p_starts_at: new Date(input.startsAt).toISOString(),
-      p_ends_at: new Date(input.endsAt).toISOString(),
+      p_starts_at: romeInputToIso(input.startsAt),
+      p_ends_at: romeInputToIso(input.endsAt),
     },
   );
   throwIfError(error);
@@ -225,8 +227,8 @@ export async function claimRoomAllocation(input: {
   const { error } = await supabase.rpc("claim_room_allocation", {
     p_availability_id: input.availabilityId,
     p_campaign_area_id: input.campaignAreaId,
-    p_starts_at: new Date(input.startsAt).toISOString(),
-    p_ends_at: new Date(input.endsAt).toISOString(),
+    p_starts_at: romeInputToIso(input.startsAt),
+    p_ends_at: romeInputToIso(input.endsAt),
   });
   throwIfError(error);
 }
@@ -474,7 +476,9 @@ function announcementRpcInput(input: AnnouncementInput) {
   };
 }
 
-export async function createAnnouncement(input: AnnouncementInput): Promise<void> {
+export async function createAnnouncement(
+  input: AnnouncementInput,
+): Promise<void> {
   const { error } = await supabase.rpc(
     "create_announcement",
     announcementRpcInput(input),

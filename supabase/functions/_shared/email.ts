@@ -1,39 +1,19 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
 
-interface DeliveryPayload {
-  delivery_id: string;
-  kind:
-    | "booking_confirmation"
-    | "booking_reminder"
-    | "booking_cancelled"
-    | "booking_changed";
-  to_email: string;
-  candidate_name: string;
-  area_name: string;
-  room_name: string;
-  starts_at: string;
-  ends_at: string;
-}
+import {
+  emailCopy,
+  OFFICIAL_EMAIL_FROM,
+  type DeliveryPayload,
+} from "./email-copy.ts";
+export { OFFICIAL_EMAIL_FROM } from "./email-copy.ts";
 
 interface GmailMessage {
+  reconcileOnly?: boolean;
   to: string;
   subject: string;
   text: string;
   idempotencyId: string;
 }
-
-const OFFICIAL_EMAIL = "info.teamgalileo@gmail.com";
-export const OFFICIAL_EMAIL_FROM = `Team Galileo Pisa <${OFFICIAL_EMAIL}>`;
-
-const formatter = new Intl.DateTimeFormat("it-IT", {
-  timeZone: "Europe/Rome",
-  weekday: "long",
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 function utf8Base64(value: string): string {
   const bytes = new TextEncoder().encode(value);
@@ -82,6 +62,7 @@ async function gmailAccessToken(): Promise<string> {
   }
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
+    signal: AbortSignal.timeout(8000),
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -105,75 +86,75 @@ async function findExistingMessage(
   const query = encodeURIComponent(`rfc822msgid:${messageId(idempotencyId)}`);
   const response = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=1`,
-    { headers: { Authorization: `Bearer ${accessToken}` } },
+    {
+      signal: AbortSignal.timeout(8000),
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
   );
   if (!response.ok) throw new Error("GMAIL_LOOKUP_FAILED");
 
-  const payload = (await response.json()) as { messages?: Array<{ id?: string }> };
+  const payload = (await response.json()) as {
+    messages?: Array<{ id?: string }>;
+  };
   return payload.messages?.[0]?.id ?? null;
 }
 
 export async function sendGmailMessage(message: GmailMessage): Promise<string> {
   const accessToken = await gmailAccessToken();
-  const existingId = await findExistingMessage(accessToken, message.idempotencyId);
-  if (existingId) return existingId;
-
-  const response = await fetch(
-    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+  const identity = await fetch(
+    "https://gmail.googleapis.com/gmail/v1/users/me/profile",
     {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ raw: buildRawMessage(message) }),
+      signal: AbortSignal.timeout(8000),
+      headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
+  const profile = identity.ok ? await identity.json() : null;
+  if (profile?.emailAddress?.toLowerCase() !== "info.teamgalileo@gmail.com")
+    throw new Error("GMAIL_WRONG_SENDER");
+  const existingId = await findExistingMessage(
+    accessToken,
+    message.idempotencyId,
+  );
+  if (existingId) return existingId;
+  if (message.reconcileOnly) throw new Error("GMAIL_SEND_UNCERTAIN");
+
+  let response: Response;
+  try {
+    response = await fetch(
+      "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
+      {
+        signal: AbortSignal.timeout(8000),
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ raw: buildRawMessage(message) }),
+      },
+    );
+  } catch {
+    throw new Error("GMAIL_SEND_UNCERTAIN");
+  }
+  if (response.status >= 500) throw new Error("GMAIL_SEND_UNCERTAIN");
   if (!response.ok) throw new Error(`GMAIL_SEND_FAILED:${response.status}`);
 
-  const payload = (await response.json()) as { id?: string };
-  if (!payload.id) throw new Error("GMAIL_SEND_FAILED");
+  const payload = (await response.json().catch(() => {
+    throw new Error("GMAIL_SEND_UNCERTAIN");
+  })) as { id?: string };
+  if (!payload.id) throw new Error("GMAIL_SEND_UNCERTAIN");
   return payload.id;
-}
-
-function emailCopy(payload: DeliveryPayload) {
-  const appointment = formatter.format(new Date(payload.starts_at));
-  const subjectByKind = {
-    booking_confirmation: `Prenotazione confermata · ${payload.area_name}`,
-    booking_reminder: `Promemoria colloquio · ${payload.area_name}`,
-    booking_cancelled: `Colloquio annullato · ${payload.area_name}`,
-    booking_changed: `Colloquio modificato · ${payload.area_name}`,
-  };
-  const headingByKind = {
-    booking_confirmation: "La tua prenotazione è confermata",
-    booking_reminder: "Ti ricordiamo il tuo colloquio",
-    booking_cancelled: "Il tuo colloquio è stato annullato",
-    booking_changed: "I dettagli del tuo colloquio sono cambiati",
-  };
-
-  return {
-    subject: subjectByKind[payload.kind],
-    text: [
-      `Ciao ${payload.candidate_name},`,
-      "",
-      `${headingByKind[payload.kind]}.`,
-      `Area: ${payload.area_name}`,
-      `Data e ora: ${appointment}`,
-      `Aula: ${payload.room_name}`,
-      "",
-      "Team Galileo Pisa",
-    ].join("\n"),
-  };
 }
 
 async function markFailed(
   client: SupabaseClient,
   deliveryId: string,
   error: unknown,
+  attempt: number,
 ) {
   await client.rpc("mark_email_delivery_failed", {
     p_delivery_id: deliveryId,
-    p_error: error instanceof Error ? error.message : "Email provider error",
+    p_error: error instanceof Error ? error.message : "EMAIL_PROVIDER_ERROR",
+    p_attempt: attempt,
   });
 }
 
@@ -181,6 +162,11 @@ export async function sendQueuedEmail(
   client: SupabaseClient,
   deliveryId: string,
 ): Promise<void> {
+  const url = Deno.env.get("SUPABASE_URL");
+  if (url)
+    await client.rpc("configure_email_worker", {
+      p_url: url.replace(/\/$/, ""),
+    });
   const { data, error } = await client.rpc("claim_email_delivery", {
     p_delivery_id: deliveryId,
   });
@@ -188,16 +174,9 @@ export async function sendQueuedEmail(
   if (!data) return;
 
   const payload = data as DeliveryPayload;
-  const provider = Deno.env.get("EMAIL_PROVIDER") ?? "development";
+  const provider = Deno.env.get("EMAIL_PROVIDER");
 
   try {
-    if (provider === "development") {
-      await client.rpc("mark_email_delivery_sent", {
-        p_delivery_id: deliveryId,
-        p_provider_message_id: `development:${deliveryId}`,
-      });
-      return;
-    }
     if (provider !== "gmail") throw new Error("EMAIL_NOT_CONFIGURED");
 
     const message = emailCopy(payload);
@@ -206,12 +185,15 @@ export async function sendQueuedEmail(
       subject: message.subject,
       text: message.text,
       idempotencyId: payload.delivery_id,
+      reconcileOnly: payload.reconcile_only,
     });
-    await client.rpc("mark_email_delivery_sent", {
+    const { error: markError } = await client.rpc("mark_email_delivery_sent", {
       p_delivery_id: deliveryId,
       p_provider_message_id: providerMessageId,
+      p_attempt: payload.attempt_count,
     });
+    if (markError) throw new Error("EMAIL_ACK_FAILED");
   } catch (sendError) {
-    await markFailed(client, deliveryId, sendError);
+    await markFailed(client, deliveryId, sendError, payload.attempt_count);
   }
 }

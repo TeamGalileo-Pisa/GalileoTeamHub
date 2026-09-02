@@ -7,15 +7,24 @@ import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { createStaffMember, listAreas, listStaff } from "../lib/data";
+import { useState } from "react";
+import { StaffEditor } from "../components/AdminEditors";
+import type { StaffMember } from "../types/domain";
 
 const schema = z
   .object({
     username: z
       .string()
       .trim()
-      .min(3, "Inserisci almeno tre caratteri")
-      .regex(/^[A-Za-z0-9._ -]+$/, "Nome utente non valido"),
-    displayName: z.string().trim().min(2, "Inserisci il nome visualizzato"),
+      .regex(
+        /^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9]$/,
+        "Usa da 3 a 50 caratteri: lettere, numeri, punti, trattini o underscore.",
+      ),
+    displayName: z
+      .string()
+      .trim()
+      .min(2, "Inserisci il nome visualizzato")
+      .max(120),
     temporaryPassword: z
       .string()
       .min(12, "La password temporanea deve avere almeno 12 caratteri")
@@ -37,6 +46,7 @@ const schema = z
   });
 
 export function StaffPage() {
+  const [editing, setEditing] = useState<StaffMember | null>(null);
   const queryClient = useQueryClient();
   const staffQuery = useQuery({ queryKey: ["staff"], queryFn: listStaff });
   const areasQuery = useQuery({ queryKey: ["areas"], queryFn: listAreas });
@@ -72,7 +82,10 @@ export function StaffPage() {
         <div className="panel__header">
           <div>
             <h2>Crea account</h2>
-            <p>La password è inviata solo alla funzione server e non viene salvata</p>
+            <p>
+              La password è inviata solo alla funzione server e non viene
+              salvata
+            </p>
           </div>
           <UserPlus size={20} />
         </div>
@@ -103,6 +116,11 @@ export function StaffPage() {
               placeholder="es. Responsabile Software"
               {...form.register("displayName")}
             />
+            {form.formState.errors.displayName && (
+              <span className="field-error">
+                {form.formState.errors.displayName.message}
+              </span>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="staff-role">Livello di accesso</label>
@@ -129,11 +147,13 @@ export function StaffPage() {
                   ? "Non richiesta per Amministrazione"
                   : "Seleziona area"}
               </option>
-              {areasQuery.data?.filter((area) => area.active).map((area) => (
-                <option value={area.id} key={area.id}>
-                  {area.name}
-                </option>
-              ))}
+              {areasQuery.data
+                ?.filter((area) => area.active)
+                .map((area) => (
+                  <option value={area.id} key={area.id}>
+                    {area.name}
+                  </option>
+                ))}
             </select>
             {form.formState.errors.areaId && (
               <span className="field-error">
@@ -197,6 +217,7 @@ export function StaffPage() {
                     <th>Ruolo</th>
                     <th>Aree assegnate</th>
                     <th>Stato</th>
+                    <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -218,13 +239,28 @@ export function StaffPage() {
                         )}
                       </td>
                       <td>
-                        {member.areas.map((area) => area.name).join(", ") || "—"}
+                        {member.areas.map((area) => area.name).join(", ") ||
+                          "—"}
                       </td>
                       <td>
                         <StatusBadge
-                          label={member.status === "active" ? "Attivo" : "Disattivato"}
-                          tone={member.status === "active" ? "success" : "neutral"}
+                          label={
+                            member.status === "active"
+                              ? "Attivo"
+                              : "Disattivato"
+                          }
+                          tone={
+                            member.status === "active" ? "success" : "neutral"
+                          }
                         />
+                      </td>
+                      <td>
+                        <button
+                          className="button button--secondary button--small"
+                          onClick={() => setEditing(member)}
+                        >
+                          Modifica / Gestisci
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -240,6 +276,19 @@ export function StaffPage() {
           )}
         </div>
       </section>
+      {staffQuery.isLoading && <p>Caricamento account…</p>}
+      {(staffQuery.error || areasQuery.error) && (
+        <p className="form-error" role="alert">
+          {(staffQuery.error || areasQuery.error)?.message}
+        </p>
+      )}
+      {editing && (
+        <StaffEditor
+          member={editing}
+          areas={areasQuery.data ?? []}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

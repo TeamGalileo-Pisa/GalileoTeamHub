@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.112.4";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendGmailMessage } from "../_shared/email.ts";
+import { createServiceClient } from "../_shared/service-client.ts";
 
 interface TestEmailRequest {
   toEmail?: string;
@@ -42,6 +43,13 @@ Deno.serve(async (request) => {
   if (!adminRole) {
     return jsonResponse(request, { error: "FORBIDDEN" }, 403);
   }
+  const { data: profile } = await userClient
+    .from("profiles")
+    .select("status,must_change_password")
+    .eq("id", user.id)
+    .single();
+  if (profile?.status !== "active" || profile.must_change_password)
+    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
 
   let body: TestEmailRequest;
   try {
@@ -50,11 +58,9 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "INVALID_JSON" }, 400);
   }
 
-  const toEmail = body.toEmail?.trim().toLowerCase() ?? "";
-  if (
-    toEmail.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)
-  ) {
+  const toEmail =
+    typeof body?.toEmail === "string" ? body.toEmail.trim().toLowerCase() : "";
+  if (toEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
     return jsonResponse(request, { error: "INVALID_EMAIL" }, 400);
   }
   if ((Deno.env.get("EMAIL_PROVIDER") ?? "development") !== "gmail") {
@@ -62,6 +68,11 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const client = createServiceClient();
+    const { error: setupError } = await client.rpc("configure_email_worker", {
+      p_url: url.replace(/\/$/, ""),
+    });
+    if (setupError) throw new Error("WORKER_SETUP_FAILED");
     const providerMessageId = await sendGmailMessage({
       to: toEmail,
       subject: "Email di prova · Gestionale Colloqui Team Galileo",

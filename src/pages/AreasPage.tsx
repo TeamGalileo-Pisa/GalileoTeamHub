@@ -7,6 +7,9 @@ import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { createArea, listAreas } from "../lib/data";
+import { useState } from "react";
+import { AreaEditor } from "../components/AdminEditors";
+import type { AreaRecord } from "../types/domain";
 
 const schema = z.object({
   name: z.string().trim().min(2, "Inserisci il nome dell'area"),
@@ -17,9 +20,12 @@ const schema = z.object({
 });
 
 export function AreasPage() {
+  const [editing, setEditing] = useState<AreaRecord | null>(null);
   const queryClient = useQueryClient();
   const areasQuery = useQuery({ queryKey: ["areas"], queryFn: listAreas });
-  const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+  });
   const mutation = useMutation({
     mutationFn: createArea,
     onSuccess: async () => {
@@ -116,6 +122,12 @@ export function AreasPage() {
                     label={area.active ? "Attiva" : "Disattivata"}
                     tone={area.active ? "success" : "neutral"}
                   />
+                  <button
+                    className="button button--secondary button--small"
+                    onClick={() => setEditing(area)}
+                  >
+                    Modifica / Gestisci
+                  </button>
                 </article>
               ))}
             </div>
@@ -128,7 +140,15 @@ export function AreasPage() {
           )}
         </div>
       </section>
+      {areasQuery.isLoading && <p>Caricamento aree…</p>}
+      {areasQuery.error && (
+        <p className="form-error" role="alert">
+          {areasQuery.error.message}
+        </p>
+      )}
+      {editing && (
+        <AreaEditor area={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }
-

@@ -8,6 +8,8 @@ values
   ('11000000-0000-0000-0000-000000000002', 'software-board@test.local', '{}'::jsonb, '{"username":"board-software","display_name":"Board Software"}'::jsonb, now(), now()),
   ('11000000-0000-0000-0000-000000000003', 'rover-board@test.local', '{}'::jsonb, '{"username":"board-rover","display_name":"Board Rover"}'::jsonb, now(), now());
 
+update public.profiles set must_change_password=false;
+
 insert into public.system_roles (user_id, role)
 values ('11000000-0000-0000-0000-000000000001', 'admin');
 

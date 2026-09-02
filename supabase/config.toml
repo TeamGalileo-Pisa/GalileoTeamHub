@@ -10,6 +10,7 @@ major_version = 17
 
 [auth]
 enabled = true
+enable_signup = false
 site_url = "http://localhost:5173"
 additional_redirect_urls = ["http://localhost:5173"]
 
@@ -21,4 +22,7 @@ verify_jwt = true
 
 [functions.admin-email-test]
 verify_jwt = true
+
+[functions.process-email-queue]
+verify_jwt = false
 

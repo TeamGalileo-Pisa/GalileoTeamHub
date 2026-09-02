@@ -10,6 +10,8 @@ values
   ('10000000-0000-0000-0000-000000000004', 'logistica@test.local', '{}'::jsonb, '{"username":"test-logistica","display_name":"Test Logistica"}'::jsonb, now(), now()),
   ('10000000-0000-0000-0000-000000000005', 'business@test.local', '{}'::jsonb, '{"username":"test-business","display_name":"Test Business"}'::jsonb, now(), now());
 
+update public.profiles set must_change_password=false;
+
 insert into public.system_roles (user_id, role)
 values ('10000000-0000-0000-0000-000000000001', 'admin');
 
@@ -307,7 +309,7 @@ select lives_ok(
   $test$ select public.book_public_slot(
     (select token from test_tokens where name = 'second'),
     (select id from public.slots where session_id = (select id from test_ids where name = 'session') order by starts_at limit 1),
-    'Mario', 'Rossi', 'mario.rossi@example.test'
+    'Mario', 'Rossi', 'mario.rossi@studenti.unipi.it'
   ) $test$,
   'first public booking succeeds'
 );
@@ -315,7 +317,7 @@ select throws_ok(
   $test$ select public.book_public_slot(
     (select token from test_tokens where name = 'second'),
     (select id from public.slots where session_id = (select id from test_ids where name = 'session') order by starts_at limit 1),
-    'Luigi', 'Bianchi', 'luigi.bianchi@example.test'
+    'Luigi', 'Bianchi', 'luigi.bianchi@studenti.unipi.it'
   ) $test$,
   'P0001', 'SLOT_UNAVAILABLE',
   'double booking of the same slot is rejected'

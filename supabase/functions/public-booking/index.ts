@@ -1,6 +1,11 @@
+/// <reference path="../_shared/runtime.d.ts" />
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendQueuedEmail } from "../_shared/email.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
+import {
+  normalizeBookingFields,
+  validateBookingFields,
+} from "../_shared/booking-validation.ts";
 
 interface BookingRequest {
   action?: "availability" | "book";
@@ -49,7 +54,12 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "INVALID_JSON" }, 400);
   }
 
-  if (!body.token || body.token.length > 140) {
+  if (
+    !body ||
+    typeof body.token !== "string" ||
+    !body.token ||
+    body.token.length > 140
+  ) {
     return jsonResponse(request, { error: "INVALID_BOOKING_LINK" }, 404);
   }
 
@@ -70,35 +80,43 @@ Deno.serve(async (request) => {
   }
 
   if (body.action === "book") {
-    if (
-      !body.slotId ||
-      !body.firstName ||
-      !body.lastName ||
-      !body.email
-    ) {
-      return jsonResponse(request, { error: "INVALID_BOOKING_DATA" }, 400);
-    }
+    const fields = normalizeBookingFields(body as Record<string, unknown>);
+    const validationError = validateBookingFields(
+      body as Record<string, unknown>,
+    );
+    if (validationError)
+      return jsonResponse(request, { error: validationError }, 400);
 
     const { data, error } = await client.rpc("book_public_slot", {
       p_token: body.token,
-      p_slot_id: body.slotId,
-      p_first_name: body.firstName,
-      p_last_name: body.lastName,
-      p_email: body.email,
+      p_slot_id: fields.slotId,
+      p_first_name: fields.firstName,
+      p_last_name: fields.lastName,
+      p_email: fields.email,
     });
 
     if (error) {
       const isConflict = error.message.includes("SLOT_UNAVAILABLE");
       return jsonResponse(
         request,
-        { error: isConflict ? "SLOT_UNAVAILABLE" : "BOOKING_FAILED" },
+        {
+          error: isConflict
+            ? "SLOT_UNAVAILABLE"
+            : error.message.includes("INVALID_STUDENT_EMAIL")
+              ? "INVALID_STUDENT_EMAIL"
+              : "BOOKING_FAILED",
+        },
         isConflict ? 409 : 400,
       );
     }
 
     const result = data as Record<string, unknown>;
     if (typeof result.delivery_id === "string") {
-      await sendQueuedEmail(client, result.delivery_id);
+      // The booking transaction is already committed. The durable cron worker
+      // retries even if this isolate is terminated before delivery completes.
+      EdgeRuntime.waitUntil(
+        sendQueuedEmail(client, result.delivery_id).catch(() => undefined),
+      );
     }
 
     return jsonResponse(
@@ -117,4 +135,3 @@ Deno.serve(async (request) => {
 
   return jsonResponse(request, { error: "UNKNOWN_ACTION" }, 400);
 });
-

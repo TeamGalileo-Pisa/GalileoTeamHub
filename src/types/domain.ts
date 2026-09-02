@@ -42,6 +42,7 @@ export interface Room {
 }
 
 export interface RoomAvailability {
+  seriesId: string | null;
   id: string;
   roomId: string;
   roomName: string;

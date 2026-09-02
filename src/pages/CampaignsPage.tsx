@@ -8,6 +8,9 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatDateOnly } from "../lib/dates";
 import { activateCampaign, createCampaign, listCampaigns } from "../lib/data";
+import { useState } from "react";
+import { CampaignEditor } from "../components/AdminEditors";
+import type { RecruitmentCampaign } from "../types/domain";
 
 const schema = z
   .object({
@@ -24,9 +27,12 @@ const schema = z
   );
 
 export function CampaignsPage() {
+  const [editing, setEditing] = useState<RecruitmentCampaign | null>(null);
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["campaigns"], queryFn: listCampaigns });
-  const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
+  const form = useForm<z.infer<typeof schema>>({
+    resolver: zodResolver(schema),
+  });
   const mutation = useMutation({
     mutationFn: createCampaign,
     onSuccess: async () => {
@@ -177,6 +183,12 @@ export function CampaignsPage() {
                         ) : (
                           "—"
                         )}
+                        <button
+                          className="button button--secondary button--small"
+                          onClick={() => setEditing(campaign)}
+                        >
+                          Modifica / Gestisci
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -192,6 +204,15 @@ export function CampaignsPage() {
           )}
         </div>
       </section>
+      {query.isLoading && <p>Caricamento campagne…</p>}
+      {(query.error || activateMutation.error) && (
+        <p className="form-error" role="alert">
+          {(query.error || activateMutation.error)?.message}
+        </p>
+      )}
+      {editing && (
+        <CampaignEditor campaign={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }

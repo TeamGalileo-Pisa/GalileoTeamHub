@@ -1,4 +1,5 @@
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { toRomeInput } from "./scheduling";
 import { it } from "date-fns/locale";
 import { appConfig } from "./config";
 
@@ -46,7 +47,11 @@ export function formatDateOnly(value: string | null): string {
 export function groupByDay<T extends { startsAt: string }>(items: T[]) {
   return items.reduce<Array<{ date: Date; items: T[] }>>((groups, item) => {
     const date = new Date(item.startsAt);
-    const existing = groups.find((group) => isSameDay(group.date, date));
+    const existing = groups.find(
+      (group) =>
+        toRomeInput(group.date.toISOString()).slice(0, 10) ===
+        toRomeInput(item.startsAt).slice(0, 10),
+    );
 
     if (existing) {
       existing.items.push(item);
@@ -57,4 +62,3 @@ export function groupByDay<T extends { startsAt: string }>(items: T[]) {
     return groups;
   }, []);
 }
-

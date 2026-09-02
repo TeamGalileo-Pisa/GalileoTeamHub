@@ -9,12 +9,12 @@ import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { formatDateTime, formatTimeRange } from "../lib/dates";
 import {
-  createInterviewSession,
-  generateSessionSlots,
   listInterviewSessions,
   listMyAllocations,
   rotateBookingLink,
 } from "../lib/data";
+import { rpc } from "../lib/operations";
+import { SessionManager } from "../components/SessionManager";
 
 const schema = z.object({
   allocationId: z.string().uuid("Seleziona una fascia assegnata"),
@@ -24,6 +24,7 @@ const schema = z.object({
 
 export function SessionsPage() {
   const queryClient = useQueryClient();
+  const [managing, setManaging] = useState<string | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -42,15 +43,18 @@ export function SessionsPage() {
   });
   const createMutation = useMutation({
     mutationFn: async (values: z.infer<typeof schema>) => {
-      const sessionId = await createInterviewSession(values);
-      await generateSessionSlots(sessionId, values.duration);
-      return sessionId;
+      return rpc<string>("create_session_with_slots", {
+        p_allocation_id: values.allocationId,
+        p_name: values.name,
+        p_duration_minutes: values.duration,
+      });
     },
     onMutate: () => setCreateFeedback(null),
     onSuccess: async () => {
       form.reset({ duration: 30 });
       setCreateFeedback("Sessione creata e slot generati correttamente.");
       await queryClient.invalidateQueries({ queryKey: ["interview-sessions"] });
+      await queryClient.invalidateQueries({ queryKey: ["my-allocations"] });
     },
   });
   const linkMutation = useMutation({
@@ -80,7 +84,9 @@ export function SessionsPage() {
       await navigator.clipboard.writeText(generatedLink);
       setCopyFeedback("Link copiato negli appunti.");
     } catch {
-      setCopyFeedback("Copia non riuscita: seleziona e copia manualmente il link.");
+      setCopyFeedback(
+        "Copia non riuscita: seleziona e copia manualmente il link.",
+      );
     }
   }
 
@@ -102,7 +108,9 @@ export function SessionsPage() {
         </div>
         <form
           className="panel__body form-grid"
-          onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
+          onSubmit={form.handleSubmit((values) =>
+            createMutation.mutate(values),
+          )}
         >
           <div className="form-field form-field--full">
             <label htmlFor="session-allocation">Fascia assegnata</label>
@@ -117,7 +125,8 @@ export function SessionsPage() {
               </option>
               {allocationsQuery.data?.map((allocation) => (
                 <option value={allocation.id} key={allocation.id}>
-                  {allocation.areaName} · {allocation.roomName} · {formatDateTime(allocation.startsAt)}
+                  {allocation.areaName} · {allocation.roomName} ·{" "}
+                  {formatDateTime(allocation.startsAt)}
                 </option>
               ))}
             </select>
@@ -148,6 +157,11 @@ export function SessionsPage() {
               {createMutation.error.message}
             </div>
           )}
+          {Object.entries(form.formState.errors).map(([key, error]) => (
+            <span key={key} className="field-error">
+              {error.message}
+            </span>
+          ))}
           {createFeedback && (
             <div className="form-success form-field--full" role="status">
               {createFeedback}
@@ -216,7 +230,9 @@ export function SessionsPage() {
                     <tr key={session.id}>
                       <td>
                         <strong>{session.name}</strong>
-                        <span className="table-secondary">{session.areaName}</span>
+                        <span className="table-secondary">
+                          {session.areaName}
+                        </span>
                       </td>
                       <td>
                         {formatDateTime(session.startsAt)}
@@ -226,21 +242,33 @@ export function SessionsPage() {
                       </td>
                       <td>{session.roomName}</td>
                       <td>
-                        {session.bookedSlots} prenotati · {session.availableSlots} liberi
+                        {session.bookedSlots} prenotati ·{" "}
+                        {session.availableSlots} liberi
                       </td>
                       <td>
                         <StatusBadge
-                          label={session.bookingLinkActive ? "Attivo" : "Non attivo"}
-                          tone={session.bookingLinkActive ? "success" : "neutral"}
+                          label={
+                            session.bookingLinkActive ? "Attivo" : "Non attivo"
+                          }
+                          tone={
+                            session.bookingLinkActive ? "success" : "neutral"
+                          }
                         />
                       </td>
                       <td>
                         <button
+                          className="button button--primary button--small"
+                          onClick={() => setManaging(session.id)}
+                        >
+                          Gestisci
+                        </button>
+                        <button
                           className="button button--secondary button--small"
                           type="button"
                           disabled={
-                            linkMutation.isPending &&
-                            linkMutation.variables === session.id
+                            linkMutation.isPending ||
+                            session.status === "closed" ||
+                            session.status === "cancelled"
                           }
                           onClick={() => linkMutation.mutate(session.id)}
                         >
@@ -272,6 +300,22 @@ export function SessionsPage() {
           )}
         </div>
       </section>
+      {(sessionsQuery.error || allocationsQuery.error) && (
+        <p className="form-error" role="alert">
+          {(sessionsQuery.error || allocationsQuery.error)?.message}
+        </p>
+      )}
+      {sessionsQuery.isLoading && <p>Caricamento sessioni…</p>}
+      {managing && sessionsQuery.data?.find((s) => s.id === managing) && (
+        <SessionManager
+          session={sessionsQuery.data.find((s) => s.id === managing)!}
+          onClose={() => setManaging(null)}
+          onGenerate={() => {
+            linkMutation.mutate(managing);
+            setManaging(null);
+          }}
+        />
+      )}
     </div>
   );
 }
