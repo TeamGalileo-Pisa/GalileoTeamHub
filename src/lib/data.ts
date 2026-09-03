@@ -9,6 +9,8 @@ export interface AreaRecord {
   name: string;
   description?: string;
   slug?: string;
+  active?: boolean;
+  parentAreaId?: string | null;
   created_at?: string;
 }
 
@@ -43,32 +45,58 @@ export interface DashboardMetrics {
 export interface InterviewRecord {
   id: string;
   title?: string;
-  session_date: string;
-  start_time: string;
-  end_time: string;
+  name?: string;
+  session_date?: string;
+  start_time?: string;
+  end_time?: string;
+  startsAt?: string;
+  endsAt?: string;
   area_name?: string;
+  areaName?: string;
+  bookingId?: string;
+  candidateName?: string;
+  candidateEmail?: string;
+  roomName?: string;
+  bookingLinkActive?: boolean;
   booked_count?: number;
+  bookedSlots?: number;
   max_capacity?: number;
+  availableSlots?: number;
+  status?: string;
 }
+
+export type InterviewSession = InterviewRecord;
 
 export interface StaffMemberRecord {
   id: string;
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
+  displayName?: string;
+  username?: string;
   email: string;
-  role: string;
+  role?: string;
+  isAdmin?: boolean;
+  status?: string;
+  areas?: AreaRecord[];
   area_ids?: string[];
   created_at?: string;
 }
+
+export type StaffMember = StaffMemberRecord;
 
 export interface CampaignRecord {
   id: string;
   name: string;
   starts_on?: string;
+  startsOn?: string;
   ends_on?: string;
-  is_active: boolean;
+  endsOn?: string;
+  is_active?: boolean;
+  status?: string;
   created_at?: string;
 }
+
+export type RecruitmentCampaign = CampaignRecord;
 
 // ==========================================
 // AREE E CALENDARI
@@ -84,7 +112,11 @@ export async function listAreas(): Promise<AreaRecord[]> {
     console.error('Errore nel recupero delle aree:', error);
     return [];
   }
-  return data || [];
+  return (data || []).map((area: any) => ({
+    ...area,
+    active: area.active ?? true,
+    parentAreaId: area.parent_area_id || null,
+  }));
 }
 
 export async function getAreaBySlug(slug: string): Promise<AreaInfo | null> {
@@ -150,19 +182,36 @@ export async function getUnreadAnnouncementCount(): Promise<number> {
 export async function listUpcomingInterviews(): Promise<InterviewRecord[]> {
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, session_date, start_time, end_time, areas(name)')
+    .select('id, session_date, start_time, end_time, room_name, max_capacity, areas(name)')
     .gte('session_date', new Date().toISOString().split('T')[0])
     .order('session_date', { ascending: true })
     .limit(10);
 
   if (error) return [];
-  return (data || []).map((s: any) => ({
-    id: s.id,
-    session_date: s.session_date,
-    start_time: s.start_time,
-    end_time: s.end_time,
-    area_name: s.areas?.name || 'Generale',
-  }));
+  return (data || []).map((s: any) => {
+    const areaName = s.areas?.name || 'Generale';
+    const startsAt = s.session_date && s.start_time ? `${s.session_date}T${s.start_time}` : new Date().toISOString();
+    const endsAt = s.session_date && s.end_time ? `${s.session_date}T${s.end_time}` : new Date().toISOString();
+    return {
+      id: s.id,
+      session_date: s.session_date,
+      start_time: s.start_time,
+      end_time: s.end_time,
+      startsAt,
+      endsAt,
+      area_name: areaName,
+      areaName,
+      roomName: s.room_name || 'Aula Standard',
+      bookingId: s.id,
+      candidateName: 'Candidato',
+      candidateEmail: '',
+      name: `Colloquio ${areaName}`,
+      bookedSlots: 0,
+      availableSlots: s.max_capacity || 1,
+      bookingLinkActive: true,
+      status: 'scheduled',
+    };
+  });
 }
 
 // ==========================================
@@ -172,11 +221,28 @@ export async function listUpcomingInterviews(): Promise<InterviewRecord[]> {
 export async function listInterviewSessions(): Promise<InterviewRecord[]> {
   const { data, error } = await supabase
     .from('sessions')
-    .select('*')
+    .select('*, areas(name)')
     .order('session_date', { ascending: true });
 
   if (error) return [];
-  return data || [];
+  return (data || []).map((s: any) => {
+    const areaName = s.areas?.name || 'Generale';
+    const startsAt = s.session_date && s.start_time ? `${s.session_date}T${s.start_time}` : new Date().toISOString();
+    const endsAt = s.session_date && s.end_time ? `${s.session_date}T${s.end_time}` : new Date().toISOString();
+    return {
+      ...s,
+      name: s.name || `Sessione ${areaName}`,
+      area_name: areaName,
+      areaName,
+      startsAt,
+      endsAt,
+      roomName: s.room_name || 'Aula 1',
+      bookedSlots: s.booked_count || 0,
+      availableSlots: (s.max_capacity || 1) - (s.booked_count || 0),
+      bookingLinkActive: s.is_active ?? true,
+      status: s.status || 'active',
+    };
+  });
 }
 
 export async function listMyAllocations(): Promise<any[]> {
@@ -204,14 +270,19 @@ export async function listCampaigns(): Promise<CampaignRecord[]> {
     .order('created_at', { ascending: false });
 
   if (error) return [];
-  return data || [];
+  return (data || []).map((c: any) => ({
+    ...c,
+    startsOn: c.starts_on || c.startsOn,
+    endsOn: c.ends_on || c.endsOn,
+    status: c.is_active ? 'active' : 'draft',
+  }));
 }
 
-export async function createCampaign(campaign: { name: string; startsOn?: string; endsOn?: string }): Promise<void> {
+export async function createCampaign(campaign: { name: string; startsOn?: string; endsOn?: string; [key: string]: any }): Promise<void> {
   const { error } = await supabase.from('campaigns').insert({
     name: campaign.name,
-    starts_on: campaign.startsOn,
-    ends_on: campaign.endsOn,
+    starts_on: campaign.startsOn || campaign.starts_on,
+    ends_on: campaign.endsOn || campaign.ends_on,
     is_active: false,
   });
   if (error) throw error;
@@ -237,17 +308,31 @@ export async function listStaff(): Promise<StaffMemberRecord[]> {
     .order('last_name', { ascending: true });
 
   if (error) return [];
-  return data || [];
+  return (data || []).map((s: any) => ({
+    ...s,
+    displayName: `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email,
+    username: s.email ? s.email.split('@')[0] : 'user',
+    isAdmin: s.role === 'admin',
+    status: 'active',
+    areas: [],
+  }));
 }
 
 export async function createStaffMember(member: {
-  first_name: string;
-  last_name: string;
+  first_name?: string;
+  last_name?: string;
   email: string;
   role?: string;
   area_ids?: string[];
+  [key: string]: any;
 }): Promise<void> {
-  const { error } = await supabase.from('staff').insert(member);
+  const { error } = await supabase.from('staff').insert({
+    first_name: member.first_name || member.displayName || '',
+    last_name: member.last_name || '',
+    email: member.email,
+    role: member.role || (member.isAdmin ? 'admin' : 'staff'),
+    area_ids: member.area_ids || [],
+  });
   if (error) throw error;
 }
 
@@ -255,7 +340,8 @@ export async function createStaffMember(member: {
 // ACCOUNT E UTILITY
 // ==========================================
 
-export async function completePasswordChange(newPassword: string): Promise<void> {
+export async function completePasswordChange(newPassword?: string): Promise<void> {
+  if (!newPassword) return;
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
 }
