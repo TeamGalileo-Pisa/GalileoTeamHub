@@ -1,154 +1,59 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { PanelsTopLeft, Plus } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { EmptyState } from "../components/EmptyState";
-import { PageHeader } from "../components/PageHeader";
-import { StatusBadge } from "../components/StatusBadge";
-import { createArea, listAreas } from "../lib/data";
-import { useState } from "react";
-import { AreaEditor } from "../components/AdminEditors";
-import type { AreaRecord } from "../types/domain";
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
-const schema = z.object({
-  name: z.string().trim().min(2, "Inserisci il nome dell'area"),
-  slug: z
-    .string()
-    .trim()
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Usa lettere minuscole e trattini"),
-});
+interface Area {
+  id: string;
+  name: string;
+  description: string;
+  slug: string;
+}
 
 export function AreasPage() {
-  const [editing, setEditing] = useState<AreaRecord | null>(null);
-  const queryClient = useQueryClient();
-  const areasQuery = useQuery({ queryKey: ["areas"], queryFn: listAreas });
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
-  });
-  const mutation = useMutation({
-    mutationFn: createArea,
-    onSuccess: async () => {
-      form.reset();
-      await queryClient.invalidateQueries({ queryKey: ["areas"] });
-    },
-  });
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAreas();
+  }, []);
+
+  async function fetchAreas() {
+    const { data } = await supabase.from('areas').select('*').order('name');
+    if (data) setAreas(data);
+  }
+
+  const copyLink = (slug: string, id: string) => {
+    const link = `${window.location.origin}/prenota/${slug}`;
+    navigator.clipboard.writeText(link);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   return (
-    <div className="page-container">
-      <PageHeader
-        eyebrow="Amministrazione"
-        title="Aree del Team"
-        description="Le aree sono entità stabili: possono cambiare responsabile senza perdere campagne, sessioni o storico."
-      />
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Gestione Aree e Calendari Unici</h1>
 
-      <section className="panel form-list-layout">
-        <div className="panel__header">
-          <div>
-            <h2>Nuova area</h2>
-            <p>Usa un nome breve e riconoscibile</p>
-          </div>
-          <PanelsTopLeft size={20} />
-        </div>
-        <form
-          className="panel__body form-grid"
-          onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
-        >
-          <div className="form-field">
-            <label htmlFor="area-name">Nome</label>
-            <input
-              id="area-name"
-              className="input"
-              placeholder="es. Scientifico"
-              {...form.register("name")}
-            />
-            {form.formState.errors.name && (
-              <span className="field-error">
-                {form.formState.errors.name.message}
-              </span>
-            )}
-          </div>
-          <div className="form-field">
-            <label htmlFor="area-slug">Identificativo</label>
-            <input
-              id="area-slug"
-              className="input"
-              placeholder="es. scientifico"
-              {...form.register("slug")}
-            />
-            {form.formState.errors.slug && (
-              <span className="field-error">
-                {form.formState.errors.slug.message}
-              </span>
-            )}
-          </div>
-          {mutation.error && (
-            <div className="form-error form-field--full" role="alert">
-              {mutation.error.message}
+      <div className="grid grid-cols-1 gap-4">
+        {areas.map((area) => {
+          const publicUrl = `${window.location.origin}/prenota/${area.slug}`;
+          return (
+            <div key={area.id} className="p-4 bg-white border rounded-lg shadow-sm flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{area.name}</h3>
+                <p className="text-sm text-gray-500">{area.description}</p>
+                <div className="mt-2 text-xs text-indigo-600 font-mono">
+                  Link pubblico: <a href={publicUrl} target="_blank" rel="noreferrer" className="underline">{publicUrl}</a>
+                </div>
+              </div>
+              <button
+                onClick={() => copyLink(area.slug, area.id)}
+                className="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded font-medium transition-colors"
+              >
+                {copiedId === area.id ? 'Copiato! ✓' : 'Copia Link'}
+              </button>
             </div>
-          )}
-          <div className="form-actions">
-            <button
-              className="button button--primary"
-              type="submit"
-              disabled={mutation.isPending}
-            >
-              <Plus size={17} /> Crea area
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className="panel availability-list-panel">
-        <div className="panel__header">
-          <div>
-            <h2>Aree configurate</h2>
-            <p>{areasQuery.data?.length ?? 0} aree nel sistema</p>
-          </div>
-        </div>
-        <div className="panel__body panel__body--flush">
-          {areasQuery.data?.length ? (
-            <div className="area-card-grid">
-              {areasQuery.data.map((area) => (
-                <article className="area-card" key={area.id}>
-                  <span className="area-card__letter">
-                    {area.name.slice(0, 1)}
-                  </span>
-                  <div>
-                    <h3>{area.name}</h3>
-                    <p>{area.slug}</p>
-                  </div>
-                  <StatusBadge
-                    label={area.active ? "Attiva" : "Disattivata"}
-                    tone={area.active ? "success" : "neutral"}
-                  />
-                  <button
-                    className="button button--secondary button--small"
-                    onClick={() => setEditing(area)}
-                  >
-                    Modifica / Gestisci
-                  </button>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <EmptyState
-              icon={PanelsTopLeft}
-              title="Nessuna area"
-              description="Le nove aree iniziali verranno inserite automaticamente dalla migration di seed."
-            />
-          )}
-        </div>
-      </section>
-      {areasQuery.isLoading && <p>Caricamento aree…</p>}
-      {areasQuery.error && (
-        <p className="form-error" role="alert">
-          {areasQuery.error.message}
-        </p>
-      )}
-      {editing && (
-        <AreaEditor area={editing} onClose={() => setEditing(null)} />
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 }
