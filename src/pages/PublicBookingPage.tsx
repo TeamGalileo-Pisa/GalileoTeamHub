@@ -1,297 +1,239 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  CalendarCheck,
-  CalendarDays,
-  CheckCircle2,
-  Clock3,
-  MapPin,
-  ShieldCheck,
-} from "lucide-react";
-import { useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
-import { useParams } from "react-router-dom";
-import { z } from "zod";
-import { Brand } from "../components/Brand";
-import { appConfig } from "../lib/config";
-import { formatBookingDay, formatTimeRange, groupByDay } from "../lib/dates";
-import { createPublicBooking, getPublicBookingAvailability } from "../lib/data";
-import type { BookingConfirmation } from "../types/domain";
-import { bookingSchema as schema } from "../lib/booking-validation";
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { getAreaBySlug, getAreaPublicCalendar, AreaSlot, AreaInfo } from '../lib/data';
+import { supabase } from '../lib/supabase';
 
 export function PublicBookingPage() {
-  const { token = "" } = useParams();
-  const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
-    null,
-  );
-  const availabilityQuery = useQuery({
-    queryKey: ["public-booking", token],
-    queryFn: () => getPublicBookingAvailability(token),
-    enabled: Boolean(token && appConfig.hasSupabaseConfiguration),
-    retry: false,
-  });
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
-    defaultValues: { slotId: "", firstName: "", lastName: "", email: "" },
-  });
-  const selectedSlotId = useWatch({ control: form.control, name: "slotId" });
-  const bookingMutation = useMutation({
-    mutationFn: (values: z.infer<typeof schema>) => {
-      if (!selectedSlotId) throw new Error("Seleziona prima uno slot");
-      return createPublicBooking({
-        token,
-        ...values,
-      });
-    },
-    onSuccess: (result) => setConfirmation(result),
-  });
-  const slots = useMemo(
-    () => availabilityQuery.data?.slots ?? [],
-    [availabilityQuery.data?.slots],
-  );
-  const days = useMemo(() => groupByDay(slots), [slots]);
-  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
+  const { areaSlug } = useParams<{ areaSlug: string }>();
 
-  if (confirmation) {
+  const [area, setArea] = useState<AreaInfo | null>(null);
+  const [slots, setSlots] = useState<AreaSlot[]>([]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<AreaSlot | null>(null);
+
+  // Form di prenotazione
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!areaSlug) return;
+
+    async function loadData() {
+      setLoading(true);
+      const areaData = await getAreaBySlug(areaSlug!);
+      if (areaData) {
+        setArea(areaData);
+        const calendarSlots = await getAreaPublicCalendar(areaSlug!);
+        setSlots(calendarSlots);
+
+        // Seleziona di default la prima data disponibile
+        if (calendarSlots.length > 0) {
+          setSelectedDate(calendarSlots[0].session_date);
+        }
+      }
+      setLoading(false);
+    }
+
+    loadData();
+  }, [areaSlug]);
+
+  // Aggrega le date disponibili
+  const availableDates = Array.from(new Set(slots.map((s) => s.session_date))).sort();
+
+  // Filtra gli slot per la data selezionata
+  const slotsForSelectedDate = slots.filter((s) => s.session_date === selectedDate);
+
+  const handleBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedSlot) return;
+
+    setSubmitting(true);
+    setErrorMsg(null);
+
+    try {
+      const { error } = await supabase.from('bookings').insert({
+        session_id: selectedSlot.slot_id,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        notes: notes,
+        status: 'confirmed',
+      });
+
+      if (error) throw error;
+
+      setSuccess(true);
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Errore durante la prenotazione. Riprova.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-gray-600">Caricamento calendario in corso...</div>;
+  }
+
+  if (!area) {
     return (
-      <main className="public-page">
-        <div className="public-page__topbar">
-          <Brand />
-        </div>
-        <section className="confirmation-card">
-          <span className="confirmation-card__icon">
-            <CheckCircle2 size={34} />
-          </span>
-          <p className="eyebrow">Operazione completata</p>
-          <h1>Grazie per la tua prenotazione!</h1>
-          <dl className="confirmation-details">
-            <div>
-              <dt>Nome</dt>
-              <dd>{confirmation.candidateName}</dd>
-            </div>
-            <div>
-              <dt>Area</dt>
-              <dd>{confirmation.areaName}</dd>
-            </div>
-            <div>
-              <dt>Data</dt>
-              <dd>{formatBookingDay(confirmation.startsAt)}</dd>
-            </div>
-            <div>
-              <dt>Orario</dt>
-              <dd>
-                {formatTimeRange(confirmation.startsAt, confirmation.endsAt)}
-              </dd>
-            </div>
-            <div>
-              <dt>Aula</dt>
-              <dd>{confirmation.roomName}</dd>
-            </div>
-          </dl>
-          <p>
-            La conferma che questa prenotazione è valida ti arriverà
-            automaticamente all’indirizzo email che hai indicato entro massimo 5
-            minuti.
-          </p>
-          <p>
-            Ricordati di controllare anche la cartella Spam nel caso non la
-            vedessi arrivare.
-          </p>
-        </section>
-      </main>
+      <div className="p-8 text-center text-red-600">
+        <h2 className="text-xl font-bold">Area non trovata</h2>
+        <p className="mt-2 text-gray-500">Verifica che l'indirizzo del calendario sia corretto.</p>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+        <h2 className="text-2xl font-bold text-green-800">Prenotazione Confermata!</h2>
+        <p className="mt-2 text-green-700">
+          Hai prenotato con successo per il giorno <strong>{selectedSlot?.session_date}</strong> alle ore{' '}
+          <strong>{selectedSlot?.start_time.slice(0, 5)}</strong>.
+        </p>
+        <p className="mt-4 text-sm text-gray-600">Riceverai una mail di conferma all'indirizzo {email}.</p>
+      </div>
     );
   }
 
   return (
-    <main className="public-page">
-      <div className="public-page__topbar">
-        <Brand />
-        <span className="private-link-badge">
-          <ShieldCheck size={15} /> Link privato
-        </span>
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Intestazione Area */}
+      <div className="mb-8 border-b pb-4">
+        <h1 className="text-3xl font-bold text-gray-900">{area.name}</h1>
+        {area.description && <p className="mt-2 text-gray-600">{area.description}</p>}
       </div>
 
-      <section className="booking-hero">
-        <p className="eyebrow">Recruitment Team Galileo</p>
-        <h1>Prenota il tuo colloquio</h1>
-        <p>
-          Scegli un orario disponibile e inserisci i soli dati necessari per
-          ricevere la conferma.
-        </p>
-      </section>
-
-      {!appConfig.hasSupabaseConfiguration ? (
-        <section className="public-error-card">
-          Il servizio di prenotazione non è ancora configurato.
-        </section>
-      ) : availabilityQuery.isLoading ? (
-        <section className="public-loading">
-          Caricamento orari disponibili…
-        </section>
-      ) : availabilityQuery.error ? (
-        <section className="public-error-card" role="alert">
-          Questo link non è valido, è scaduto oppure è stato disattivato. Chiedi
-          un nuovo invito al tuo Capo Area.
-        </section>
+      {availableDates.length === 0 ? (
+        <div className="p-6 bg-yellow-50 text-yellow-800 rounded-md">
+          Al momento non ci sono date disponibili per quest'area.
+        </div>
       ) : (
-        <div className="booking-layout">
-          <section className="booking-card">
-            <div className="booking-card__header">
-              <span>
-                <CalendarDays size={19} />
-              </span>
-              <div>
-                <p>{availabilityQuery.data?.areaName}</p>
-                <h2>{availabilityQuery.data?.sessionName}</h2>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Selettore Date */}
+          <div className="space-y-2">
+            <h3 className="font-semibold text-gray-700 mb-3">1. Seleziona una data</h3>
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {availableDates.map((date) => (
+                <button
+                  key={date}
+                  onClick={() => {
+                    setSelectedDate(date);
+                    setSelectedSlot(null);
+                  }}
+                  className={`w-full text-left px-4 py-2 rounded-md transition-colors ${
+                    selectedDate === date
+                      ? 'bg-indigo-600 text-white font-medium'
+                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                  }`}
+                >
+                  {new Date(date).toLocaleDateString('it-IT', {
+                    weekday: 'short',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {days.length ? (
-              <div className="booking-days">
-                {days.map((day) => (
-                  <div className="booking-day" key={day.date.toISOString()}>
-                    <h3>{formatBookingDay(day.items[0].startsAt)}</h3>
-                    <div className="slot-grid">
-                      {day.items.map((slot) => (
-                        <button
-                          className={`slot-button ${selectedSlotId === slot.id ? "slot-button--selected" : ""}`}
-                          type="button"
-                          key={slot.id}
-                          aria-pressed={selectedSlotId === slot.id}
-                          onClick={() =>
-                            form.setValue("slotId", slot.id, {
-                              shouldValidate: true,
-                            })
-                          }
-                        >
-                          <Clock3 size={15} />
-                          <strong>
-                            {formatTimeRange(slot.startsAt, slot.endsAt)}
-                          </strong>
-                          <small>
-                            <MapPin size={12} /> {slot.roomName}
-                          </small>
-                        </button>
-                      ))}
+          {/* Selettore Orari disponibili */}
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-3">2. Seleziona un orario</h3>
+            {slotsForSelectedDate.length === 0 ? (
+              <p className="text-sm text-gray-500">Seleziona una data per vedere gli orari.</p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2">
+                {slotsForSelectedDate.map((slot) => (
+                  <button
+                    key={slot.slot_id}
+                    onClick={() => setSelectedSlot(slot)}
+                    className={`p-3 rounded-md border text-left transition-all ${
+                      selectedSlot?.slot_id === slot.slot_id
+                        ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600'
+                        : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-semibold text-gray-800">
+                      {slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}
                     </div>
-                  </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Disponibilità: {slot.available_capacity} posti
+                    </div>
+                  </button>
                 ))}
               </div>
-            ) : (
-              <div className="no-public-slots">
-                <CalendarCheck size={25} />
-                <h2>Nessun orario disponibile</h2>
-                <p>Gli slot potrebbero essere già stati prenotati.</p>
-              </div>
             )}
-          </section>
+          </div>
 
-          <aside className="booking-form-card">
-            <div>
-              <p className="eyebrow">I tuoi dati</p>
-              <h2>Completa la prenotazione</h2>
-            </div>
-
+          {/* Modulo Dati Utente */}
+          <div>
+            <h3 className="font-semibold text-gray-700 mb-3">3. Inserisci i tuoi dati</h3>
             {selectedSlot ? (
-              <div className="selected-slot-summary">
-                <CalendarCheck size={18} />
-                <span>
-                  <strong>{formatBookingDay(selectedSlot.startsAt)}</strong>
-                  <small>
-                    {formatTimeRange(
-                      selectedSlot.startsAt,
-                      selectedSlot.endsAt,
-                    )}{" "}
-                    · {selectedSlot.roomName}
-                  </small>
-                </span>
-              </div>
-            ) : (
-              <div className="selected-slot-placeholder">
-                Seleziona prima uno degli orari disponibili.
-              </div>
-            )}
-
-            <form
-              noValidate
-              className="public-booking-form"
-              onSubmit={form.handleSubmit((values) =>
-                bookingMutation.mutate(values),
-              )}
-            >
-              <input type="hidden" {...form.register("slotId")} />
-              {form.formState.errors.slotId && (
-                <span className="field-error" role="alert">
-                  {form.formState.errors.slotId.message}
-                </span>
-              )}
-              <div className="form-field">
-                <label htmlFor="candidate-first-name">Nome</label>
-                <input
-                  id="candidate-first-name"
-                  className="input"
-                  autoComplete="given-name"
-                  {...form.register("firstName")}
-                />
-                {form.formState.errors.firstName && (
-                  <span className="field-error">
-                    {form.formState.errors.firstName.message}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label htmlFor="candidate-last-name">Cognome</label>
-                <input
-                  id="candidate-last-name"
-                  className="input"
-                  autoComplete="family-name"
-                  {...form.register("lastName")}
-                />
-                {form.formState.errors.lastName && (
-                  <span className="field-error">
-                    {form.formState.errors.lastName.message}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label htmlFor="candidate-email">Email universitaria</label>
-                <input
-                  id="candidate-email"
-                  className="input"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="nome.cognome@studenti.unipi.it"
-                  {...form.register("email")}
-                />
-                {form.formState.errors.email && (
-                  <span className="field-error">
-                    {form.formState.errors.email.message}
-                  </span>
-                )}
-              </div>
-              {bookingMutation.error && (
-                <div className="form-error" role="alert">
-                  {bookingMutation.error.message}
+              <form onSubmit={handleBooking} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Nome</label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="w-full mt-1 p-2 border rounded-md text-sm"
+                  />
                 </div>
-              )}
-              <button
-                className="button button--primary public-submit"
-                type="submit"
-                disabled={bookingMutation.isPending || !slots.length}
-              >
-                {bookingMutation.isPending
-                  ? "Conferma in corso…"
-                  : "Conferma prenotazione"}
-              </button>
-            </form>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Cognome</label>
+                  <input
+                    type="text"
+                    required
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="w-full mt-1 p-2 border rounded-md text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full mt-1 p-2 border rounded-md text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700">Note (opzionale)</label>
+                  <textarea
+                    rows={2}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    className="w-full mt-1 p-2 border rounded-md text-sm"
+                  />
+                </div>
 
-            <p className="privacy-note">
-              Raccogliamo soltanto nome, cognome, email e dati
-              dell’appuntamento.
-            </p>
-          </aside>
+                {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-indigo-600 text-white py-2 rounded-md font-medium hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {submitting ? 'Conferma in corso...' : 'Conferma Prenotazione'}
+                </button>
+              </form>
+            ) : (
+              <p className="text-sm text-gray-400">Seleziona prima un orario disponibile per procedere.</p>
+            )}
+          </div>
         </div>
       )}
-    </main>
+    </div>
   );
 }
