@@ -6,6 +6,7 @@ import App from "./App";
 import { AuthProvider } from "./providers/AuthProvider";
 import "./styles/global.css";
 import "./styles/responsive.css";
+import "./styles/hub-enhancements.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,4 +32,3 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
-
