@@ -79,8 +79,11 @@ export function AppShell() {
     : access?.areas.map((area) => area.name).join(", ") || "Area";
 
   const handleSignOut = async () => {
-    await supabase.rpc("mark_user_offline");
-    await signOut();
+    try {
+      await supabase.rpc("mark_user_offline");
+    } finally {
+      await signOut();
+    }
   };
 
   return (
