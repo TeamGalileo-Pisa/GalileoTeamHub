@@ -3,6 +3,7 @@ import {
   CalendarRange,
   ChevronDown,
   ClipboardList,
+  FileText,
   LayoutDashboard,
   HelpCircle,
   LogOut,
@@ -14,10 +15,11 @@ import {
   X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount } from "../lib/data";
+import { supabase } from "../lib/supabase";
 import { Brand } from "./Brand";
 
 const adminNavigation = [
@@ -29,6 +31,7 @@ const adminNavigation = [
   { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
   { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
   { to: "/admin/account", label: "Account", icon: UsersRound },
+  { to: "/admin/legal", label: "Termini e Privacy", icon: FileText },
   { to: "/admin/assistenza", label: "Assistenza", icon: HelpCircle },
 ];
 
@@ -43,16 +46,42 @@ const areaNavigation = [
 
 export function AppShell() {
   const { access, signOut } = useAuth();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const unreadQuery = useQuery({
     queryKey: ["unread-announcements", access?.userId],
     queryFn: getUnreadAnnouncementCount,
     enabled: Boolean(access),
   });
+
+  const reportPresence = useCallback(async () => {
+    if (!access?.userId || document.visibilityState === "hidden") return;
+    await supabase.rpc("touch_user_presence", { p_path: location.pathname });
+  }, [access?.userId, location.pathname]);
+
+  useEffect(() => {
+    if (!access?.userId) return;
+    void reportPresence();
+    const timer = window.setInterval(() => void reportPresence(), 30_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void reportPresence();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [access?.userId, reportPresence]);
+
   const navigation = access?.isAdmin ? adminNavigation : areaNavigation;
   const areaLabel = access?.isAdmin
     ? "Amministrazione"
     : access?.areas.map((area) => area.name).join(", ") || "Area";
+
+  const handleSignOut = async () => {
+    await supabase.rpc("mark_user_offline");
+    await signOut();
+  };
 
   return (
     <div className="app-shell">
@@ -75,9 +104,7 @@ export function AppShell() {
       )}
 
       <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
-        <div className="sidebar__brand">
-          <Brand />
-        </div>
+        <div className="sidebar__brand"><Brand /></div>
 
         <div className="workspace-chip">
           <span>Spazio di lavoro</span>
@@ -92,9 +119,7 @@ export function AppShell() {
               to={to}
               end={end}
               onClick={() => setMobileOpen(false)}
-              className={({ isActive }) =>
-                `nav-item ${isActive ? "nav-item--active" : ""}`
-              }
+              className={({ isActive }) => `nav-item ${isActive ? "nav-item--active" : ""}`}
             >
               <Icon size={19} />
               <span>{label}</span>
@@ -109,30 +134,16 @@ export function AppShell() {
 
         <div className="sidebar__footer">
           <div className="user-summary">
-            <span className="user-summary__avatar">
-              {access?.displayName.slice(0, 1).toUpperCase()}
-            </span>
-            <span>
-              <strong>{access?.displayName}</strong>
-              <small>{areaLabel}</small>
-            </span>
+            <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
+            <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Esci"
-            title="Esci"
-            onClick={() => void signOut()}
-          >
+          <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
         </div>
       </aside>
 
-      <main className="app-content">
-        <Outlet />
-      </main>
+      <main className="app-content"><Outlet /></main>
     </div>
   );
 }
-
