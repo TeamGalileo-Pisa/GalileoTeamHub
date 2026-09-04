@@ -1,0 +1,4 @@
+-- Historical migration placeholder.
+-- This version is already recorded as applied in the production Supabase project.
+-- The equivalent/current implementation is preserved by later canonical migrations.
+-- Keep this file to keep local and remote migration histories aligned.
