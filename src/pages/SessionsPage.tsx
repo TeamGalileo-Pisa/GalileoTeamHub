@@ -11,7 +11,7 @@ import { formatDateTime, formatTimeRange } from "../lib/dates";
 import {
   listInterviewSessions,
   listMyAllocations,
-  rotateBookingLink,
+  getAreaBookingLink,
 } from "../lib/data";
 import { rpc } from "../lib/operations";
 import { SessionManager } from "../components/SessionManager";
@@ -58,21 +58,16 @@ export function SessionsPage() {
     },
   });
   const linkMutation = useMutation({
-    mutationFn: rotateBookingLink,
+    mutationFn: getAreaBookingLink,
     onMutate: () => {
       setGeneratedLink(null);
       setLinkFeedback(null);
       setCopyFeedback(null);
     },
-    onSuccess: async (token, sessionId) => {
-      const wasActive = sessionsQuery.data?.some(
-        (session) => session.id === sessionId && session.bookingLinkActive,
-      );
+    onSuccess: async (token) => {
       setGeneratedLink(`${window.location.origin}/book/${token}`);
       setLinkFeedback(
-        wasActive
-          ? "Link rigenerato: il link precedente è stato revocato e non funziona più."
-          : "Link candidato generato correttamente.",
+        "Link unico dell’area: rimane lo stesso anche quando aggiungi o aggiorni gli slot.",
       );
       await queryClient.invalidateQueries({ queryKey: ["interview-sessions"] });
     },
@@ -183,7 +178,7 @@ export function SessionsPage() {
       {generatedLink && (
         <section className="generated-link" aria-live="polite">
           <div>
-            <p>Nuovo link privato</p>
+            <p>Link unico dell’area</p>
             <strong>{generatedLink}</strong>
             {linkFeedback && <span>{linkFeedback}</span>}
             {copyFeedback && <span>{copyFeedback}</span>}
@@ -208,7 +203,7 @@ export function SessionsPage() {
         <div className="panel__header">
           <div>
             <h2>Sessioni dell’area</h2>
-            <p>Slot, prenotazioni e link attivi</p>
+            <p>Tutti gli slot restano raccolti nel calendario unico dell’area.</p>
           </div>
         </div>
         <div className="panel__body panel__body--flush">
@@ -265,24 +260,18 @@ export function SessionsPage() {
                         <button
                           className="button button--secondary button--small"
                           type="button"
-                          disabled={
-                            linkMutation.isPending ||
-                            session.status === "closed" ||
-                            session.status === "cancelled"
-                          }
-                          onClick={() => linkMutation.mutate(session.id)}
+                          disabled={linkMutation.isPending}
+                          onClick={() => linkMutation.mutate(session.areaId)}
                         >
                           <Link2 size={15} />
                           {linkMutation.isPending &&
-                          linkMutation.variables === session.id
-                            ? "Generazione…"
-                            : session.bookingLinkActive
-                              ? "Rigenera"
-                              : "Genera"}
+                          linkMutation.variables === session.areaId
+                            ? "Apertura…"
+                            : "Link area"}
                         </button>
                         {session.bookingLinkActive && (
                           <span className="table-secondary">
-                            Rigenerando, il link precedente verrà revocato.
+                            Il link è unico per l’area e non cambia quando aggiorni le disponibilità.
                           </span>
                         )}
                       </td>
@@ -311,7 +300,8 @@ export function SessionsPage() {
           session={sessionsQuery.data.find((s) => s.id === managing)!}
           onClose={() => setManaging(null)}
           onGenerate={() => {
-            linkMutation.mutate(managing);
+            const session = sessionsQuery.data?.find((item) => item.id === managing);
+            if (session) linkMutation.mutate(session.areaId);
             setManaging(null);
           }}
         />
