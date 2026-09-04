@@ -74,7 +74,7 @@ export function SessionsPage() {
         </form>
       </section>
 
-      {generatedLink && <section className="generated-link" aria-live="polite"><div><p>Link stabile dell’area</p><strong>{generatedLink}</strong>{linkFeedback && <span>{linkFeedback}</span>}{copyFeedback && <span>{copyFeedback}</span>}</div><button className="button button--secondary" type="button" onClick={() => void copyGeneratedLink()}><ClipboardCopy size={17} /> Copia link</button></section>}
+      {generatedLink && <section className="generated-link" aria-live="polite"><div><p>Link stabile dell’area</p><a href={generatedLink} target="_blank" rel="noreferrer"><strong>{generatedLink}</strong></a>{linkFeedback && <span>{linkFeedback}</span>}{copyFeedback && <span>{copyFeedback}</span>}</div><div className="form-actions"><a className="button button--primary" href={generatedLink} target="_blank" rel="noreferrer"><Link2 size={17} /> Apri pagina prenotazione</a><button className="button button--secondary" type="button" onClick={() => void copyGeneratedLink()}><ClipboardCopy size={17} /> Copia link</button></div></section>}
       {linkMutation.error && <div className="form-error page-feedback" role="alert">{linkMutation.error.message}</div>}
 
       <section className="panel availability-list-panel">
