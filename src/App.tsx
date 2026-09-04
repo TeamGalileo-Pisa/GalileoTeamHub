@@ -75,6 +75,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/book/:token" element={<PublicBookingPage />} />
+        <Route path="/area-:areaSlug" element={<PublicBookingPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/change-password" element={<ChangePasswordPage />} />
