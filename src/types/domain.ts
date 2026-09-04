@@ -87,6 +87,7 @@ export interface StaffMember {
 
 export interface InterviewSession {
   id: string;
+  areaId: string;
   name: string;
   areaName: string;
   roomName: string;
