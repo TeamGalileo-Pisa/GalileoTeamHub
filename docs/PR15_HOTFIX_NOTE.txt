@@ -1,0 +1,11 @@
+Hotfix tecnico successivo alla PR #15.
+
+Motivo:
+La migration combinata 20260904210000_hub_privacy_presence_calendar_lifecycle_and_test_cleanup.sql non è stata applicata da Supabase perché usava pg_catalog.trim(text), funzione non esistente con quel nome qualificato.
+
+Correzione:
+- rimossa la migration combinata fallita, che non era stata registrata come applicata;
+- suddivise le modifiche in migration più piccole e verificabili;
+- sostituito trim con pg_catalog.btrim;
+- mantenuta separata la pulizia irreversibile dei soli dati di recruitment/scheduling di test;
+- nessuna modifica prevista a auth.users, profiles, system_roles, area_memberships, areas, rooms, announcements e area_booking_links.
