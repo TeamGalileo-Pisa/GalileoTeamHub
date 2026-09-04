@@ -1,4 +1,4 @@
-# Team Galileo · Gestionale Colloqui
+# Team Galileo · Gestionale
 
 Gestionale ufficiale per organizzare i recruitment del Team Galileo Pisa.
 
