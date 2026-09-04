@@ -1,0 +1,3 @@
+-- Historical migration placeholder.
+-- Already applied in production under this timestamp.
+-- Keep this file to preserve migration-history parity with the linked Supabase project.
