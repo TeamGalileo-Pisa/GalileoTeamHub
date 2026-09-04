@@ -1,14 +1,17 @@
-# Team Galileo · Gestionale
+# GalileoHub · Team Galileo Pisa
 
-Gestionale ufficiale per organizzare i recruitment del Team Galileo Pisa.
+GalileoHub è il gestionale centrale del Team Galileo Pisa. Il modulo recruitment è il primo nucleo operativo già disponibile; l'architettura è pensata per ospitare nel tempo ulteriori funzioni del Team senza dover cambiare piattaforma.
 
 Il frontend usa React, TypeScript e Vite ed è pubblicato su Cloudflare Workers Static Assets. Supabase gestisce database, autenticazione, Row Level Security ed Edge Functions.
 
-## Funzionalità incluse
+L'interfaccia è progettata per desktop, notebook, tablet e smartphone, inclusi schermi piccoli, orientamento landscape e dispositivi con safe-area.
+
+## Moduli e funzionalità attuali
 
 - accesso globale Amministrazione;
 - account separati per i Capi Area;
 - nove aree iniziali indipendenti dagli utenti;
+- bacheca e comunicazioni;
 - campagne recruitment con storico;
 - disponibilità delle aule separate dalle fasce prese dalle aree;
 - sessioni e generazione slot con durata personalizzata;
@@ -20,6 +23,10 @@ Il frontend usa React, TypeScript e Vite ed è pubblicato su Cloudflare Workers 
 - gestione sessioni/slot, calendario settimanale e spostamenti;
 - gestione sicura di aree, campagne e account;
 - audit log e policy RLS.
+
+## Direzione prodotto
+
+GalileoHub non è identificato con il solo recruitment. Le route e le tabelle già esistenti costituiscono un modulo del gestionale generale. I nuovi moduli dovranno riusare autenticazione, ruoli, aree, audit e layout condiviso, mantenendo separata la logica specifica di ciascuna funzione.
 
 ## Avvio frontend
 
@@ -66,7 +73,7 @@ Configurare i secret server-side dal pannello **Edge Functions > Secrets** oppur
 
 ```bash
 supabase secrets set AUTH_EMAIL_DOMAIN=auth.teamgalileo.local
-supabase secrets set APP_ORIGINS=https://galileoteamhub.info-teamgalileo.workers.dev
+supabase secrets set APP_ORIGINS=https://galileohub.info-teamgalileo.workers.dev
 supabase secrets set EMAIL_PROVIDER=gmail
 ```
 
@@ -90,7 +97,11 @@ Il file locale è escluso da Git. Lo script crea o riconcilia in modo idempotent
 
 ## Cloudflare Workers
 
-`wrangler.jsonc` pubblica `dist` come Static Assets e usa il fallback SPA per le route React.
+`wrangler.jsonc` pubblica `dist` come Static Assets e usa il fallback SPA per le route React. Il Worker applicativo si chiama `galileohub`, quindi l'URL gratuito Workers.dev è:
+
+```text
+https://galileohub.info-teamgalileo.workers.dev
+```
 
 Configurazione CI/CD Cloudflare:
 
@@ -101,6 +112,21 @@ Configurazione CI/CD Cloudflare:
 - variabili di build: soltanto `VITE_*`.
 
 I segreti email e le chiavi Supabase server-side restano su Supabase.
+
+Per un dominio completamente pulito, ad esempio `galileohub.it`, serve associare un dominio personalizzato; il suffisso `workers.dev` non può essere rimosso dal dominio gratuito.
+
+## Responsive design
+
+`src/styles/global.css` contiene il layout principale; `src/styles/responsive.css` applica gli adattamenti specifici per:
+
+- desktop e monitor ampi;
+- notebook e tablet;
+- smartphone fino a 320 px;
+- touch target da almeno 44 px sui dispositivi touch;
+- menu laterale mobile;
+- tabelle e calendario con scorrimento orizzontale controllato;
+- safe-area per dispositivi con notch;
+- orientamento landscape su schermi bassi.
 
 ## Migrazioni database
 
