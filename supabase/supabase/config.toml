@@ -1,0 +1,28 @@
+project_id = "team-galileo-colloqui"
+
+[api]
+enabled = true
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+
+[db]
+major_version = 17
+
+[auth]
+enabled = true
+enable_signup = false
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+
+[functions.public-booking]
+verify_jwt = false
+
+[functions.staff-admin]
+verify_jwt = true
+
+[functions.admin-email-test]
+verify_jwt = true
+
+[functions.process-email-queue]
+verify_jwt = false
+
