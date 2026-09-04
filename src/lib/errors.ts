@@ -1,4 +1,11 @@
 const ERROR_MESSAGES: Array<[string, string]> = [
+  ["PRIVACY_CONSENT_REQUIRED", "Per confermare la prenotazione devi leggere e accettare l'informativa privacy."],
+  ["PRIVACY_VERSION_OUTDATED", "L'informativa privacy è stata aggiornata. Rileggila e conferma nuovamente l'accettazione."],
+  ["PRIVACY_NOT_CONFIGURED", "L'informativa privacy non è configurata. Contatta Amministrazione."],
+  ["INVALID_LEGAL_DOCUMENT", "Controlla titolo e testo del documento prima di salvarlo."],
+  ["LEGAL_DOCUMENT_NOT_FOUND", "Il documento richiesto non è disponibile."],
+  ["AVAILABILITY_NOT_FOUND", "La disponibilità non esiste oppure è già stata eliminata."],
+  ["FORBIDDEN_OR_NOT_FOUND", "L'elemento non esiste oppure non hai i permessi per gestirlo."],
   [
     "INVALID_STUDENT_EMAIL",
     "Utilizza la tua email universitaria @studenti.unipi.it.",
@@ -15,7 +22,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ],
   [
     "HAS_HISTORY",
-    "Questo elemento ha uno storico: disattivalo o archivialo invece di eliminarlo.",
+    "Questo elemento ha uno storico: usa Annulla per conservarlo oppure Annulla ed elimina se vuoi rimuoverlo definitivamente.",
   ],
   [
     "CAMPAIGN_DATES_CONFLICT",
@@ -23,7 +30,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ],
   [
     "SLOT_HAS_BOOKINGS",
-    "Questo slot ha prenotazioni: usa il Calendario per gestire gli appuntamenti.",
+    "Questo slot ha una prenotazione confermata: gestisci prima l'appuntamento dal Calendario.",
   ],
   [
     "SLOT_OUTSIDE_ALLOCATION",
@@ -49,7 +56,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ["23505", "Esiste già un elemento con questi dati."],
   [
     "23503",
-    "Questo elemento ha uno storico: disattivalo o archivialo invece di eliminarlo.",
+    "Questo elemento ha uno storico collegato. Usa le funzioni di annullamento o eliminazione previste dal gestionale.",
   ],
   [
     "ROOM_CAPACITY_BELOW_USAGE",
@@ -79,7 +86,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ["AVAILABILITY_NOT_ACTIVE", "Questa disponibilità non è più attiva."],
   [
     "AVAILABILITY_HAS_BOOKINGS",
-    "Non puoi annullare la disponibilità perché contiene colloqui già prenotati.",
+    "La disponibilità contiene colloqui prenotati. Per conservarne lo storico non può essere annullata; usa l'eliminazione definitiva solo se intendi rimuovere tutto il contenuto collegato.",
   ],
   [
     "INVALID_TIME_RANGE",

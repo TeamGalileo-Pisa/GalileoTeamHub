@@ -4,11 +4,12 @@ import { Pencil, Plus, Trash2, Warehouse } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import { CancelDeleteDialog } from "../components/CancelDeleteDialog";
+import { DailyAvailabilityForm } from "../components/DailyAvailabilityForm";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
-import { formatDateTime, formatTimeRange } from "../lib/dates";
 import {
   cancelRoomAvailability,
   claimRoomAllocation,
@@ -19,27 +20,22 @@ import {
   listRooms,
   updateRoomAvailability,
 } from "../lib/data";
-import { DailyAvailabilityForm } from "../components/DailyAvailabilityForm";
+import { formatDateTime, formatTimeRange } from "../lib/dates";
+import { deleteRoomAvailabilityPermanently } from "../lib/hub-enhancements";
 import { toRomeInput as toLocalInput } from "../lib/scheduling";
 import type { RoomAvailability } from "../types/domain";
 
 const roomSchema = z.object({
   name: z.string().trim().min(2, "Inserisci il nome dell'aula"),
   location: z.string().trim().optional(),
-  physicalLimit: z
-    .string()
-    .trim()
-    .refine(
-      (value) =>
-        value === "" ||
-        (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100),
-      "Inserisci un numero tra 1 e 100 oppure lascia vuoto",
-    ),
+  physicalLimit: z.string().trim().refine(
+    (value) => value === "" || (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100),
+    "Inserisci un numero tra 1 e 100 oppure lascia vuoto",
+  ),
 });
 
 const availabilitySchema = z
   .object({
-    roomId: z.string().uuid("Seleziona un'aula"),
     startsAt: z.string().min(1, "Inserisci data e ora iniziale"),
     endsAt: z.string().min(1, "Inserisci data e ora finale"),
     maxSimultaneousInterviews: z.number().int().min(1).max(100),
@@ -68,6 +64,11 @@ export function AvailabilityPage() {
   const queryClient = useQueryClient();
   const [success, setSuccess] = useState<string | null>(null);
   const [editing, setEditing] = useState<RoomAvailability | null>(null);
+  const [lifecycle, setLifecycle] = useState<RoomAvailability | null>(null);
+  const [filterDate, setFilterDate] = useState("");
+  const [filterRoom, setFilterRoom] = useState("");
+  const [onlyFree, setOnlyFree] = useState(false);
+
   const roomsQuery = useQuery({ queryKey: ["rooms"], queryFn: listRooms });
   const availabilityQuery = useQuery({
     queryKey: ["room-availabilities", access?.userId],
@@ -81,20 +82,20 @@ export function AvailabilityPage() {
 
   const roomForm = useForm<z.infer<typeof roomSchema>>({
     resolver: zodResolver(roomSchema),
-    defaultValues: { physicalLimit: "" },
+    defaultValues: { name: "", location: "", physicalLimit: "" },
   });
   const allocationForm = useForm<z.infer<typeof allocationSchema>>({
     resolver: zodResolver(allocationSchema),
+    defaultValues: { availabilityId: "", campaignAreaId: "", startsAt: "", endsAt: "" },
   });
   const editForm = useForm<z.infer<typeof availabilitySchema>>({
     resolver: zodResolver(availabilitySchema),
-    defaultValues: { maxSimultaneousInterviews: 1, areaNote: "" },
+    defaultValues: { startsAt: "", endsAt: "", maxSimultaneousInterviews: 1, areaNote: "" },
   });
 
   useEffect(() => {
     if (!editing) return;
     editForm.reset({
-      roomId: editing.roomId,
       startsAt: toLocalInput(editing.startsAt),
       endsAt: toLocalInput(editing.endsAt),
       maxSimultaneousInterviews: editing.maxSimultaneousInterviews,
@@ -107,43 +108,54 @@ export function AvailabilityPage() {
       createRoom({
         name: values.name,
         location: values.location,
-        maxSimultaneousInterviewsLimit: values.physicalLimit
-          ? Number(values.physicalLimit)
-          : null,
+        maxSimultaneousInterviewsLimit: values.physicalLimit ? Number(values.physicalLimit) : null,
       }),
     onMutate: () => setSuccess(null),
     onSuccess: async () => {
-      roomForm.reset({ physicalLimit: "" });
+      roomForm.reset({ name: "", location: "", physicalLimit: "" });
       setSuccess("Aula creata correttamente.");
       await queryClient.invalidateQueries({ queryKey: ["rooms"] });
     },
   });
+
   const editMutation = useMutation({
-    mutationFn: updateRoomAvailability,
+    mutationFn: (values: z.infer<typeof availabilitySchema>) => {
+      if (!editing) throw new Error("Nessuna disponibilità selezionata");
+      return updateRoomAvailability({ id: editing.id, ...values });
+    },
     onMutate: () => setSuccess(null),
     onSuccess: async () => {
       setEditing(null);
       setSuccess("Disponibilità aggiornata correttamente.");
-      await queryClient.invalidateQueries({
-        queryKey: ["room-availabilities"],
-      });
+      await queryClient.invalidateQueries({ queryKey: ["room-availabilities"] });
     },
   });
+
   const cancelMutation = useMutation({
-    mutationFn: cancelRoomAvailability,
+    mutationFn: (id: string) => cancelRoomAvailability(id),
     onMutate: () => setSuccess(null),
     onSuccess: async () => {
-      setSuccess("Disponibilità annullata.");
-      await queryClient.invalidateQueries({
-        queryKey: ["room-availabilities"],
-      });
+      setLifecycle(null);
+      setSuccess("Disponibilità annullata e conservata nello storico.");
+      await queryClient.invalidateQueries();
     },
   });
-  const allocationMutation = useMutation({
-    mutationFn: claimRoomAllocation,
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteRoomAvailabilityPermanently(id),
     onMutate: () => setSuccess(null),
     onSuccess: async () => {
-      allocationForm.reset();
+      setLifecycle(null);
+      setSuccess("Disponibilità e dati di scheduling collegati eliminati definitivamente.");
+      await queryClient.invalidateQueries();
+    },
+  });
+
+  const allocationMutation = useMutation({
+    mutationFn: (values: z.infer<typeof allocationSchema>) => claimRoomAllocation(values),
+    onMutate: () => setSuccess(null),
+    onSuccess: async () => {
+      allocationForm.reset({ availabilityId: "", campaignAreaId: "", startsAt: "", endsAt: "" });
       setSuccess("Fascia assegnata alla tua area.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["room-availabilities"] }),
@@ -152,19 +164,18 @@ export function AvailabilityPage() {
     },
   });
 
-  const [filterDate, setFilterDate] = useState("");
-  const [filterRoom, setFilterRoom] = useState("");
-  const [onlyFree, setOnlyFree] = useState(false);
   const availabilities = availabilityQuery.data ?? [];
   const filtered = availabilities.filter(
-    (v) =>
+    (availability) =>
       (!filterDate ||
-        (toLocalInput(v.startsAt).slice(0, 10) <= filterDate &&
-          toLocalInput(v.endsAt).slice(0, 10) >= filterDate)) &&
-      (!filterRoom || v.roomId === filterRoom) &&
-      (!onlyFree || v.simultaneousUsage < v.maxSimultaneousInterviews),
+        (toLocalInput(availability.startsAt).slice(0, 10) <= filterDate &&
+          toLocalInput(availability.endsAt).slice(0, 10) >= filterDate)) &&
+      (!filterRoom || availability.roomId === filterRoom) &&
+      (!onlyFree || availability.simultaneousUsage < availability.maxSimultaneousInterviews),
   );
+
   const allocationValues = useWatch({ control: allocationForm.control });
+  const selectedAvailability = availabilities.find((item) => item.id === allocationValues.availabilityId);
   const intervalUsageQuery = useQuery({
     queryKey: [
       "availability-interval-usage",
@@ -182,24 +193,30 @@ export function AvailabilityPage() {
       !isAdmin &&
       Boolean(
         allocationValues.availabilityId &&
-        allocationValues.startsAt &&
-        allocationValues.endsAt &&
-        new Date(allocationValues.endsAt) > new Date(allocationValues.startsAt),
+          allocationValues.startsAt &&
+          allocationValues.endsAt &&
+          new Date(allocationValues.endsAt) > new Date(allocationValues.startsAt),
       ),
     retry: false,
   });
 
-  const selectedAvailability = availabilities.find(
-    (item) => item.id === allocationValues.availabilityId,
-  );
-
   const chooseAvailability = (id: string) => {
-    const item = availabilities.find((v) => v.id === id);
+    const item = availabilities.find((availability) => availability.id === id);
     if (!item) return;
-    allocationForm.setValue("availabilityId", id);
-    allocationForm.setValue("startsAt", toLocalInput(item.startsAt));
-    allocationForm.setValue("endsAt", toLocalInput(item.endsAt));
+    allocationForm.setValue("availabilityId", id, { shouldValidate: true });
+    allocationForm.setValue("startsAt", toLocalInput(item.startsAt), { shouldValidate: true });
+    allocationForm.setValue("endsAt", toLocalInput(item.endsAt), { shouldValidate: true });
   };
+
+  const pageError =
+    availabilityQuery.error ||
+    roomsQuery.error ||
+    campaignAreasQuery.error ||
+    roomMutation.error ||
+    editMutation.error ||
+    allocationMutation.error ||
+    cancelMutation.error ||
+    deleteMutation.error;
 
   return (
     <div className="page-container">
@@ -208,297 +225,140 @@ export function AvailabilityPage() {
         title="Disponibilità aule"
         description={
           isAdmin
-            ? "Definisci finestre, capacità simultanea e indicazioni operative per le aree."
-            : "Riserva una sottofascia: il database impedisce automaticamente di superare la capacità dell’aula."
+            ? "Definisci finestre, capacità simultanea e indicazioni operative. Per annullare una disponibilità puoi scegliere se conservarla nello storico o eliminarla definitivamente."
+            : "Riserva una sottofascia dalle disponibilità aperte: il database impedisce automaticamente di superare la capacità dell’aula."
         }
       />
 
-      {success && (
-        <div className="form-success page-feedback" role="status">
-          {success}
-        </div>
-      )}
+      {success && <div className="form-success page-feedback" role="status">{success}</div>}
+      {pageError && <div className="form-error" role="alert">{pageError.message}</div>}
 
-      {(availabilityQuery.error ||
-        roomsQuery.error ||
-        cancelMutation.error ||
-        campaignAreasQuery.error) && (
-        <div className="form-error" role="alert">
-          {
-            (
-              availabilityQuery.error ||
-              roomsQuery.error ||
-              cancelMutation.error ||
-              campaignAreasQuery.error
-            )?.message
-          }
-        </div>
-      )}
       <section className="panel filter-bar">
         <label>
           Data
-          <input
-            className="input"
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-          />
+          <input className="input" type="date" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
         </label>
         <label>
           Aula
-          <select
-            className="select"
-            value={filterRoom}
-            onChange={(e) => setFilterRoom(e.target.value)}
-          >
+          <select className="select" value={filterRoom} onChange={(event) => setFilterRoom(event.target.value)}>
             <option value="">Tutte le aule</option>
-            {roomsQuery.data?.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
+            {roomsQuery.data?.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select>
         </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={onlyFree}
-            onChange={(e) => setOnlyFree(e.target.checked)}
-          />{" "}
+        <label className="filter-checkbox">
+          <input type="checkbox" checked={onlyFree} onChange={(event) => setOnlyFree(event.target.checked)} />
           Posti liberi per l’intera fascia
         </label>
       </section>
+
       {isAdmin ? (
         <div className="form-panels">
           <section className="panel">
             <div className="panel__header">
-              <div>
-                <h2>Nuova aula</h2>
-                <p>Configura l’eventuale limite fisico</p>
-              </div>
+              <div><h2>Nuova aula</h2><p>Configura l’eventuale limite fisico</p></div>
               <Warehouse size={20} />
             </div>
-            <form
-              className="panel__body form-grid"
-              onSubmit={roomForm.handleSubmit((values) =>
-                roomMutation.mutate(values),
-              )}
-            >
-              <div className="form-field">
-                <label htmlFor="room-name">Nome aula</label>
-                <input
-                  id="room-name"
-                  className="input"
-                  placeholder="es. F2"
-                  {...roomForm.register("name")}
-                />
-                {roomForm.formState.errors.name && (
-                  <span className="field-error">
-                    {roomForm.formState.errors.name.message}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label htmlFor="room-location">Posizione</label>
-                <input
-                  id="room-location"
-                  className="input"
-                  placeholder="es. Polo E, piano terra"
-                  {...roomForm.register("location")}
-                />
-              </div>
-              <div className="form-field form-field--full">
-                <label htmlFor="room-limit">Limite fisico simultaneo</label>
-                <input
-                  id="room-limit"
-                  className="input"
-                  inputMode="numeric"
-                  placeholder="Vuoto = nessun limite fisico configurato"
-                  {...roomForm.register("physicalLimit")}
-                />
-                <small className="field-help">
-                  La capacità di ogni finestra non potrà superare questo valore.
-                </small>
-                {roomForm.formState.errors.physicalLimit && (
-                  <span className="field-error">
-                    {roomForm.formState.errors.physicalLimit.message}
-                  </span>
-                )}
-              </div>
-              {roomMutation.error && (
-                <div className="form-error form-field--full" role="alert">
-                  {roomMutation.error.message}
-                </div>
-              )}
+            <form className="panel__body form-grid" onSubmit={roomForm.handleSubmit((values) => roomMutation.mutate(values))}>
+              <label className="form-field">
+                Nome aula
+                <input className="input" placeholder="es. F2" {...roomForm.register("name")} />
+                {roomForm.formState.errors.name && <span className="field-error">{roomForm.formState.errors.name.message}</span>}
+              </label>
+              <label className="form-field">
+                Posizione
+                <input className="input" placeholder="es. Polo E, piano terra" {...roomForm.register("location")} />
+              </label>
+              <label className="form-field form-field--full">
+                Limite fisico simultaneo
+                <input className="input" inputMode="numeric" placeholder="Vuoto = nessun limite fisico configurato" {...roomForm.register("physicalLimit")} />
+                <small className="field-help">La capacità di ogni finestra non potrà superare questo valore.</small>
+                {roomForm.formState.errors.physicalLimit && <span className="field-error">{roomForm.formState.errors.physicalLimit.message}</span>}
+              </label>
               <div className="form-actions">
-                <button
-                  className="button button--secondary"
-                  type="submit"
-                  disabled={roomMutation.isPending}
-                >
-                  <Plus size={17} />{" "}
-                  {roomMutation.isPending ? "Creazione…" : "Aggiungi aula"}
+                <button className="button button--secondary" type="submit" disabled={roomMutation.isPending}>
+                  <Plus size={17} /> {roomMutation.isPending ? "Creazione…" : "Aggiungi aula"}
                 </button>
               </div>
             </form>
           </section>
 
-          <DailyAvailabilityForm
-            rooms={roomsQuery.data ?? []}
-            onSuccess={setSuccess}
-          />
+          <DailyAvailabilityForm rooms={roomsQuery.data ?? []} onSuccess={setSuccess} />
         </div>
       ) : (
         <section className="panel allocation-form-panel">
           <div className="panel__header">
             <div>
               <h2>Prendi una fascia</h2>
-              <p>
-                Gli intervalli consecutivi non si sovrappongono: 09:00–10:00 e
-                10:00–11:00 sono compatibili.
-              </p>
+              <p>Gli intervalli consecutivi non si sovrappongono: 09:00–10:00 e 10:00–11:00 sono compatibili.</p>
             </div>
           </div>
-          <form
-            className="panel__body form-grid"
-            onSubmit={allocationForm.handleSubmit((values) =>
-              allocationMutation.mutate(values),
-            )}
-          >
-            <div className="form-field">
-              <label htmlFor="allocation-availability">Disponibilità</label>
+          <form className="panel__body form-grid" onSubmit={allocationForm.handleSubmit((values) => allocationMutation.mutate(values))}>
+            <label className="form-field">
+              Disponibilità
               <select
-                id="allocation-availability"
                 className="select"
                 defaultValue=""
                 {...allocationForm.register("availabilityId", {
-                  onChange: (e) => chooseAvailability(e.target.value),
+                  onChange: (event) => chooseAvailability(event.target.value),
                 })}
               >
-                <option value="" disabled>
-                  Seleziona aula e giornata
-                </option>
+                <option value="" disabled>Seleziona aula e giornata</option>
                 {filtered
                   .filter((item) => item.status === "active")
                   .map((item) => (
                     <option key={item.id} value={item.id}>
-                      {formatDateTime(item.startsAt)} · {item.roomName} ·{" "}
-                      {formatTimeRange(item.startsAt, item.endsAt)} ·{" "}
-                      {item.simultaneousUsage}/{item.maxSimultaneousInterviews}{" "}
-                      occupati
+                      {formatDateTime(item.startsAt)} · {item.roomName} · {formatTimeRange(item.startsAt, item.endsAt)} · {item.simultaneousUsage}/{item.maxSimultaneousInterviews} occupati
                     </option>
                   ))}
               </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="allocation-area">Area e campagna</label>
-              <select
-                id="allocation-area"
-                className="select"
-                defaultValue=""
-                {...allocationForm.register("campaignAreaId")}
-              >
-                <option value="" disabled>
-                  Seleziona area e recruitment
-                </option>
+            </label>
+            <label className="form-field">
+              Area e campagna
+              <select className="select" defaultValue="" {...allocationForm.register("campaignAreaId")}>
+                <option value="" disabled>Seleziona area e recruitment</option>
                 {campaignAreasQuery.data?.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.areaName} · {item.campaignName}
-                  </option>
+                  <option key={item.id} value={item.id}>{item.areaName} · {item.campaignName}</option>
                 ))}
               </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="allocation-start">Inizio fascia</label>
+            </label>
+            <label className="form-field">
+              Inizio fascia
               <input
-                id="allocation-start"
                 className="input"
                 type="datetime-local"
-                min={
-                  selectedAvailability
-                    ? toLocalInput(selectedAvailability.startsAt)
-                    : undefined
-                }
-                max={
-                  selectedAvailability
-                    ? toLocalInput(selectedAvailability.endsAt)
-                    : undefined
-                }
+                min={selectedAvailability ? toLocalInput(selectedAvailability.startsAt) : undefined}
+                max={selectedAvailability ? toLocalInput(selectedAvailability.endsAt) : undefined}
                 {...allocationForm.register("startsAt")}
               />
-            </div>
-            <div className="form-field">
-              <label htmlFor="allocation-end">Fine fascia</label>
+            </label>
+            <label className="form-field">
+              Fine fascia
               <input
-                id="allocation-end"
                 className="input"
                 type="datetime-local"
-                min={
-                  selectedAvailability
-                    ? toLocalInput(selectedAvailability.startsAt)
-                    : undefined
-                }
-                max={
-                  selectedAvailability
-                    ? toLocalInput(selectedAvailability.endsAt)
-                    : undefined
-                }
+                min={selectedAvailability ? toLocalInput(selectedAvailability.startsAt) : undefined}
+                max={selectedAvailability ? toLocalInput(selectedAvailability.endsAt) : undefined}
                 {...allocationForm.register("endsAt")}
               />
-              {allocationForm.formState.errors.endsAt && (
-                <span className="field-error">
-                  {allocationForm.formState.errors.endsAt.message}
-                </span>
-              )}
-            </div>
+            </label>
             {selectedAvailability?.areaNote && (
-              <div className="admin-note form-field--full">
-                <strong>Nota Amministrazione</strong>
-                <p>{selectedAvailability.areaNote}</p>
-              </div>
+              <div className="admin-note form-field--full"><strong>Nota Amministrazione</strong><p>{selectedAvailability.areaNote}</p></div>
             )}
             {intervalUsageQuery.data && (
-              <div
-                className={`capacity-preview form-field--full ${intervalUsageQuery.data.complete ? "capacity-preview--full" : ""}`}
-              >
-                <strong>
-                  Capacità nella fascia: {intervalUsageQuery.data.usage} /{" "}
-                  {intervalUsageQuery.data.capacity}
-                </strong>
-                <span>
-                  {intervalUsageQuery.data.complete
-                    ? "COMPLETA"
-                    : `${intervalUsageQuery.data.remaining} posti disponibili`}
-                </span>
+              <div className={`capacity-preview form-field--full ${intervalUsageQuery.data.complete ? "capacity-preview--full" : ""}`}>
+                <strong>Capacità nella fascia: {intervalUsageQuery.data.usage} / {intervalUsageQuery.data.capacity}</strong>
+                <span>{intervalUsageQuery.data.complete ? "COMPLETA" : `${intervalUsageQuery.data.remaining} posti disponibili`}</span>
               </div>
             )}
-            {intervalUsageQuery.error && (
-              <div className="form-error form-field--full" role="alert">
-                {intervalUsageQuery.error.message}
-              </div>
-            )}
-            {Object.entries(allocationForm.formState.errors).map(
-              ([key, error]) => (
-                <span key={key} className="field-error">
-                  {error.message}
-                </span>
-              ),
-            )}
-            {allocationMutation.error && (
-              <div className="form-error form-field--full" role="alert">
-                {allocationMutation.error.message}
-              </div>
-            )}
+            {intervalUsageQuery.error && <div className="form-error form-field--full">{intervalUsageQuery.error.message}</div>}
+            {Object.entries(allocationForm.formState.errors).map(([key, error]) => (
+              <span key={key} className="field-error">{error.message}</span>
+            ))}
             <div className="form-actions">
               <button
                 className="button button--primary"
                 type="submit"
-                disabled={
-                  allocationMutation.isPending ||
-                  intervalUsageQuery.isFetching ||
-                  Boolean(intervalUsageQuery.error) ||
-                  intervalUsageQuery.data?.complete
-                }
+                disabled={allocationMutation.isPending || intervalUsageQuery.isFetching || Boolean(intervalUsageQuery.error) || intervalUsageQuery.data?.complete}
               >
                 {allocationMutation.isPending ? "Conferma…" : "Conferma fascia"}
               </button>
@@ -510,76 +370,37 @@ export function AvailabilityPage() {
       {isAdmin && editing && (
         <section className="panel edit-availability-panel">
           <div className="panel__header">
-            <div>
-              <h2>Modifica {editing.roomName}</h2>
-              <p>Orari e capacità rispettano le assegnazioni esistenti.</p>
-            </div>
+            <div><h2>Modifica {editing.roomName}</h2><p>Orari e capacità rispettano le assegnazioni esistenti.</p></div>
           </div>
-          <form
-            className="panel__body form-grid"
-            onSubmit={editForm.handleSubmit((values) =>
-              editMutation.mutate({ id: editing.id, ...values }),
-            )}
-          >
-            <input type="hidden" {...editForm.register("roomId")} />
-            <div className="form-field">
-              <label htmlFor="edit-start">Inizio</label>
+          <form className="panel__body form-grid" onSubmit={editForm.handleSubmit((values) => editMutation.mutate(values))}>
+            <label className="form-field">
+              Inizio
+              <input className="input" type="datetime-local" {...editForm.register("startsAt")} />
+            </label>
+            <label className="form-field">
+              Fine
+              <input className="input" type="datetime-local" {...editForm.register("endsAt")} />
+            </label>
+            <label className="form-field">
+              Massimo simultaneo
               <input
-                id="edit-start"
-                className="input"
-                type="datetime-local"
-                {...editForm.register("startsAt")}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="edit-end">Fine</label>
-              <input
-                id="edit-end"
-                className="input"
-                type="datetime-local"
-                {...editForm.register("endsAt")}
-              />
-            </div>
-            <div className="form-field">
-              <label htmlFor="edit-capacity">Massimo simultaneo</label>
-              <input
-                id="edit-capacity"
                 className="input"
                 type="number"
                 min="1"
                 max={editing.roomPhysicalLimit ?? 100}
-                {...editForm.register("maxSimultaneousInterviews", {
-                  valueAsNumber: true,
-                })}
+                {...editForm.register("maxSimultaneousInterviews", { valueAsNumber: true })}
               />
-            </div>
-            <div className="form-field form-field--full">
-              <label htmlFor="edit-note">Nota per le aree</label>
-              <textarea
-                id="edit-note"
-                className="textarea"
-                rows={3}
-                {...editForm.register("areaNote")}
-              />
-            </div>
-            {editMutation.error && (
-              <div className="form-error form-field--full" role="alert">
-                {editMutation.error.message}
-              </div>
-            )}
+            </label>
+            <label className="form-field form-field--full">
+              Nota per le aree
+              <textarea className="textarea" rows={3} {...editForm.register("areaNote")} />
+            </label>
+            {Object.entries(editForm.formState.errors).map(([key, error]) => (
+              <span key={key} className="field-error">{error.message}</span>
+            ))}
             <div className="form-actions">
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => setEditing(null)}
-              >
-                Chiudi
-              </button>
-              <button
-                className="button button--primary"
-                type="submit"
-                disabled={editMutation.isPending}
-              >
+              <button className="button button--secondary" type="button" onClick={() => setEditing(null)}>Chiudi</button>
+              <button className="button button--primary" type="submit" disabled={editMutation.isPending}>
                 {editMutation.isPending ? "Salvataggio…" : "Salva modifiche"}
               </button>
             </div>
@@ -589,117 +410,44 @@ export function AvailabilityPage() {
 
       <section className="panel availability-list-panel">
         <div className="panel__header">
-          <div>
-            <h2>Disponibilità</h2>
-            <p>{availabilities.length} finestre complessive</p>
-          </div>
+          <div><h2>Disponibilità</h2><p>{availabilities.length} finestre complessive</p></div>
         </div>
         <div className="panel__body panel__body--flush">
           {availabilityQuery.isLoading ? (
             <div className="table-loading">Caricamento disponibilità…</div>
-          ) : availabilities.length ? (
+          ) : filtered.length ? (
             <div className="data-table-wrapper">
               <table className="data-table">
                 <thead>
-                  <tr>
-                    <th>Aula</th>
-                    <th>Quando</th>
-                    <th>Capacità</th>
-                    <th>Nota</th>
-                    <th>Stato</th>
-                    <th>Azioni</th>
-                  </tr>
+                  <tr><th>Aula</th><th>Quando</th><th>Capacità</th><th>Nota</th><th>Stato</th><th>Azioni</th></tr>
                 </thead>
                 <tbody>
                   {filtered.map((availability) => {
-                    const complete =
-                      availability.simultaneousUsage >=
-                      availability.maxSimultaneousInterviews;
+                    const complete = availability.simultaneousUsage >= availability.maxSimultaneousInterviews;
                     return (
                       <tr key={availability.id}>
                         <td>
                           <strong>{availability.roomName}</strong>
-                          <span className="table-secondary">
-                            Limite fisico:{" "}
-                            {availability.roomPhysicalLimit ??
-                              "non configurato"}
-                          </span>
+                          <span className="table-secondary">Limite fisico: {availability.roomPhysicalLimit ?? "non configurato"}</span>
                         </td>
                         <td>
                           {formatDateTime(availability.startsAt)}
-                          <span className="table-secondary">
-                            {toLocalInput(availability.startsAt).slice(
-                              0,
-                              10,
-                            ) !== toLocalInput(availability.endsAt).slice(0, 10)
-                              ? `Finestra precedente su più giorni · fino a ${formatDateTime(availability.endsAt)}`
-                              : formatTimeRange(
-                                  availability.startsAt,
-                                  availability.endsAt,
-                                )}
-                          </span>
+                          <span className="table-secondary">{formatTimeRange(availability.startsAt, availability.endsAt)}</span>
                         </td>
                         <td>
-                          <strong>
-                            {availability.simultaneousUsage} /{" "}
-                            {availability.maxSimultaneousInterviews}
-                          </strong>
-                          <span className="table-secondary">
-                            colloqui simultanei
-                          </span>
+                          <strong>{availability.simultaneousUsage} / {availability.maxSimultaneousInterviews}</strong>
+                          <span className="table-secondary">colloqui simultanei</span>
                         </td>
-                        <td>
-                          {availability.seriesId && (
-                            <small className="table-secondary">
-                              Gruppo {availability.seriesId.slice(0, 8)}
-                            </small>
-                          )}
-                          {availability.areaNote || (
-                            <span className="table-secondary">
-                              Nessuna nota
-                            </span>
-                          )}
-                        </td>
+                        <td>{availability.areaNote || <span className="table-secondary">Nessuna nota</span>}</td>
                         <td>
                           <StatusBadge
-                            label={
-                              availability.status === "cancelled"
-                                ? "Annullata"
-                                : complete
-                                  ? "Completa"
-                                  : "Aperta"
-                            }
-                            tone={
-                              availability.status === "cancelled"
-                                ? "neutral"
-                                : complete
-                                  ? "warning"
-                                  : "success"
-                            }
+                            label={availability.status === "cancelled" ? "Annullata" : complete ? "Completa" : "Aperta"}
+                            tone={availability.status === "cancelled" ? "neutral" : complete ? "warning" : "success"}
                           />
-                          {availability.bookedInterviews > 0 && (
-                            <span className="booking-count">
-                              {availability.bookedInterviews} prenotati
-                            </span>
-                          )}
+                          {availability.bookedInterviews > 0 && <span className="booking-count">{availability.bookedInterviews} prenotati</span>}
                         </td>
-                        {!isAdmin && (
-                          <td>
-                            <button
-                              className="button button--secondary button--small"
-                              onClick={() => {
-                                chooseAvailability(availability.id);
-                                document
-                                  .getElementById("allocation-start")
-                                  ?.focus();
-                              }}
-                            >
-                              Seleziona
-                            </button>
-                          </td>
-                        )}
-                        {isAdmin && (
-                          <td>
+                        <td>
+                          {isAdmin ? (
                             <div className="table-actions">
                               <button
                                 className="button button--secondary button--small"
@@ -712,24 +460,34 @@ export function AvailabilityPage() {
                               <button
                                 className="button button--danger button--small"
                                 type="button"
-                                disabled={
-                                  availability.status !== "active" ||
-                                  cancelMutation.isPending
-                                }
+                                disabled={cancelMutation.isPending || deleteMutation.isPending}
                                 onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      "Vuoi annullare questa disponibilità? L'operazione verrà bloccata se contiene colloqui prenotati.",
-                                    )
-                                  )
-                                    cancelMutation.mutate(availability.id);
+                                  if (availability.status === "cancelled") {
+                                    if (window.confirm("Questa disponibilità è già annullata. Vuoi eliminarla definitivamente insieme ai dati di scheduling collegati? L'operazione non è recuperabile.")) {
+                                      deleteMutation.mutate(availability.id);
+                                    }
+                                  } else {
+                                    setLifecycle(availability);
+                                  }
                                 }}
                               >
-                                <Trash2 size={15} /> Annulla
+                                <Trash2 size={15} /> {availability.status === "cancelled" ? "Elimina definitivamente" : "Annulla…"}
                               </button>
                             </div>
-                          </td>
-                        )}
+                          ) : (
+                            <button
+                              className="button button--secondary button--small"
+                              type="button"
+                              disabled={availability.status !== "active"}
+                              onClick={() => {
+                                chooseAvailability(availability.id);
+                                document.querySelector<HTMLInputElement>('input[name="startsAt"]')?.focus();
+                              }}
+                            >
+                              Seleziona
+                            </button>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
@@ -740,15 +498,24 @@ export function AvailabilityPage() {
             <EmptyState
               icon={Warehouse}
               title="Nessuna disponibilità"
-              description={
-                isAdmin
-                  ? "Aggiungi un'aula e apri la prima finestra per iniziare."
-                  : "L’Amministrazione non ha ancora aperto fasce utilizzabili."
-              }
+              description={isAdmin ? "Aggiungi un'aula e apri la prima finestra per iniziare." : "L’Amministrazione non ha ancora aperto fasce utilizzabili."}
             />
           )}
         </div>
       </section>
+
+      {lifecycle && (
+        <CancelDeleteDialog
+          title="Come vuoi annullare la disponibilità?"
+          description="Conservandola, la disponibilità resta visibile come annullata e mantiene lo storico. Eliminandola definitivamente, vengono rimossi anche assegnazioni, sessioni, slot e prenotazioni collegati a questa disponibilità."
+          itemLabel="La disponibilità"
+          pending={cancelMutation.isPending || deleteMutation.isPending}
+          error={(cancelMutation.error || deleteMutation.error)?.message}
+          onClose={() => setLifecycle(null)}
+          onCancelOnly={() => cancelMutation.mutate(lifecycle.id)}
+          onCancelAndDelete={() => deleteMutation.mutate(lifecycle.id)}
+        />
+      )}
     </div>
   );
 }

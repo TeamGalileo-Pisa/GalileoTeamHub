@@ -1,0 +1,249 @@
+.privacy-consent-box {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: rgba(1, 70, 126, 0.12);
+}
+
+.privacy-consent-box details {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.privacy-consent-box summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--white);
+}
+
+.privacy-document-text {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  color: var(--muted-strong);
+}
+
+.privacy-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.privacy-checkbox input {
+  margin-top: 3px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.legal-documents-panel {
+  overflow: hidden;
+}
+
+.legal-document-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 18px 20px 0;
+}
+
+.legal-editor {
+  display: grid;
+  gap: 18px;
+}
+
+.legal-document-textarea {
+  min-height: 320px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.online-leads-list {
+  display: grid;
+  gap: 10px;
+}
+
+.online-lead-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.online-lead-row:last-child {
+  border-bottom: 0;
+}
+
+.online-lead-row > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.online-lead-row small {
+  color: var(--muted);
+}
+
+.online-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 5px rgba(60, 199, 143, 0.12);
+  flex: 0 0 auto;
+}
+
+.cancel-delete-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.lifecycle-choice {
+  min-height: 150px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  color: var(--white);
+  background: var(--navy-soft);
+  cursor: pointer;
+}
+
+.lifecycle-choice span {
+  display: grid;
+  gap: 7px;
+}
+
+.lifecycle-choice small {
+  color: var(--muted-strong);
+  line-height: 1.45;
+}
+
+.lifecycle-choice--archive {
+  border: 1px solid var(--border-strong);
+}
+
+.lifecycle-choice--delete {
+  border: 1px solid rgba(240, 112, 120, 0.55);
+  background: rgba(240, 112, 120, 0.08);
+}
+
+.lifecycle-choice:disabled {
+  opacity: 0.58;
+  cursor: wait;
+}
+
+.calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: center;
+  padding: 14px 18px;
+}
+
+.calendar-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-strong);
+}
+
+.calendar-legend__item i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.calendar-legend__item--booked i {
+  background: var(--azure-light);
+}
+
+.calendar-legend__item--free i {
+  background: var(--success);
+}
+
+.calendar-legend__item--cancelled i {
+  background: var(--muted);
+}
+
+.calendar-item--free {
+  border-left: 4px solid var(--success);
+  background: rgba(60, 199, 143, 0.06);
+}
+
+.calendar-item--confirmed {
+  border-left: 4px solid var(--azure-light);
+}
+
+.calendar-item--cancelled {
+  border-left: 4px solid var(--muted);
+  opacity: 0.72;
+}
+
+.week-appointment--free {
+  border-color: rgba(60, 199, 143, 0.72) !important;
+  background: rgba(60, 199, 143, 0.16) !important;
+}
+
+.week-appointment--confirmed {
+  border-color: var(--border-strong);
+}
+
+.week-appointment--cancelled {
+  opacity: 0.56;
+  filter: saturate(0.45);
+}
+
+.calendar-slot-edit {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.filter-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 760px) {
+  .cancel-delete-choices {
+    grid-template-columns: 1fr;
+  }
+
+  .lifecycle-choice {
+    min-height: auto;
+  }
+
+  .legal-document-tabs {
+    padding-inline: 14px;
+  }
+
+  .legal-document-tabs .button {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .legal-document-textarea {
+    min-height: 260px;
+  }
+
+  .calendar-legend {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .privacy-checkbox {
+    font-size: 0.95rem;
+  }
+}
