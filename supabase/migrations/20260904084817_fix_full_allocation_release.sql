@@ -1,0 +1,4 @@
+-- Historical migration placeholder.
+-- Already applied in production under this timestamp.
+-- Current full-allocation-release behavior is preserved by later canonical migrations.
+-- Keep this file to preserve local/remote migration-history parity.
