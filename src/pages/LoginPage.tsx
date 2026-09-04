@@ -55,17 +55,18 @@ export function LoginPage() {
           <Brand />
           <div className="auth-hero__copy">
             <p className="eyebrow">Team Galileo Pisa</p>
-            <h1 id="auth-title">Colloqui, finalmente semplici.</h1>
+            <h1 id="auth-title">Un unico hub per tutto il Team.</h1>
             <p>
-              Disponibilità, sessioni e candidati in un unico spazio protetto,
-              progettato per far lavorare ogni area senza confusione.
+              GalileoHub nasce come gestionale centrale del Team Galileo: oggi
+              integra il recruitment e l’organizzazione operativa, domani potrà
+              accogliere nuovi moduli senza cambiare piattaforma.
             </p>
           </div>
           <div className="auth-feature">
             <ShieldCheck size={20} />
             <span>
-              <strong>Accesso riservato</strong>
-              <small>Autorizzazioni verificate direttamente nel database</small>
+              <strong>Accesso riservato e modulare</strong>
+              <small>Permessi e dati separati per ruolo, area e funzione</small>
             </span>
           </div>
         </div>
@@ -76,15 +77,16 @@ export function LoginPage() {
           <span className="auth-card__icon" aria-hidden="true">
             <LockKeyhole size={22} />
           </span>
-          <h2>Accedi al gestionale</h2>
+          <h2>Accedi a GalileoHub</h2>
           <p className="auth-card__intro">
             Usa le credenziali assegnate al tuo ruolo o alla tua area.
           </p>
 
           {!appConfig.hasSupabaseConfiguration && (
             <div className="info-callout" role="status">
-              Configura le variabili Supabase in Netlify per abilitare
-              l’accesso. Nessuna credenziale viene salvata nel repository.
+              Configura le variabili pubbliche Supabase nella build Cloudflare
+              per abilitare l’accesso. Nessuna credenziale viene salvata nel
+              repository.
             </div>
           )}
 
@@ -138,17 +140,15 @@ export function LoginPage() {
             <button
               className="button button--primary auth-submit"
               type="submit"
-              disabled={
-                isSubmitting || !appConfig.hasSupabaseConfiguration
-              }
+              disabled={isSubmitting || !appConfig.hasSupabaseConfiguration}
             >
               {isSubmitting ? "Accesso in corso…" : "Accedi"}
             </button>
           </form>
 
           <p className="auth-card__note">
-            I candidati non devono accedere: ricevono direttamente il link
-            privato per scegliere lo slot.
+            Le pagine pubbliche, come la prenotazione dei colloqui, restano
+            accessibili tramite link dedicati senza richiedere un account.
           </p>
         </div>
       </section>
