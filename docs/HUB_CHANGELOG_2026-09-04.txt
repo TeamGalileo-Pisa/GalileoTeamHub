@@ -1,0 +1,65 @@
+GALILEOHUB - RESOCONTO MODIFICHE 04/09/2026
+
+Stato del documento: resoconto tecnico della release in preparazione. Il completamento definitivo dipende dall'esito del deploy Supabase e Cloudflare successivo al merge della hotfix.
+
+1. Pulizia dati di test
+- Preparata una migration separata per cancellare i soli dati di recruitment e scheduling creati durante i test.
+- Dati destinati alla cancellazione: email_deliveries di test, booking_privacy_consents, audit log legati a recruitment/scheduling, bookings, candidates, booking_links di sessione, slots, interview_sessions, area_allocations, room_availabilities, campaign_areas e recruitment_campaigns.
+- Dati esplicitamente preservati: auth users, profiles, system_roles, area_memberships, areas, rooms, announcements e link pubblici stabili per area.
+
+2. Privacy lato utente
+- Aggiunta tabella legal_documents con documenti Privacy e Termini di Servizio versionati.
+- Aggiunta tabella booking_privacy_consents per registrare versione dell'informativa accettata e timestamp.
+- Il modulo pubblico richiede l'accettazione esplicita della Privacy prima della prenotazione.
+- Il backend controlla che la versione accettata sia quella corrente.
+- La prenotazione non può essere completata senza consenso valido.
+
+3. Termini di Servizio e Privacy lato Amministrazione
+- Aggiunta pagina dedicata nel profilo Amministrazione.
+- I documenti sono leggibili e modificabili dall'Amministrazione.
+- Ogni salvataggio incrementa la versione del documento.
+
+4. Presenza online Capi Area
+- Aggiunto heartbeat autenticato del gestionale.
+- L'Amministrazione può visualizzare i Capi Area considerati online, con nome, username, aree assegnate, ultimo aggiornamento e ultima pagina segnalata.
+- La presenza online è determinata da attività recente e non modifica account o ruoli.
+
+5. Calendario
+- Il calendario è stato esteso per mostrare sia prenotazioni sia slot ancora liberi.
+- Gli slot liberi e le prenotazioni sono distinti chiaramente.
+- Le prenotazioni annullate e conservate nello storico continuano a essere visibili come annullate.
+- Amministrazione e Capi Area mantengono i rispettivi limiti di visibilità e gestione per area.
+
+6. Gestione prenotazioni
+- Annulla e conserva: la prenotazione passa ad annullata, resta nello storico e lo slot torna disponibile.
+- Annulla ed elimina definitivamente: la prenotazione viene rimossa insieme ai dati dipendenti specifici; il candidato viene eliminato solo se non ha altre prenotazioni.
+- Lo spostamento verso slot compatibili resta disponibile.
+
+7. Gestione sessioni
+- Aggiunta operazione di annullamento della sessione, con revoca link, chiusura slot liberi, annullamento prenotazioni confermate e rilascio della relativa allocazione.
+- Aggiunta eliminazione definitiva della sessione e dei dati dipendenti quando esplicitamente richiesta.
+
+8. Gestione slot
+- Aggiunta eliminazione definitiva dello slot quando consentito.
+- Uno slot con prenotazione confermata non può essere eliminato direttamente.
+
+9. Disponibilità aule e fasce area
+- Aggiunta eliminazione definitiva della disponibilità, riservata all'Amministrazione.
+- Aggiunta eliminazione definitiva dell'allocazione di area quando richiesta.
+- La cancellazione definitiva libera la capacità sottostante eliminando i record di scheduling collegati.
+
+10. Assistenza
+- Aggiornata la guida interna con Privacy, Termini, presenza online, calendario con slot liberi, differenza tra annullamento e cancellazione definitiva e nuove funzioni di gestione.
+
+11. Sicurezza e vincoli
+- Le nuove funzioni database verificano i permessi esistenti tramite private.is_admin(), private.can_manage_session() e private.can_manage_allocation().
+- Nessuna password, chiave o secret è stato inserito nel frontend o nel repository.
+- Gli account non sono inclusi nella pulizia test.
+
+12. Hotfix Supabase
+- La prima migration combinata della PR #15 è stata rifiutata da Supabase prima di essere applicata a causa dell'uso di pg_catalog.trim(text).
+- Poiché la migration era racchiusa in una transazione, il database non ha applicato parzialmente quella migration.
+- La migration fallita è stata rimossa e sostituita da quattro migration separate: legal/privacy, presenza online, calendario/lifecycle, pulizia dati test.
+- La funzione corretta usata per eliminare spazi iniziali/finali è pg_catalog.btrim().
+
+FINE DOCUMENTO
