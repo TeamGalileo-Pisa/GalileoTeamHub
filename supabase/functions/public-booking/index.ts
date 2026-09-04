@@ -14,6 +14,8 @@ interface BookingRequest {
   firstName?: string;
   lastName?: string;
   email?: string;
+  privacyAccepted?: boolean;
+  privacyVersion?: number;
 }
 
 function snakeToCamelAvailability(data: Record<string, unknown>) {
@@ -40,6 +42,9 @@ function bookingErrorCode(message: string): string {
     "INVALID_BOOKING_LINK",
     "INVALID_CANDIDATE_NAME",
     "INVALID_EMAIL",
+    "PRIVACY_CONSENT_REQUIRED",
+    "PRIVACY_VERSION_OUTDATED",
+    "PRIVACY_NOT_CONFIGURED",
   ];
 
   return knownCodes.find((code) => message.includes(code)) ?? "BOOKING_FAILED";
@@ -100,12 +105,23 @@ Deno.serve(async (request) => {
       return jsonResponse(request, { error: validationError }, 400);
     }
 
+    if (
+      body.privacyAccepted !== true ||
+      typeof body.privacyVersion !== "number" ||
+      !Number.isSafeInteger(body.privacyVersion) ||
+      body.privacyVersion < 1
+    ) {
+      return jsonResponse(request, { error: "PRIVACY_CONSENT_REQUIRED" }, 400);
+    }
+
     const { data, error } = await client.rpc("book_public_slot", {
       p_token: body.token,
       p_slot_id: fields.slotId,
       p_first_name: fields.firstName,
       p_last_name: fields.lastName,
       p_email: fields.email,
+      p_privacy_accepted: true,
+      p_privacy_version: body.privacyVersion,
     });
 
     if (error) {
@@ -123,8 +139,6 @@ Deno.serve(async (request) => {
 
     const result = data as Record<string, unknown>;
     if (typeof result.delivery_id === "string") {
-      // The booking transaction is already committed. The durable cron worker
-      // retries even if this isolate is terminated before delivery completes.
       EdgeRuntime.waitUntil(
         sendQueuedEmail(client, result.delivery_id).catch(() => undefined),
       );
