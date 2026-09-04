@@ -46,7 +46,7 @@ export function SessionsPage() {
     mutationFn: getAreaBookingLink,
     onMutate: () => { setGeneratedLink(null); setLinkFeedback(null); setCopyFeedback(null); },
     onSuccess: async (token) => {
-      setGeneratedLink(`${window.location.origin}/${token}`);
+      setGeneratedLink(`${window.location.origin}/book/${token}`);
       setLinkFeedback("Link stabile dell’area: non cambia quando aggiungi o aggiorni gli slot.");
       await queryClient.invalidateQueries({ queryKey: ["interview-sessions"] });
     },
@@ -90,7 +90,7 @@ export function SessionsPage() {
               <td>
                 <button className="button button--primary button--small" onClick={() => setManaging(session.id)}>Gestisci</button>{" "}
                 <button className="button button--secondary button--small" type="button" disabled={linkMutation.isPending} onClick={() => linkMutation.mutate(session.areaId)}><Link2 size={15} />{linkMutation.isPending && linkMutation.variables === session.areaId ? "Apertura…" : "Link area"}</button>
-                {session.bookingLinkActive && <span className="table-secondary">URL stabile: /area-… · include tutte le giornate e tutte le aule dell’area.</span>}
+                {session.bookingLinkActive && <span className="table-secondary">URL: /book/area-… · include tutte le giornate e tutte le aule dell’area.</span>}
               </td>
             </tr>)}
           </tbody></table></div> : <EmptyState icon={ListChecks} title="Nessuna sessione" description="Prima prendi una fascia dalle disponibilità, poi crea qui la sessione di colloqui." />}
