@@ -10,34 +10,22 @@ const AreasPage = lazy(() =>
   import("./pages/AreasPage").then((module) => ({ default: module.AreasPage })),
 );
 const AnnouncementsPage = lazy(() =>
-  import("./pages/AnnouncementsPage").then((module) => ({
-    default: module.AnnouncementsPage,
-  })),
+  import("./pages/AnnouncementsPage").then((module) => ({ default: module.AnnouncementsPage })),
 );
 const AvailabilityPage = lazy(() =>
-  import("./pages/AvailabilityPage").then((module) => ({
-    default: module.AvailabilityPage,
-  })),
+  import("./pages/AvailabilityPage").then((module) => ({ default: module.AvailabilityPage })),
 );
 const CalendarPage = lazy(() =>
-  import("./pages/CalendarPage").then((module) => ({
-    default: module.CalendarPage,
-  })),
+  import("./pages/CalendarPage").then((module) => ({ default: module.CalendarPage })),
 );
 const CampaignsPage = lazy(() =>
-  import("./pages/CampaignsPage").then((module) => ({
-    default: module.CampaignsPage,
-  })),
+  import("./pages/CampaignsPage").then((module) => ({ default: module.CampaignsPage })),
 );
 const ChangePasswordPage = lazy(() =>
-  import("./pages/ChangePasswordPage").then((module) => ({
-    default: module.ChangePasswordPage,
-  })),
+  import("./pages/ChangePasswordPage").then((module) => ({ default: module.ChangePasswordPage })),
 );
 const DashboardPage = lazy(() =>
-  import("./pages/DashboardPage").then((module) => ({
-    default: module.DashboardPage,
-  })),
+  import("./pages/DashboardPage").then((module) => ({ default: module.DashboardPage })),
 );
 const LoginPage = lazy(() =>
   import("./pages/LoginPage").then((module) => ({ default: module.LoginPage })),
@@ -45,20 +33,17 @@ const LoginPage = lazy(() =>
 const HelpPage = lazy(() =>
   import("./pages/HelpPage").then((module) => ({ default: module.HelpPage })),
 );
+const LegalDocumentsPage = lazy(() =>
+  import("./pages/LegalDocumentsPage").then((module) => ({ default: module.LegalDocumentsPage })),
+);
 const NotFoundPage = lazy(() =>
-  import("./pages/NotFoundPage").then((module) => ({
-    default: module.NotFoundPage,
-  })),
+  import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
 const PublicBookingPage = lazy(() =>
-  import("./pages/PublicBookingPage").then((module) => ({
-    default: module.PublicBookingPage,
-  })),
+  import("./pages/PublicBookingPage").then((module) => ({ default: module.PublicBookingPage })),
 );
 const SessionsPage = lazy(() =>
-  import("./pages/SessionsPage").then((module) => ({
-    default: module.SessionsPage,
-  })),
+  import("./pages/SessionsPage").then((module) => ({ default: module.SessionsPage })),
 );
 const StaffPage = lazy(() =>
   import("./pages/StaffPage").then((module) => ({ default: module.StaffPage })),
@@ -91,10 +76,7 @@ export default function App() {
 
               <Route element={<ProtectedRoute adminOnly />}>
                 <Route path="/admin" element={<DashboardPage />} />
-                <Route
-                  path="/admin/disponibilita"
-                  element={<AvailabilityPage />}
-                />
+                <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
                 <Route path="/admin/calendario" element={<CalendarPage />} />
                 <Route path="/admin/sessioni" element={<SessionsPage />} />
                 <Route path="/admin/bacheca" element={<AnnouncementsPage />} />
@@ -102,6 +84,7 @@ export default function App() {
                 <Route path="/admin/aree" element={<AreasPage />} />
                 <Route path="/admin/recruitment" element={<CampaignsPage />} />
                 <Route path="/admin/account" element={<StaffPage />} />
+                <Route path="/admin/legal" element={<LegalDocumentsPage />} />
               </Route>
             </Route>
           </Route>
