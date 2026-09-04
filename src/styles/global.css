@@ -1868,6 +1868,13 @@ p {
   font-size: 16px;
 }
 
+.booking-card__availability-summary {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 9px;
+}
+
 .booking-days {
   display: grid;
   gap: 23px;

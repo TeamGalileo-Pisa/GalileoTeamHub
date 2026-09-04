@@ -49,8 +49,16 @@ export function PublicBookingPage() {
     () => availabilityQuery.data?.slots ?? [],
     [availabilityQuery.data?.slots],
   );
-  const days = useMemo(() => groupByDay(slots), [slots]);
-  const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
+  const sortedSlots = useMemo(
+    () =>
+      [...slots].sort(
+        (a, b) =>
+          new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime(),
+      ),
+    [slots],
+  );
+  const days = useMemo(() => groupByDay(sortedSlots), [sortedSlots]);
+  const selectedSlot = sortedSlots.find((slot) => slot.id === selectedSlotId);
 
   if (confirmation) {
     return (
@@ -143,6 +151,10 @@ export function PublicBookingPage() {
               <div>
                 <p>{availabilityQuery.data?.areaName}</p>
                 <h2>{availabilityQuery.data?.sessionName}</h2>
+                <small className="booking-card__availability-summary">
+                  {days.length} {days.length === 1 ? "giorno" : "giorni"} ·{" "}
+                  {slots.length} {slots.length === 1 ? "slot libero" : "slot liberi"} · tutte le aule
+                </small>
               </div>
             </div>
 
