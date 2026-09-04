@@ -33,6 +33,18 @@ function snakeToCamelAvailability(data: Record<string, unknown>) {
   };
 }
 
+function bookingErrorCode(message: string): string {
+  const knownCodes = [
+    "SLOT_UNAVAILABLE",
+    "INVALID_STUDENT_EMAIL",
+    "INVALID_BOOKING_LINK",
+    "INVALID_CANDIDATE_NAME",
+    "INVALID_EMAIL",
+  ];
+
+  return knownCodes.find((code) => message.includes(code)) ?? "BOOKING_FAILED";
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders(request) });
@@ -84,8 +96,9 @@ Deno.serve(async (request) => {
     const validationError = validateBookingFields(
       body as Record<string, unknown>,
     );
-    if (validationError)
+    if (validationError) {
       return jsonResponse(request, { error: validationError }, 400);
+    }
 
     const { data, error } = await client.rpc("book_public_slot", {
       p_token: body.token,
@@ -96,17 +109,15 @@ Deno.serve(async (request) => {
     });
 
     if (error) {
-      const isConflict = error.message.includes("SLOT_UNAVAILABLE");
+      const code = bookingErrorCode(error.message);
       return jsonResponse(
         request,
-        {
-          error: isConflict
-            ? "SLOT_UNAVAILABLE"
-            : error.message.includes("INVALID_STUDENT_EMAIL")
-              ? "INVALID_STUDENT_EMAIL"
-              : "BOOKING_FAILED",
-        },
-        isConflict ? 409 : 400,
+        { error: code },
+        code === "SLOT_UNAVAILABLE"
+          ? 409
+          : code === "INVALID_BOOKING_LINK"
+            ? 404
+            : 400,
       );
     }
 
