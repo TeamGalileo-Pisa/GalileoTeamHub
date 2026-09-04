@@ -1,0 +1,4 @@
+-- Historical migration placeholder.
+-- Already applied in production under this timestamp.
+-- Current booking validation is maintained by the later canonical booking migrations.
+-- Keep this file to preserve local/remote migration-history parity.
