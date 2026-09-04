@@ -20,15 +20,14 @@ import type { BookingConfirmation } from "../types/domain";
 import { bookingSchema as schema } from "../lib/booking-validation";
 
 export function PublicBookingPage() {
-  const { token = "", areaSlug = "" } = useParams();
-  const bookingToken = areaSlug ? `area-${areaSlug}` : token;
+  const { token = "" } = useParams();
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(
     null,
   );
   const availabilityQuery = useQuery({
-    queryKey: ["public-booking", bookingToken],
-    queryFn: () => getPublicBookingAvailability(bookingToken),
-    enabled: Boolean(bookingToken && appConfig.hasSupabaseConfiguration),
+    queryKey: ["public-booking", token],
+    queryFn: () => getPublicBookingAvailability(token),
+    enabled: Boolean(token && appConfig.hasSupabaseConfiguration),
     retry: false,
   });
   const form = useForm<z.infer<typeof schema>>({
@@ -40,7 +39,7 @@ export function PublicBookingPage() {
     mutationFn: (values: z.infer<typeof schema>) => {
       if (!selectedSlotId) throw new Error("Seleziona prima uno slot");
       return createPublicBooking({
-        token: bookingToken,
+        token,
         ...values,
       });
     },
@@ -88,7 +87,9 @@ export function PublicBookingPage() {
             </div>
             <div>
               <dt>Orario</dt>
-              <dd>{formatTimeRange(confirmation.startsAt, confirmation.endsAt)}</dd>
+              <dd>
+                {formatTimeRange(confirmation.startsAt, confirmation.endsAt)}
+              </dd>
             </div>
             <div>
               <dt>Aula</dt>
@@ -114,7 +115,7 @@ export function PublicBookingPage() {
       <div className="public-page__topbar">
         <Brand />
         <span className="private-link-badge">
-          <ShieldCheck size={15} /> Link area
+          <ShieldCheck size={15} /> Link privato
         </span>
       </div>
 
@@ -122,8 +123,8 @@ export function PublicBookingPage() {
         <p className="eyebrow">Recruitment Team Galileo</p>
         <h1>Prenota il tuo colloquio</h1>
         <p>
-          Scegli un orario disponibile tra tutte le giornate e le aule dell’area
-          e inserisci i soli dati necessari per ricevere la conferma.
+          Scegli un orario disponibile e inserisci i soli dati necessari per
+          ricevere la conferma.
         </p>
       </section>
 
@@ -132,23 +133,27 @@ export function PublicBookingPage() {
           Il servizio di prenotazione non è ancora configurato.
         </section>
       ) : availabilityQuery.isLoading ? (
-        <section className="public-loading">Caricamento orari disponibili…</section>
+        <section className="public-loading">
+          Caricamento orari disponibili…
+        </section>
       ) : availabilityQuery.error ? (
         <section className="public-error-card" role="alert">
-          Questo link non è valido oppure l’area è stata disattivata. Chiedi il
-          link aggiornato al tuo Capo Area.
+          Questo link non è valido, è scaduto oppure è stato disattivato. Chiedi
+          un nuovo invito al tuo Capo Area.
         </section>
       ) : (
         <div className="booking-layout">
           <section className="booking-card">
             <div className="booking-card__header">
-              <span><CalendarDays size={19} /></span>
+              <span>
+                <CalendarDays size={19} />
+              </span>
               <div>
                 <p>{availabilityQuery.data?.areaName}</p>
                 <h2>{availabilityQuery.data?.sessionName}</h2>
                 <small className="booking-card__availability-summary">
-                  {days.length} {days.length === 1 ? "giorno" : "giorni"} · {slots.length}{" "}
-                  {slots.length === 1 ? "slot libero" : "slot liberi"} · tutte le aule
+                  {days.length} {days.length === 1 ? "giorno" : "giorni"} ·{" "}
+                  {slots.length} {slots.length === 1 ? "slot libero" : "slot liberi"} · tutte le aule
                 </small>
               </div>
             </div>
@@ -166,12 +171,18 @@ export function PublicBookingPage() {
                           key={slot.id}
                           aria-pressed={selectedSlotId === slot.id}
                           onClick={() =>
-                            form.setValue("slotId", slot.id, { shouldValidate: true })
+                            form.setValue("slotId", slot.id, {
+                              shouldValidate: true,
+                            })
                           }
                         >
                           <Clock3 size={15} />
-                          <strong>{formatTimeRange(slot.startsAt, slot.endsAt)}</strong>
-                          <small><MapPin size={12} /> {slot.roomName}</small>
+                          <strong>
+                            {formatTimeRange(slot.startsAt, slot.endsAt)}
+                          </strong>
+                          <small>
+                            <MapPin size={12} /> {slot.roomName}
+                          </small>
                         </button>
                       ))}
                     </div>
@@ -198,37 +209,98 @@ export function PublicBookingPage() {
                 <CalendarCheck size={18} />
                 <span>
                   <strong>{formatBookingDay(selectedSlot.startsAt)}</strong>
-                  <small>{formatTimeRange(selectedSlot.startsAt, selectedSlot.endsAt)} · {selectedSlot.roomName}</small>
+                  <small>
+                    {formatTimeRange(
+                      selectedSlot.startsAt,
+                      selectedSlot.endsAt,
+                    )}{" "}
+                    · {selectedSlot.roomName}
+                  </small>
                 </span>
               </div>
             ) : (
-              <div className="selected-slot-placeholder">Seleziona prima uno degli orari disponibili.</div>
+              <div className="selected-slot-placeholder">
+                Seleziona prima uno degli orari disponibili.
+              </div>
             )}
 
-            <form noValidate className="public-booking-form" onSubmit={form.handleSubmit((values) => bookingMutation.mutate(values))}>
+            <form
+              noValidate
+              className="public-booking-form"
+              onSubmit={form.handleSubmit((values) =>
+                bookingMutation.mutate(values),
+              )}
+            >
               <input type="hidden" {...form.register("slotId")} />
-              {form.formState.errors.slotId && <span className="field-error" role="alert">{form.formState.errors.slotId.message}</span>}
+              {form.formState.errors.slotId && (
+                <span className="field-error" role="alert">
+                  {form.formState.errors.slotId.message}
+                </span>
+              )}
               <div className="form-field">
                 <label htmlFor="candidate-first-name">Nome</label>
-                <input id="candidate-first-name" className="input" autoComplete="given-name" {...form.register("firstName")} />
-                {form.formState.errors.firstName && <span className="field-error">{form.formState.errors.firstName.message}</span>}
+                <input
+                  id="candidate-first-name"
+                  className="input"
+                  autoComplete="given-name"
+                  {...form.register("firstName")}
+                />
+                {form.formState.errors.firstName && (
+                  <span className="field-error">
+                    {form.formState.errors.firstName.message}
+                  </span>
+                )}
               </div>
               <div className="form-field">
                 <label htmlFor="candidate-last-name">Cognome</label>
-                <input id="candidate-last-name" className="input" autoComplete="family-name" {...form.register("lastName")} />
-                {form.formState.errors.lastName && <span className="field-error">{form.formState.errors.lastName.message}</span>}
+                <input
+                  id="candidate-last-name"
+                  className="input"
+                  autoComplete="family-name"
+                  {...form.register("lastName")}
+                />
+                {form.formState.errors.lastName && (
+                  <span className="field-error">
+                    {form.formState.errors.lastName.message}
+                  </span>
+                )}
               </div>
               <div className="form-field">
                 <label htmlFor="candidate-email">Email universitaria</label>
-                <input id="candidate-email" className="input" type="email" autoComplete="email" placeholder="nome.cognome@studenti.unipi.it" {...form.register("email")} />
-                {form.formState.errors.email && <span className="field-error">{form.formState.errors.email.message}</span>}
+                <input
+                  id="candidate-email"
+                  className="input"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="nome.cognome@studenti.unipi.it"
+                  {...form.register("email")}
+                />
+                {form.formState.errors.email && (
+                  <span className="field-error">
+                    {form.formState.errors.email.message}
+                  </span>
+                )}
               </div>
-              {bookingMutation.error && <div className="form-error" role="alert">{bookingMutation.error.message}</div>}
-              <button className="button button--primary public-submit" type="submit" disabled={bookingMutation.isPending || !slots.length}>
-                {bookingMutation.isPending ? "Conferma in corso…" : "Conferma prenotazione"}
+              {bookingMutation.error && (
+                <div className="form-error" role="alert">
+                  {bookingMutation.error.message}
+                </div>
+              )}
+              <button
+                className="button button--primary public-submit"
+                type="submit"
+                disabled={bookingMutation.isPending || !slots.length}
+              >
+                {bookingMutation.isPending
+                  ? "Conferma in corso…"
+                  : "Conferma prenotazione"}
               </button>
             </form>
-            <p className="privacy-note">Raccogliamo soltanto nome, cognome, email e dati dell’appuntamento.</p>
+
+            <p className="privacy-note">
+              Raccogliamo soltanto nome, cognome, email e dati
+              dell’appuntamento.
+            </p>
           </aside>
         </div>
       )}

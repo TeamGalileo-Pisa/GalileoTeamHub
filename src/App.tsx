@@ -19,11 +19,6 @@ const AvailabilityPage = lazy(() =>
     default: module.AvailabilityPage,
   })),
 );
-const AreaAvailabilityPage = lazy(() =>
-  import("./pages/AreaAvailabilityPage").then((module) => ({
-    default: module.AreaAvailabilityPage,
-  })),
-);
 const CalendarPage = lazy(() =>
   import("./pages/CalendarPage").then((module) => ({
     default: module.CalendarPage,
@@ -80,7 +75,6 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/book/:token" element={<PublicBookingPage />} />
-        <Route path="/area-:areaSlug" element={<PublicBookingPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/change-password" element={<ChangePasswordPage />} />
@@ -89,7 +83,7 @@ export default function App() {
               <Route index element={<HomeRedirect />} />
 
               <Route path="/area" element={<DashboardPage />} />
-              <Route path="/area/disponibilita" element={<AreaAvailabilityPage />} />
+              <Route path="/area/disponibilita" element={<AvailabilityPage />} />
               <Route path="/area/sessioni" element={<SessionsPage />} />
               <Route path="/area/calendario" element={<CalendarPage />} />
               <Route path="/area/bacheca" element={<AnnouncementsPage />} />
