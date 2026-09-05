@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "../components/EmptyState";
@@ -55,12 +55,19 @@ function RatingFields({
     <>
       <label className="form-field">
         Area
-        <select className="select" disabled={singleArea} {...form.register("areaId")}>
-          <option value="">Seleziona area</option>
-          {areas.map((area) => (
-            <option key={area.id} value={area.id}>{area.name}</option>
-          ))}
-        </select>
+        {singleArea ? (
+          <>
+            <input type="hidden" {...form.register("areaId")} />
+            <input className="input" readOnly value={areas[0]?.name ?? ""} />
+          </>
+        ) : (
+          <select className="select" {...form.register("areaId")}>
+            <option value="">Seleziona area</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>{area.name}</option>
+            ))}
+          </select>
+        )}
         {form.formState.errors.areaId && <span className="field-error">{form.formState.errors.areaId.message}</span>}
       </label>
       <label className="form-field">
@@ -128,10 +135,6 @@ export function RatingsPage() {
       comment: "",
     },
   });
-
-  useEffect(() => {
-    if (access?.areas.length === 1) form.setValue("areaId", access.areas[0].id);
-  }, [access?.areas, form]);
 
   const createMutation = useMutation({
     mutationFn: (values: RatingInput) => createCandidateRating(values),
