@@ -123,21 +123,41 @@ describe("email copy", () => {
     starts_at: "2026-09-21T06:30Z",
     ends_at: "2026-09-21T06:50Z",
   };
-  it("uses the exact subject and official sender", () => {
-    expect(emailCopy(payload).subject).toBe("Colloqui Team Galileo");
+  it("uses the confirmation subject and official sender", () => {
+    expect(emailCopy(payload).subject).toBe("Conferma colloquio · Team Galileo");
     expect(OFFICIAL_EMAIL_FROM).toBe(
       "Team Galileo Pisa <info.teamgalileo@gmail.com>",
     );
   });
-  it("includes Italian date, real end time and required plain text", () => {
-    const { text } = emailCopy(payload);
-    expect(text).toContain("Grazie per aver selezionato il tuo slot orario.");
-    expect(text).toContain("lunedì 21 settembre 2026");
-    expect(text).toContain("Orario: 08:30 - 08:50");
-    expect(text).toContain("Aula: A27");
-    expect(text).toContain("Area: Software");
-    expect(text).toContain("quindi non mancare.");
-    expect(text).not.toContain(payload.delivery_id);
+  it("includes Italian date, real end time, improved copy and responsive HTML", () => {
+    const message = emailCopy(payload);
+    expect(message.text).toContain("La tua prenotazione è confermata");
+    expect(message.text).toContain("lunedì 21 settembre 2026");
+    expect(message.text).toContain("Orario: 08:30 - 08:50");
+    expect(message.text).toContain("Aula: A27");
+    expect(message.text).toContain("Area: Software");
+    expect(message.text).toContain("rispetto dell’impegno preso");
+    expect(message.text).not.toContain(payload.delivery_id);
+    expect(message.html).toContain('name="viewport"');
+    expect(message.html).toContain("max-width:600px");
+    expect(message.html).toContain("Prenotazione confermata");
+  });
+  it("adds the 5067 waiting note only for the meeting room", () => {
+    expect(emailCopy(payload).text).not.toContain("davanti all’aula A28");
+    const roomMessage = emailCopy({ ...payload, room_name: "Aula Riunioni 5067" });
+    expect(roomMessage.text).toContain("davanti all’aula A28");
+    expect(roomMessage.html).toContain("davanti all’aula A28");
+  });
+  it("includes a custom Area Lead reminder without losing appointment details", () => {
+    const message = emailCopy({
+      ...payload,
+      kind: "booking_reminder",
+      custom_message: "Porta con te il CV aggiornato.",
+    });
+    expect(message.text).toContain("Messaggio del Capo Area");
+    expect(message.text).toContain("Porta con te il CV aggiornato.");
+    expect(message.text).toContain("Aula: A27");
+    expect(message.html).toContain("Porta con te il CV aggiornato.");
   });
   it.each([
     "booking_changed",
