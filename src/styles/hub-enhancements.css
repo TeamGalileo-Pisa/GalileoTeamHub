@@ -216,6 +216,34 @@
   gap: 8px;
 }
 
+.availability-cards {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.availability-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.availability-card--selected {
+  border-color: var(--border-strong);
+  background: rgba(1, 70, 126, 0.12);
+}
+
+.availability-card p {
+  margin: 0;
+}
+
+.availability-card .form-grid {
+  margin-top: 4px;
+}
+
 @media (max-width: 760px) {
   .cancel-delete-choices {
     grid-template-columns: 1fr;
@@ -245,5 +273,9 @@
 
   .privacy-checkbox {
     font-size: 0.95rem;
+  }
+
+  .availability-card {
+    padding: 12px;
   }
 }
