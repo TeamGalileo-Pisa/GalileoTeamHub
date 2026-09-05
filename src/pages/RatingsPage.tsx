@@ -113,10 +113,7 @@ export function RatingsPage() {
   const [sort, setSort] = useState<SortMode>("created");
   const [areaFilter, setAreaFilter] = useState(access?.areas[0]?.id ?? "");
   const [editing, setEditing] = useState<CandidateRating | null>(null);
-
-  useEffect(() => {
-    if (!areaFilter && access?.areas[0]?.id) setAreaFilter(access.areas[0].id);
-  }, [access?.areas, areaFilter]);
+  const effectiveAreaFilter = areaFilter || access?.areas[0]?.id || "";
 
   const form = useForm<RatingInput>({
     resolver: zodResolver(ratingSchema),
@@ -161,10 +158,10 @@ export function RatingsPage() {
     onSuccess: async () => cache.invalidateQueries({ queryKey: ["candidate-ratings"] }),
   });
 
-  const allRows = query.data ?? [];
+  const allRows = useMemo(() => query.data ?? [], [query.data]);
   const visibleRows = useMemo(
-    () => sortRatings(isAdmin || !areaFilter ? allRows : allRows.filter((row) => row.areaId === areaFilter), sort),
-    [allRows, areaFilter, isAdmin, sort],
+    () => sortRatings(isAdmin || !effectiveAreaFilter ? allRows : allRows.filter((row) => row.areaId === effectiveAreaFilter), sort),
+    [allRows, effectiveAreaFilter, isAdmin, sort],
   );
 
   if (isAdmin) {
@@ -236,7 +233,7 @@ export function RatingsPage() {
         {(access?.areas.length ?? 0) > 1 && (
           <label>
             Area visualizzata
-            <select className="select" value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
+            <select className="select" value={effectiveAreaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
               {access?.areas.map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
             </select>
           </label>
@@ -251,10 +248,10 @@ export function RatingsPage() {
         </label>
         <button
           className="button button--danger"
-          disabled={!areaFilter || resetMutation.isPending || !visibleRows.length}
+          disabled={!effectiveAreaFilter || resetMutation.isPending || !visibleRows.length}
           onClick={() => {
             if (window.confirm("Reset della lista: eliminare definitivamente tutte le votazioni dell'area selezionata, comprese quelle archiviate?")) {
-              resetMutation.mutate(areaFilter);
+              resetMutation.mutate(effectiveAreaFilter);
             }
           }}
         >
