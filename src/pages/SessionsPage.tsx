@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, ClipboardCopy, Link2, ListChecks } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "../components/EmptyState";
@@ -22,7 +22,7 @@ const schema = z.object({
   duration: z.number().int().min(5).max(180),
 });
 
-export function SessionsPage() {
+export function SessionsPage({ beforeCreate }: { beforeCreate?: ReactNode }) {
   const queryClient = useQueryClient();
   const [managing, setManaging] = useState<string | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
@@ -90,8 +90,10 @@ export function SessionsPage() {
       <PageHeader
         eyebrow="Area"
         title="Sessioni e slot"
-        description="Trasforma una fascia assegnata in una sessione, genera automaticamente gli slot e condividi un link privato."
+        description="Scegli le fasce che ti servono, trasformale in sessioni, genera automaticamente gli slot e usa il link unico della tua area."
       />
+
+      {beforeCreate}
 
       <section className="panel">
         <div className="panel__header">
@@ -121,7 +123,7 @@ export function SessionsPage() {
               {allocationsQuery.data?.map((allocation) => (
                 <option value={allocation.id} key={allocation.id}>
                   {allocation.areaName} · {allocation.roomName} ·{" "}
-                  {formatDateTime(allocation.startsAt)}
+                  {formatDateTime(allocation.startsAt)} · {formatTimeRange(allocation.startsAt, allocation.endsAt)}
                 </option>
               ))}
             </select>
@@ -284,7 +286,7 @@ export function SessionsPage() {
             <EmptyState
               icon={ListChecks}
               title="Nessuna sessione"
-              description="Prima prendi una fascia dalle disponibilità, poi crea qui la sessione di colloqui."
+              description="Prima scegli una o più fasce dalle disponibilità, poi crea qui le sessioni di colloquio."
             />
           )}
         </div>
