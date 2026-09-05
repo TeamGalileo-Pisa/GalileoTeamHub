@@ -7,8 +7,8 @@ import { z } from "zod";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { sendAdminTestEmail } from "../lib/data";
-
 import { guideSections } from "../lib/help-guides";
+import { enhancementGuideSections } from "../lib/help-guides-enhancements";
 import { EmailDiagnostics } from "../components/EmailDiagnostics";
 
 const emailSchema = z.object({
@@ -38,7 +38,7 @@ export function HelpPage() {
   });
   const visibleSections = useMemo(() => {
     const normalized = search.trim().toLocaleLowerCase("it");
-    return guideSections.filter(
+    return [...guideSections, ...enhancementGuideSections].filter(
       (section) =>
         (!section.adminOnly || isAdmin) &&
         (!normalized ||
