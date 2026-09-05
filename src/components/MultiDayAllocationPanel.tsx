@@ -30,9 +30,7 @@ export function MultiDayAllocationPanel() {
       (availabilityQuery.data ?? [])
         .filter(
           (item) =>
-            item.status === "active" &&
-            new Date(item.endsAt).getTime() > Date.now() &&
-            (!roomId || item.roomId === roomId),
+            item.status === "active" && (!roomId || item.roomId === roomId),
         )
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     [availabilityQuery.data, roomId],
@@ -206,7 +204,7 @@ export function MultiDayAllocationPanel() {
         </div>
 
         {!availabilityQuery.isLoading && !active.length && (
-          <p>Nessuna disponibilità futura corrisponde ai filtri selezionati.</p>
+          <p>Nessuna disponibilità corrisponde ai filtri selezionati.</p>
         )}
         {mutation.error && <p className="form-error" role="alert">{mutation.error.message}</p>}
         {feedback && <p className="form-success" role="status">{feedback}</p>}
