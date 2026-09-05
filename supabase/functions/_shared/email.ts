@@ -12,6 +12,7 @@ interface GmailMessage {
   to: string;
   subject: string;
   text: string;
+  html?: string;
   idempotencyId: string;
 }
 
@@ -45,12 +46,35 @@ function buildRawMessage(message: GmailMessage): string {
     `Subject: =?UTF-8?B?${utf8Base64(message.subject)}?=`,
     `Message-ID: ${messageId(message.idempotencyId)}`,
     "MIME-Version: 1.0",
+  ];
+
+  if (!message.html) {
+    headers.push(
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      utf8Base64(message.text),
+    );
+    return base64Url(headers.join("\r\n"));
+  }
+
+  const boundary = `galileo-${message.idempotencyId.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`, "");
+  const body = [
+    `--${boundary}`,
     'Content-Type: text/plain; charset="UTF-8"',
     "Content-Transfer-Encoding: base64",
     "",
     utf8Base64(message.text),
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    utf8Base64(message.html),
+    `--${boundary}--`,
+    "",
   ];
-  return base64Url(headers.join("\r\n"));
+  return base64Url([...headers, ...body].join("\r\n"));
 }
 
 async function gmailAccessToken(): Promise<string> {
@@ -184,6 +208,7 @@ export async function sendQueuedEmail(
       to: payload.to_email,
       subject: message.subject,
       text: message.text,
+      html: message.html,
       idempotencyId: payload.delivery_id,
       reconcileOnly: payload.reconcile_only,
     });
