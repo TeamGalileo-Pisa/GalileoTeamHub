@@ -45,6 +45,12 @@ const PublicBookingPage = lazy(() =>
 const SessionsPage = lazy(() =>
   import("./pages/SessionsPage").then((module) => ({ default: module.SessionsPage })),
 );
+const AreaSessionsPage = lazy(() =>
+  import("./pages/AreaSessionsPage").then((module) => ({ default: module.AreaSessionsPage })),
+);
+const RatingsPage = lazy(() =>
+  import("./pages/RatingsPage").then((module) => ({ default: module.RatingsPage })),
+);
 const StaffPage = lazy(() =>
   import("./pages/StaffPage").then((module) => ({ default: module.StaffPage })),
 );
@@ -69,8 +75,9 @@ export default function App() {
 
               <Route path="/area" element={<DashboardPage />} />
               <Route path="/area/disponibilita" element={<AvailabilityPage />} />
-              <Route path="/area/sessioni" element={<SessionsPage />} />
+              <Route path="/area/sessioni" element={<AreaSessionsPage />} />
               <Route path="/area/calendario" element={<CalendarPage />} />
+              <Route path="/area/votazioni" element={<RatingsPage />} />
               <Route path="/area/bacheca" element={<AnnouncementsPage />} />
               <Route path="/area/assistenza" element={<HelpPage />} />
 
@@ -79,6 +86,7 @@ export default function App() {
                 <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
                 <Route path="/admin/calendario" element={<CalendarPage />} />
                 <Route path="/admin/sessioni" element={<SessionsPage />} />
+                <Route path="/admin/votazioni" element={<RatingsPage />} />
                 <Route path="/admin/bacheca" element={<AnnouncementsPage />} />
                 <Route path="/admin/assistenza" element={<HelpPage />} />
                 <Route path="/admin/aree" element={<AreasPage />} />

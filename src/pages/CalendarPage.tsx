@@ -13,6 +13,7 @@ import {
 import {
   deleteBookingPermanently,
   deleteSlotPermanently,
+  sendBookingReminder,
 } from "../lib/hub-enhancements";
 import { rpc } from "../lib/operations";
 import {
@@ -92,7 +93,7 @@ export function CalendarPage() {
       <PageHeader
         eyebrow={access?.isAdmin ? "Calendario generale" : "Calendario area"}
         title="Calendario colloqui e slot"
-        description="Vedi nello stesso calendario appuntamenti prenotati, prenotazioni annullate conservate nello storico e slot ancora liberi. Puoi spostare, modificare, annullare o eliminare definitivamente secondo i tuoi permessi. Orari Europe/Rome."
+        description="Vedi nello stesso calendario appuntamenti prenotati, prenotazioni annullate conservate nello storico e slot ancora liberi. Puoi spostare, modificare, annullare o eliminare definitivamente secondo i tuoi permessi. I Capi Area possono anche inviare reminder personalizzati via email. Orari Europe/Rome."
       />
 
       <section className="panel calendar-legend" aria-label="Legenda calendario">
@@ -207,7 +208,11 @@ export function CalendarPage() {
       )}
 
       {selected?.kind === "booking" && (
-        <BookingManager item={selected} onClose={() => setSelected(null)} />
+        <BookingManager
+          item={selected}
+          canSendReminder={!access?.isAdmin}
+          onClose={() => setSelected(null)}
+        />
       )}
       {selected?.kind === "free" && (
         <FreeSlotManager item={selected} onClose={() => setSelected(null)} />
@@ -280,10 +285,20 @@ function WeekCalendar({
   );
 }
 
-function BookingManager({ item, onClose }: { item: CalendarItem; onClose: () => void }) {
+function BookingManager({
+  item,
+  canSendReminder,
+  onClose,
+}: {
+  item: CalendarItem;
+  canSendReminder: boolean;
+  onClose: () => void;
+}) {
   const cache = useQueryClient();
   const [destination, setDestination] = useState("");
   const [lifecycleOpen, setLifecycleOpen] = useState(false);
+  const [reminderText, setReminderText] = useState("");
+  const [reminderSent, setReminderSent] = useState(false);
   const bookingId = item.bookingId ?? "";
 
   const slots = useQuery({
@@ -306,8 +321,17 @@ function BookingManager({ item, onClose }: { item: CalendarItem; onClose: () => 
     },
   });
 
+  const reminderMutation = useMutation({
+    mutationFn: () => sendBookingReminder(bookingId, reminderText),
+    onMutate: () => setReminderSent(false),
+    onSuccess: () => {
+      setReminderText("");
+      setReminderSent(true);
+    },
+  });
+
   return (
-    <Modal title={item.candidateName || "Prenotazione"} onClose={() => { if (!mutation.isPending) onClose(); }}>
+    <Modal title={item.candidateName || "Prenotazione"} onClose={() => { if (!mutation.isPending && !reminderMutation.isPending) onClose(); }}>
       <dl className="confirmation-details">
         <div><dt>Email</dt><dd>{item.candidateEmail || "—"}</dd></div>
         <div><dt>Appuntamento</dt><dd>{formatDateTime(item.startsAt)} · {formatTimeRange(item.startsAt, item.endsAt)}</dd></div>
@@ -339,6 +363,38 @@ function BookingManager({ item, onClose }: { item: CalendarItem; onClose: () => 
               Annulla prenotazione…
             </button>
           </div>
+
+          {canSendReminder && (
+            <section className="admin-note">
+              <strong>Invia reminder via email</strong>
+              <p>Scrivi il messaggio che vuoi far arrivare al candidato. I dettagli di giorno, orario, aula e area vengono aggiunti automaticamente alla mail.</p>
+              <label className="form-field">
+                Testo personalizzato
+                <textarea
+                  className="textarea"
+                  rows={5}
+                  maxLength={2000}
+                  value={reminderText}
+                  onChange={(event) => setReminderText(event.target.value)}
+                  placeholder="es. Ti ricordiamo di presentarti 5 minuti prima dell'orario concordato."
+                />
+              </label>
+              <div className="form-actions">
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={reminderMutation.isPending || !reminderText.trim()}
+                  onClick={() => {
+                    if (window.confirm(`Inviare questo reminder a ${item.candidateEmail || "questo candidato"}?`)) reminderMutation.mutate();
+                  }}
+                >
+                  {reminderMutation.isPending ? "Invio…" : "Manda reminder"}
+                </button>
+              </div>
+              {reminderSent && <p className="form-success" role="status">Reminder inserito nella coda email. Verrà inviato tramite l'account ufficiale Team Galileo.</p>}
+              {reminderMutation.error && <p className="form-error" role="alert">{reminderMutation.error.message}</p>}
+            </section>
+          )}
         </>
       )}
 

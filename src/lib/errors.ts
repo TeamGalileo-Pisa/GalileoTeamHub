@@ -6,6 +6,12 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ["LEGAL_DOCUMENT_NOT_FOUND", "Il documento richiesto non è disponibile."],
   ["AVAILABILITY_NOT_FOUND", "La disponibilità non esiste oppure è già stata eliminata."],
   ["FORBIDDEN_OR_NOT_FOUND", "L'elemento non esiste oppure non hai i permessi per gestirlo."],
+  ["INVALID_ALLOCATION_BATCH", "Seleziona almeno una giornata valida e controlla le fasce orarie scelte."],
+  ["INVALID_REMINDER_MESSAGE", "Scrivi un testo per il reminder compreso tra 1 e 2000 caratteri."],
+  ["AREA_LEAD_ONLY", "Questa funzione è riservata ai Capi Area."],
+  ["INVALID_SCORE", "La votazione deve essere compresa tra 1 e 30."],
+  ["READ_ONLY_ADMIN", "Amministrazione può consultare le singole votazioni ma non modificarle, archiviarle o eliminarle."],
+  ["ARCHIVED_CAMPAIGN_IMMUTABLE", "Un recruitment archiviato non può essere riattivato. Puoi conservarlo nello storico oppure eliminarlo definitivamente."],
   [
     "INVALID_STUDENT_EMAIL",
     "Utilizza la tua email universitaria @studenti.unipi.it.",
