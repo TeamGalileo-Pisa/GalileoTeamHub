@@ -27,6 +27,7 @@ const adminNavigation = [
   { to: "/admin/disponibilita", label: "Disponibilità", icon: Warehouse },
   { to: "/admin/calendario", label: "Calendario", icon: CalendarDays },
   { to: "/admin/sessioni", label: "Sessioni e slot", icon: ClipboardList },
+  { to: "/admin/votazioni", label: "Votazioni", icon: ClipboardList },
   { to: "/admin/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
   { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
@@ -40,6 +41,7 @@ const areaNavigation = [
   { to: "/area/disponibilita", label: "Disponibilità", icon: Warehouse },
   { to: "/area/sessioni", label: "Sessioni e slot", icon: ClipboardList },
   { to: "/area/calendario", label: "Calendario", icon: CalendarDays },
+  { to: "/area/votazioni", label: "Votazioni", icon: ClipboardList },
   { to: "/area/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
 ];
