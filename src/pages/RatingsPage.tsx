@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, Download, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import {
   updateCandidateRating,
   type CandidateRating,
 } from "../lib/hub-enhancements";
+import { downloadRatingsPdf } from "../lib/ratings-pdf";
 
 const ratingSchema = z.object({
   areaId: z.string().uuid("Seleziona un'area"),
@@ -177,7 +178,7 @@ export function RatingsPage() {
         <PageHeader
           eyebrow="Amministrazione"
           title="Votazioni"
-          description="Consulta le valutazioni inserite dai Capi Area. Amministrazione ha accesso in sola lettura; l'unica operazione disponibile è il reset generale."
+          description="Consulta le valutazioni inserite dai Capi Area. Puoi esportare un PDF separato per ciascuna area; i dati restano in sola lettura e l'unica operazione distruttiva disponibile è il reset generale."
         />
         <section className="panel filter-bar">
           <label>
@@ -207,7 +208,13 @@ export function RatingsPage() {
           <EmptyState icon={Archive} title="Nessuna votazione" description="I giudizi inseriti dai Capi Area compariranno qui, divisi per area." />
         )}
         {Object.entries(grouped).map(([areaName, rows]) => (
-          <RatingsTable key={areaName} title={areaName} rows={rows} readOnly />
+          <RatingsTable
+            key={areaName}
+            title={areaName}
+            rows={rows}
+            readOnly
+            onExport={() => downloadRatingsPdf(areaName, rows)}
+          />
         ))}
       </div>
     );
@@ -304,6 +311,7 @@ function RatingsTable({
   onEdit,
   onArchive,
   onDelete,
+  onExport,
 }: {
   title: string;
   rows: CandidateRating[];
@@ -311,10 +319,18 @@ function RatingsTable({
   onEdit?: (row: CandidateRating) => void;
   onArchive?: (row: CandidateRating) => void;
   onDelete?: (row: CandidateRating) => void;
+  onExport?: () => void;
 }) {
   return (
     <section className="panel availability-list-panel">
-      <div className="panel__header"><div><h2>{title}</h2><p>{rows.length} elementi</p></div></div>
+      <div className="panel__header">
+        <div><h2>{title}</h2><p>{rows.length} elementi</p></div>
+        {onExport && (
+          <button type="button" className="button button--secondary button--small" onClick={onExport}>
+            <Download size={15} /> Esporta PDF
+          </button>
+        )}
+      </div>
       <div className="panel__body panel__body--flush">
         <div className="data-table-wrapper">
           <table className="data-table">
