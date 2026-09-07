@@ -280,7 +280,11 @@ export function createRatingsPdf(
 
 export function downloadRatingsPdf(areaName: string, rows: CandidateRating[]): void {
   const bytes = createRatingsPdf(areaName, rows);
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blobBytes = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+  const blob = new Blob([blobBytes], { type: "application/pdf" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Rome" });
