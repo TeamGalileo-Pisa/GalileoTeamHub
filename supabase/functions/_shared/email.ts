@@ -96,10 +96,19 @@ async function gmailAccessToken(): Promise<string> {
       grant_type: "refresh_token",
     }),
   });
-  if (!response.ok) throw new Error("GMAIL_OAUTH_FAILED");
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: unknown }
+      | null;
+    const reason =
+      typeof payload?.error === "string" && /^[a-z0-9_]+$/i.test(payload.error)
+        ? payload.error
+        : `http_${response.status}`;
+    throw new Error(`GMAIL_OAUTH_FAILED:${reason}`);
+  }
 
   const payload = (await response.json()) as { access_token?: string };
-  if (!payload.access_token) throw new Error("GMAIL_OAUTH_FAILED");
+  if (!payload.access_token) throw new Error("GMAIL_OAUTH_FAILED:no_access_token");
   return payload.access_token;
 }
 
