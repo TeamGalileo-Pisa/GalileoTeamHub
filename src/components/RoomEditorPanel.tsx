@@ -1,45 +1,59 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { friendlyError } from "../lib/errors";
 import { supabase } from "../lib/supabase";
 import type { Room } from "../types/domain";
 
 export function RoomEditorPanel({ rooms }: { rooms: Room[] }) {
-  const cache = useQueryClient();
   const [roomId, setRoomId] = useState("");
-  const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
-  const [physicalLimit, setPhysicalLimit] = useState("");
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
   const room = useMemo(
     () => rooms.find((item) => item.id === roomId) ?? null,
     [roomId, rooms],
   );
 
-  useEffect(() => {
-    if (!room) {
-      setName("");
-      setLocation("");
-      setPhysicalLimit("");
-      return;
-    }
-    setName(room.name);
-    setLocation(room.location ?? "");
-    setPhysicalLimit(
-      room.maxSimultaneousInterviewsLimit == null
-        ? ""
-        : String(room.maxSimultaneousInterviewsLimit),
-    );
-    setValidationError(null);
-    setSuccess(null);
-  }, [room]);
+  return (
+    <section className="panel">
+      <div className="panel__header">
+        <div>
+          <h2>Modifica aula</h2>
+          <p>Aggiorna nome, posizione e limite fisico senza ricreare l'aula.</p>
+        </div>
+        <Pencil size={20} />
+      </div>
+      <div className="panel__body form-grid">
+        <label className="form-field form-field--full">
+          Aula
+          <select
+            className="select"
+            value={roomId}
+            onChange={(event) => setRoomId(event.target.value)}
+          >
+            <option value="">Seleziona aula</option>
+            {rooms.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+        </label>
+        {room && <RoomEditorForm key={room.id} room={room} />}
+      </div>
+    </section>
+  );
+}
+
+function RoomEditorForm({ room }: { room: Room }) {
+  const cache = useQueryClient();
+  const [name, setName] = useState(room.name);
+  const [location, setLocation] = useState(room.location ?? "");
+  const [physicalLimit, setPhysicalLimit] = useState(
+    room.maxSimultaneousInterviewsLimit == null
+      ? ""
+      : String(room.maxSimultaneousInterviewsLimit),
+  );
+  const [feedback, setFeedback] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!room) throw new Error("Seleziona un'aula da modificare.");
       const cleanName = name.trim();
       if (cleanName.length < 2) throw new Error("Inserisci il nome dell'aula.");
 
@@ -66,13 +80,9 @@ export function RoomEditorPanel({ rooms }: { rooms: Room[] }) {
 
       if (error) throw friendlyError(error);
     },
-    onMutate: () => {
-      setValidationError(null);
-      setSuccess(null);
-    },
-    onError: (error) => setValidationError(error.message),
+    onMutate: () => setFeedback(null),
     onSuccess: async () => {
-      setSuccess("Aula aggiornata correttamente.");
+      setFeedback("Aula aggiornata correttamente.");
       await Promise.all([
         cache.invalidateQueries({ queryKey: ["rooms"] }),
         cache.invalidateQueries({ queryKey: ["room-availabilities"] }),
@@ -81,83 +91,56 @@ export function RoomEditorPanel({ rooms }: { rooms: Room[] }) {
   });
 
   return (
-    <section className="panel">
-      <div className="panel__header">
-        <div>
-          <h2>Modifica aula</h2>
-          <p>Aggiorna nome, posizione e limite fisico senza ricreare l'aula.</p>
+    <>
+      <label className="form-field">
+        Nome aula
+        <input
+          className="input"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+        />
+      </label>
+      <label className="form-field">
+        Posizione
+        <input
+          className="input"
+          value={location}
+          onChange={(event) => setLocation(event.target.value)}
+        />
+      </label>
+      <label className="form-field form-field--full">
+        Limite fisico simultaneo
+        <input
+          className="input"
+          inputMode="numeric"
+          placeholder="Vuoto = nessun limite fisico configurato"
+          value={physicalLimit}
+          onChange={(event) => setPhysicalLimit(event.target.value)}
+        />
+        <small className="field-help">
+          Il database impedisce di impostare un limite inferiore alla capacità già configurata nelle disponibilità attive dell'aula.
+        </small>
+      </label>
+      {mutation.error && (
+        <div className="form-error form-field--full" role="alert">
+          {mutation.error.message}
         </div>
-        <Pencil size={20} />
+      )}
+      {feedback && (
+        <div className="form-success form-field--full" role="status">
+          {feedback}
+        </div>
+      )}
+      <div className="form-actions">
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={mutation.isPending}
+          onClick={() => mutation.mutate()}
+        >
+          <Pencil size={16} /> {mutation.isPending ? "Salvataggio…" : "Salva modifiche aula"}
+        </button>
       </div>
-      <div className="panel__body form-grid">
-        <label className="form-field form-field--full">
-          Aula
-          <select
-            className="select"
-            value={roomId}
-            onChange={(event) => setRoomId(event.target.value)}
-          >
-            <option value="">Seleziona aula</option>
-            {rooms.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </label>
-
-        {room && (
-          <>
-            <label className="form-field">
-              Nome aula
-              <input
-                className="input"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-            <label className="form-field">
-              Posizione
-              <input
-                className="input"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-              />
-            </label>
-            <label className="form-field form-field--full">
-              Limite fisico simultaneo
-              <input
-                className="input"
-                inputMode="numeric"
-                placeholder="Vuoto = nessun limite fisico configurato"
-                value={physicalLimit}
-                onChange={(event) => setPhysicalLimit(event.target.value)}
-              />
-              <small className="field-help">
-                Il database impedisce di impostare un limite inferiore alla capacità già configurata nelle disponibilità attive dell'aula.
-              </small>
-            </label>
-            {(validationError || mutation.error) && (
-              <div className="form-error form-field--full" role="alert">
-                {validationError ?? mutation.error?.message}
-              </div>
-            )}
-            {success && (
-              <div className="form-success form-field--full" role="status">
-                {success}
-              </div>
-            )}
-            <div className="form-actions">
-              <button
-                className="button button--primary"
-                type="button"
-                disabled={mutation.isPending}
-                onClick={() => mutation.mutate()}
-              >
-                <Pencil size={16} /> {mutation.isPending ? "Salvataggio…" : "Salva modifiche aula"}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    </section>
+    </>
   );
 }
