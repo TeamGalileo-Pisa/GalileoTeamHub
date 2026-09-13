@@ -12,6 +12,7 @@ export function AreaAllocationReleasePanel() {
   const queryClient = useQueryClient();
   const [range, setRange] = useState<Record<string, { start: string; end: string }>>({});
   const [lifecycleId, setLifecycleId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const allocationsQuery = useQuery({ queryKey: ["my-allocations"], queryFn: listMyAllocations });
 
   const releaseMutation = useMutation({
@@ -23,8 +24,10 @@ export function AreaAllocationReleasePanel() {
       });
       if (error) throw friendlyError(error);
     },
+    onMutate: () => setFeedback(null),
     onSuccess: async () => {
       setLifecycleId(null);
+      setFeedback("Fascia rilasciata. La capacità dell'aula è stata aggiornata.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["my-allocations"] }),
         queryClient.invalidateQueries({ queryKey: ["room-availabilities"] }),
@@ -36,8 +39,10 @@ export function AreaAllocationReleasePanel() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAreaAllocationPermanently(id),
+    onMutate: () => setFeedback(null),
     onSuccess: async () => {
       setLifecycleId(null);
+      setFeedback("Fascia eliminata definitivamente. La capacità dell'aula è stata aggiornata.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["my-allocations"] }),
         queryClient.invalidateQueries({ queryKey: ["room-availabilities"] }),
@@ -56,12 +61,15 @@ export function AreaAllocationReleasePanel() {
     <section className="panel">
       <div className="panel__header">
         <div>
-          <h2>Le mie assegnazioni</h2>
-          <p>Puoi restituire tutta o parte della fascia assegnata alla tua area.</p>
+          <h2>Le mie fasce prenotate</h2>
+          <p>
+            Puoi restituire tutta o parte di una fascia. La parte rilasciata smette subito di occupare capacità nell'aula e torna prenotabile dalle altre aree.
+          </p>
         </div>
         <RotateCcw size={20} />
       </div>
       <div className="panel__body">
+        {feedback && <p className="form-success" role="status">{feedback}</p>}
         {allocations.map((allocation) => {
           const current = range[allocation.id] ?? {
             start: toRomeInput(allocation.startsAt),
@@ -130,14 +138,14 @@ export function AreaAllocationReleasePanel() {
                       setLifecycleId(allocation.id);
                       return;
                     }
-                    if (!window.confirm(`Vuoi rilasciare ${current.start.replace("T", " ")} – ${current.end.replace("T", " ")}? La parte rilasciata tornerà disponibile alle altre aree.`)) return;
+                    if (!window.confirm(`Vuoi rilasciare ${current.start.replace("T", " ")} – ${current.end.replace("T", " ")}? La parte rilasciata smetterà di occupare capacità e tornerà disponibile alle altre aree.`)) return;
                     releaseMutation.mutate({ id: allocation.id, start: current.start, end: current.end });
                   }}
                 >
                   {pending && (releaseMutation.variables?.id === allocation.id || deleteMutation.variables === allocation.id)
                     ? "Operazione…"
                     : isFull
-                      ? "Rilascia / annulla tutto…"
+                      ? "Rilascia / elimina fascia…"
                       : "Rilascia intervallo"}
                 </button>
               </div>
@@ -149,7 +157,7 @@ export function AreaAllocationReleasePanel() {
       {lifecycleAllocation && (
         <CancelDeleteDialog
           title="Come vuoi restituire tutta la fascia?"
-          description="Conservandola, la fascia viene rilasciata e rimane nello storico del gestionale secondo le regole di annullamento. Eliminandola definitivamente, viene rimossa insieme alla sessione e ai dati di scheduling collegati. In entrambi i casi la capacità torna disponibile alle altre aree."
+          description="Conservandola, la fascia viene annullata e resta nello storico; eliminandola definitivamente viene rimossa insieme agli eventuali dati di scheduling collegati. In entrambi i casi smette immediatamente di occupare capacità nell'aula."
           itemLabel="L'assegnazione"
           pending={releaseMutation.isPending || deleteMutation.isPending}
           error={(releaseMutation.error || deleteMutation.error)?.message}
