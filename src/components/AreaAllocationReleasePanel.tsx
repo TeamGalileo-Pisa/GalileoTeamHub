@@ -27,7 +27,7 @@ export function AreaAllocationReleasePanel() {
     onMutate: () => setFeedback(null),
     onSuccess: async () => {
       setLifecycleId(null);
-      setFeedback("Fascia rilasciata. La capacità dell'aula è stata liberata e aggiornata.");
+      setFeedback("Fascia rilasciata. La capacità dell'aula è stata aggiornata.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["my-allocations"] }),
         queryClient.invalidateQueries({ queryKey: ["room-availabilities"] }),
@@ -42,7 +42,7 @@ export function AreaAllocationReleasePanel() {
     onMutate: () => setFeedback(null),
     onSuccess: async () => {
       setLifecycleId(null);
-      setFeedback("Fascia eliminata definitivamente. La capacità dell'aula è stata liberata e aggiornata.");
+      setFeedback("Fascia eliminata definitivamente. La capacità dell'aula è stata aggiornata.");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["my-allocations"] }),
         queryClient.invalidateQueries({ queryKey: ["room-availabilities"] }),
