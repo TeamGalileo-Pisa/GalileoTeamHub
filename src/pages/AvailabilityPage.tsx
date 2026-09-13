@@ -8,6 +8,7 @@ import { CancelDeleteDialog } from "../components/CancelDeleteDialog";
 import { DailyAvailabilityForm } from "../components/DailyAvailabilityForm";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
+import { RoomEditorPanel } from "../components/RoomEditorPanel";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -282,6 +283,7 @@ export function AvailabilityPage() {
             </form>
           </section>
 
+          <RoomEditorPanel rooms={roomsQuery.data ?? []} />
           <DailyAvailabilityForm rooms={roomsQuery.data ?? []} onSuccess={setSuccess} />
         </div>
       ) : (
