@@ -4,6 +4,7 @@ import { AppShell } from "./components/AppShell";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PasswordGate } from "./components/PasswordGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { PwaControls } from "./components/PwaControls";
 import { useAuth } from "./hooks/useAuth";
 
 const AreasPage = lazy(() =>
@@ -62,44 +63,47 @@ function HomeRedirect() {
 
 export default function App() {
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/book/:token" element={<PublicBookingPage />} />
+    <>
+      <PwaControls />
+      <Suspense fallback={<LoadingScreen />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/book/:token" element={<PublicBookingPage />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route path="/change-password" element={<ChangePasswordPage />} />
-          <Route element={<PasswordGate />}>
-            <Route element={<AppShell />}>
-              <Route index element={<HomeRedirect />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/change-password" element={<ChangePasswordPage />} />
+            <Route element={<PasswordGate />}>
+              <Route element={<AppShell />}>
+                <Route index element={<HomeRedirect />} />
 
-              <Route path="/area" element={<DashboardPage />} />
-              <Route path="/area/disponibilita" element={<AvailabilityPage />} />
-              <Route path="/area/sessioni" element={<AreaSessionsPage />} />
-              <Route path="/area/calendario" element={<CalendarPage />} />
-              <Route path="/area/votazioni" element={<RatingsPage />} />
-              <Route path="/area/bacheca" element={<AnnouncementsPage />} />
-              <Route path="/area/assistenza" element={<HelpPage />} />
+                <Route path="/area" element={<DashboardPage />} />
+                <Route path="/area/disponibilita" element={<AvailabilityPage />} />
+                <Route path="/area/sessioni" element={<AreaSessionsPage />} />
+                <Route path="/area/calendario" element={<CalendarPage />} />
+                <Route path="/area/votazioni" element={<RatingsPage />} />
+                <Route path="/area/bacheca" element={<AnnouncementsPage />} />
+                <Route path="/area/assistenza" element={<HelpPage />} />
 
-              <Route element={<ProtectedRoute adminOnly />}>
-                <Route path="/admin" element={<DashboardPage />} />
-                <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
-                <Route path="/admin/calendario" element={<CalendarPage />} />
-                <Route path="/admin/sessioni" element={<SessionsPage />} />
-                <Route path="/admin/votazioni" element={<RatingsPage />} />
-                <Route path="/admin/bacheca" element={<AnnouncementsPage />} />
-                <Route path="/admin/assistenza" element={<HelpPage />} />
-                <Route path="/admin/aree" element={<AreasPage />} />
-                <Route path="/admin/recruitment" element={<CampaignsPage />} />
-                <Route path="/admin/account" element={<StaffPage />} />
-                <Route path="/admin/legal" element={<LegalDocumentsPage />} />
+                <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/admin" element={<DashboardPage />} />
+                  <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
+                  <Route path="/admin/calendario" element={<CalendarPage />} />
+                  <Route path="/admin/sessioni" element={<SessionsPage />} />
+                  <Route path="/admin/votazioni" element={<RatingsPage />} />
+                  <Route path="/admin/bacheca" element={<AnnouncementsPage />} />
+                  <Route path="/admin/assistenza" element={<HelpPage />} />
+                  <Route path="/admin/aree" element={<AreasPage />} />
+                  <Route path="/admin/recruitment" element={<CampaignsPage />} />
+                  <Route path="/admin/account" element={<StaffPage />} />
+                  <Route path="/admin/legal" element={<LegalDocumentsPage />} />
+                </Route>
               </Route>
             </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </Suspense>
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
+    </>
   );
 }

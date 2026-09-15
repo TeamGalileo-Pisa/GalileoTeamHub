@@ -3,10 +3,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App";
+import { registerPwa } from "./pwa/registerPwa";
 import { AuthProvider } from "./providers/AuthProvider";
 import "./styles/global.css";
 import "./styles/responsive.css";
 import "./styles/hub-enhancements.css";
+import "./styles/pwa.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,3 +34,5 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+registerPwa();

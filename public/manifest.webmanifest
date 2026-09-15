@@ -1,0 +1,20 @@
+{
+  "name": "GalileoHub · Team Galileo Pisa",
+  "short_name": "GalileoHub",
+  "description": "Gestionale centrale del Team Galileo Pisa.",
+  "lang": "it",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#010711",
+  "theme_color": "#010711",
+  "icons": [
+    {
+      "src": "/pwa/galileohub-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
