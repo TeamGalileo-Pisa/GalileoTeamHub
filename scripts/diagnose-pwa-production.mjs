@@ -1,4 +1,5 @@
 import { writeFile } from "node:fs/promises";
+import CDP from "chrome-remote-interface";
 
 const target = process.env.PWA_TARGET ?? "https://galileohub.info-teamgalileo.workers.dev";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,65 +25,19 @@ async function probe(path, binary = false) {
   return { url, status: response.status, headers, text: text.slice(0, 12000) };
 }
 
-async function getChromePage() {
-  for (let i = 0; i < 30; i += 1) {
-    try {
-      const response = await fetch("http://127.0.0.1:9222/json/list");
-      if (response.ok) {
-        const pages = await response.json();
-        const page = pages.find((item) => item.type === "page");
-        if (page?.webSocketDebuggerUrl) return page;
-      }
-    } catch {}
-    await sleep(500);
-  }
-  throw new Error("Chrome DevTools endpoint unavailable");
-}
-
 async function cdpDiagnostics() {
-  const page = await getChromePage();
-  const ws = new WebSocket(page.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    ws.addEventListener("open", resolve, { once: true });
-    ws.addEventListener("error", reject, { once: true });
-  });
-
-  let nextId = 1;
-  const pending = new Map();
-  const events = [];
-
-  ws.addEventListener("message", (event) => {
-    const message = JSON.parse(event.data);
-    if (message.id && pending.has(message.id)) {
-      const { resolve, reject } = pending.get(message.id);
-      pending.delete(message.id);
-      if (message.error) reject(new Error(JSON.stringify(message.error)));
-      else resolve(message.result);
-    } else if (message.method) {
-      events.push(message.method);
-    }
-  });
-
-  const send = (method, params = {}) => {
-    const id = nextId++;
-    return new Promise((resolve, reject) => {
-      pending.set(id, { resolve, reject });
-      ws.send(JSON.stringify({ id, method, params }));
-    });
-  };
-
-  await send("Page.enable");
-  await send("Runtime.enable");
-  await send("Network.enable");
-  await send("Page.navigate", { url: target });
+  const client = await CDP({ host: "127.0.0.1", port: 9222 });
+  const { Page, Runtime, Network } = client;
+  await Promise.all([Page.enable(), Runtime.enable(), Network.enable()]);
+  await Page.navigate({ url: target });
   await sleep(10000);
 
   const [manifest, installability, icons, appId, runtime] = await Promise.all([
-    send("Page.getAppManifest").catch((error) => ({ error: String(error) })),
-    send("Page.getInstallabilityErrors").catch((error) => ({ error: String(error) })),
-    send("Page.getManifestIcons").catch((error) => ({ error: String(error) })),
-    send("Page.getAppId").catch((error) => ({ error: String(error) })),
-    send("Runtime.evaluate", {
+    Page.getAppManifest().catch((error) => ({ error: String(error) })),
+    Page.getInstallabilityErrors().catch((error) => ({ error: String(error) })),
+    Page.getManifestIcons().catch((error) => ({ error: String(error) })),
+    Page.getAppId().catch((error) => ({ error: String(error) })),
+    Runtime.evaluate({
       expression: `(async () => ({
         href: location.href,
         secureContext: window.isSecureContext,
@@ -96,46 +51,45 @@ async function cdpDiagnostics() {
     }).catch((error) => ({ error: String(error) })),
   ]);
 
-  ws.close();
+  await client.close();
   return {
     manifest,
     installability,
     icons: icons && typeof icons.primaryIcon === "string" ? { ...icons, primaryIcon: `[data URL omitted: ${icons.primaryIcon.length} chars]` } : icons,
     appId,
     runtime: runtime?.result?.value ?? runtime,
-    observedEvents: [...new Set(events)].sort(),
   };
 }
 
-const root = await probe("/");
-const manifestResponse = await probe("/manifest.webmanifest?v=2");
-const serviceWorker = await probe("/sw.js");
-const icon192 = await probe("/icons/galileohub-192-v2.png", true);
-const icon512 = await probe("/icons/galileohub-512-v2.png", true);
-
-let parsedManifest = null;
-let manifestParseError = null;
-try {
-  parsedManifest = JSON.parse(manifestResponse.text);
-} catch (error) {
-  manifestParseError = String(error);
-}
-
-const chrome = await cdpDiagnostics();
 const result = {
   generatedAt: new Date().toISOString(),
   target,
-  http: {
-    root: { ...root, text: root.text.slice(0, 3000) },
-    manifest: { ...manifestResponse, text: manifestResponse.text.slice(0, 3000) },
-    serviceWorker: { ...serviceWorker, text: serviceWorker.text.slice(0, 3000) },
-    icon192,
-    icon512,
-  },
-  parsedManifest,
-  manifestParseError,
-  chrome,
+  http: {},
+  parsedManifest: null,
+  manifestParseError: null,
+  chrome: null,
 };
+
+try {
+  result.http.root = await probe("/");
+  result.http.manifest = await probe("/manifest.webmanifest?v=2");
+  result.http.serviceWorker = await probe("/sw.js");
+  result.http.icon192 = await probe("/icons/galileohub-192-v2.png", true);
+  result.http.icon512 = await probe("/icons/galileohub-512-v2.png", true);
+  try {
+    result.parsedManifest = JSON.parse(result.http.manifest.text);
+  } catch (error) {
+    result.manifestParseError = String(error);
+  }
+  result.chrome = await cdpDiagnostics();
+} catch (error) {
+  result.fatalError = String(error?.stack ?? error);
+}
+
+for (const key of ["root", "manifest", "serviceWorker"]) {
+  if (result.http[key]?.text) result.http[key].text = result.http[key].text.slice(0, 3000);
+}
 
 await writeFile("pwa-production-diagnostics.json", JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));
+if (result.fatalError) process.exitCode = 1;
