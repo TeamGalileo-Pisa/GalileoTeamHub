@@ -1,0 +1,12 @@
+/sw.js
+  Cache-Control: no-store, max-age=0
+
+/manifest.webmanifest
+  Cache-Control: no-store, max-age=0
+  X-Content-Type-Options: nosniff
+
+/icons/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/apple-touch-icon-v2.png
+  Cache-Control: public, max-age=0, must-revalidate
