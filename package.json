@@ -6,7 +6,7 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/generate-pwa-meta.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
