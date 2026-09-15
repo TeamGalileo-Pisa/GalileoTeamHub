@@ -20,7 +20,13 @@ jobs:
           node-version: 22
 
       - name: Install diagnostic dependency
-        run: npm install --no-save --ignore-scripts chrome-remote-interface
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/cdp
+          cd /tmp/cdp
+          npm init -y
+          npm install --ignore-scripts chrome-remote-interface
 
       - name: Locate Chrome
         shell: bash
@@ -42,6 +48,7 @@ jobs:
         timeout-minutes: 2
         env:
           PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
         run: node scripts/diagnose-pwa-production.mjs
 
       - name: Upload diagnostics
