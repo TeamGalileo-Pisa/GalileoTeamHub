@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: 22
 
+      - name: Install diagnostic dependency
+        run: npm install --no-save --ignore-scripts chrome-remote-interface
+
       - name: Locate Chrome
         shell: bash
         run: |
@@ -36,6 +39,7 @@ jobs:
           sleep 3
 
       - name: Diagnose production installability
+        timeout-minutes: 2
         env:
           PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
         run: node scripts/diagnose-pwa-production.mjs
