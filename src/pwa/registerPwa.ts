@@ -4,13 +4,9 @@ let reloadRequested = false;
 export function registerPwa() {
   if (!("serviceWorker" in navigator) || !import.meta.env.PROD) return;
 
-  window.addEventListener(
-    "load",
-    () => {
-      void setupServiceWorker();
-    },
-    { once: true },
-  );
+  // Register immediately instead of waiting for the full window load event.
+  // This lets Chromium evaluate PWA installability as soon as possible.
+  void setupServiceWorker();
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (reloadRequested) {
@@ -25,6 +21,8 @@ async function setupServiceWorker() {
       scope: "/",
       updateViaCache: "none",
     });
+
+    await navigator.serviceWorker.ready;
 
     if (registration.waiting && navigator.serviceWorker.controller) {
       window.dispatchEvent(new CustomEvent("galileo:pwa-update-ready"));
