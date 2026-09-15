@@ -45,10 +45,19 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.bin }}
         run: node scripts/diagnose-pwa-production.mjs
 
+      - name: Compare icon-selection manifests locally
+        timeout-minutes: 2
+        env:
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+        run: node scripts/test-pwa-icon-selection.mjs
+
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pwa-production-diagnostics
-          path: pwa-production-diagnostics.json
+          path: |
+            pwa-production-diagnostics.json
+            pwa-icon-selection.json
           if-no-files-found: warn
