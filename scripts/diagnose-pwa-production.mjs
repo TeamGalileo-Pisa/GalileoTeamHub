@@ -1,6 +1,7 @@
 import { writeFile } from "node:fs/promises";
-import CDP from "chrome-remote-interface";
 
+const cdpModule = process.env.CDP_MODULE ?? "chrome-remote-interface";
+const { default: CDP } = await import(cdpModule);
 const target = process.env.PWA_TARGET ?? "https://galileohub.info-teamgalileo.workers.dev";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
