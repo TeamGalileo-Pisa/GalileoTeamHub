@@ -1,0 +1,11 @@
+/sw.js
+  Cache-Control: no-store, max-age=0
+
+/version.json
+  Cache-Control: no-store, max-age=0
+
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate
+
+/icons/*
+  Cache-Control: public, max-age=86400
