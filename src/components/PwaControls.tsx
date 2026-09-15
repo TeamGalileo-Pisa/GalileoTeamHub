@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { applyPwaUpdate } from "../pwa/registerPwa";
 
 interface DeferredInstallPrompt extends Event {
@@ -14,15 +15,20 @@ function isStandalone() {
   );
 }
 
-function isIos() {
-  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+function isIosOrIpadOs() {
+  const classicIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const modernIpadOs = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  return classicIos || modernIpadOs;
 }
 
 export function PwaControls() {
+  const location = useLocation();
   const [updateReady, setUpdateReady] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<DeferredInstallPrompt | null>(null);
   const [dismissed, setDismissed] = useState(() => sessionStorage.getItem("galileo-pwa-dismissed") === "1");
   const [installed, setInstalled] = useState(isStandalone);
+
+  const isPublicBooking = location.pathname.startsWith("/book/");
 
   useEffect(() => {
     const onUpdateReady = () => setUpdateReady(true);
@@ -59,6 +65,9 @@ export function PwaControls() {
       setInstallPrompt(null);
     }
   };
+
+  // Do not interrupt candidates on the public booking flow with install/update notices.
+  if (isPublicBooking) return null;
 
   if (updateReady) {
     return (
@@ -98,7 +107,7 @@ export function PwaControls() {
     );
   }
 
-  if (isIos()) {
+  if (isIosOrIpadOs()) {
     return (
       <aside className="pwa-notice" role="status">
         <div>
