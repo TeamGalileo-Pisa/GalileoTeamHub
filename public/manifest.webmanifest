@@ -13,13 +13,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/icons/galileohub-192.png",
+      "src": "/icons/galileohub-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icons/galileohub-512.png",
+      "src": "/icons/galileohub-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
