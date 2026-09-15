@@ -1,0 +1,63 @@
+name: PWA production diagnostics
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install diagnostic dependency
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p /tmp/cdp
+          cd /tmp/cdp
+          npm init -y
+          npm install --ignore-scripts chrome-remote-interface
+
+      - name: Locate Chrome
+        id: chrome
+        shell: bash
+        run: |
+          set -euxo pipefail
+          CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          echo "bin=$CHROME" >> "$GITHUB_OUTPUT"
+          "$CHROME" --version
+
+      - name: Diagnose production installability
+        timeout-minutes: 2
+        env:
+          PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+        run: node scripts/diagnose-pwa-production.mjs
+
+      - name: Compare icon-selection manifests locally
+        timeout-minutes: 2
+        env:
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+        run: node scripts/test-pwa-icon-selection.mjs
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pwa-production-diagnostics
+          path: |
+            pwa-production-diagnostics.json
+            pwa-icon-selection.json
+          if-no-files-found: warn
