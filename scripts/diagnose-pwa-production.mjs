@@ -1,7 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
 const cdpModule = process.env.CDP_MODULE ?? "chrome-remote-interface";
-const { default: CDP } = await import(cdpModule);
 const target = process.env.PWA_TARGET ?? "https://galileohub.info-teamgalileo.workers.dev";
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -27,6 +26,7 @@ async function probe(path, binary = false) {
 }
 
 async function cdpDiagnostics() {
+  const { default: CDP } = await import(cdpModule);
   const client = await CDP({ host: "127.0.0.1", port: 9222 });
   const { Page, Runtime, Network } = client;
   await Promise.all([Page.enable(), Runtime.enable(), Network.enable()]);
@@ -69,6 +69,7 @@ const result = {
   parsedManifest: null,
   manifestParseError: null,
   chrome: null,
+  chromeError: null,
 };
 
 try {
@@ -82,9 +83,14 @@ try {
   } catch (error) {
     result.manifestParseError = String(error);
   }
+} catch (error) {
+  result.httpError = String(error?.stack ?? error);
+}
+
+try {
   result.chrome = await cdpDiagnostics();
 } catch (error) {
-  result.fatalError = String(error?.stack ?? error);
+  result.chromeError = String(error?.stack ?? error);
 }
 
 for (const key of ["root", "manifest", "serviceWorker"]) {
@@ -93,4 +99,4 @@ for (const key of ["root", "manifest", "serviceWorker"]) {
 
 await writeFile("pwa-production-diagnostics.json", JSON.stringify(result, null, 2));
 console.log(JSON.stringify(result, null, 2));
-if (result.fatalError) process.exitCode = 1;
+if (result.httpError || result.chromeError) process.exitCode = 1;
