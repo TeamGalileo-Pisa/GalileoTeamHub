@@ -15,4 +15,5 @@ Thumbs.db
 
 supabase/.temp/
 supabase/functions/.env
+public/sw.js
 
