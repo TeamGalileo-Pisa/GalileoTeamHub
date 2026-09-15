@@ -1,5 +1,5 @@
 import http from "node:http";
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
 const { default: CDP } = await import(process.env.CDP_MODULE ?? "chrome-remote-interface");
@@ -55,12 +55,12 @@ const chrome = spawn(chromeBin,["--headless=new","--no-sandbox","--disable-gpu",
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 async function waitChrome(){for(let i=0;i<30;i++){try{const r=await fetch('http://127.0.0.1:9223/json/version');if(r.ok)return;}catch{}await sleep(500);}throw new Error('test Chrome unavailable');}
 
+const out={};
 try {
   await waitChrome();
   const client = await CDP({host:"127.0.0.1",port:9223});
   const {Page,Runtime} = client;
   await Promise.all([Page.enable(),Runtime.enable()]);
-  const out={};
   for (const variant of ["current","robust"]) {
     await Page.navigate({url:`http://127.0.0.1:4173/${variant}/`});
     await sleep(4000);
@@ -72,8 +72,9 @@ try {
       runtime:(await Runtime.evaluate({expression:`({href:location.href,controller:navigator.serviceWorker.controller?.scriptURL??null})`,returnByValue:true})).result.value,
     };
   }
-  console.log(JSON.stringify(out,null,2));
   await client.close();
+  console.log(JSON.stringify(out,null,2));
+  await writeFile("pwa-icon-selection.json",JSON.stringify(out,null,2));
 } finally {
   chrome.kill("SIGTERM");
   await new Promise((resolve)=>server.close(resolve));
