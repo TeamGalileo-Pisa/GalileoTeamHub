@@ -9,30 +9,30 @@ if (!chromeBin) throw new Error("CHROME_BIN is not set");
 const icon192 = await readFile("public/icons/galileohub-192-v2.png");
 const icon512 = await readFile("public/icons/galileohub-512-v2.png");
 
+function baseManifest(name, variant, icons) {
+  return { name, short_name: name, start_url: `/${variant}/`, scope: `/${variant}/`, display: "standalone", icons };
+}
+
 const manifests = {
-  current: {
-    name: "GalileoHub current test",
-    short_name: "GalileoCurrent",
-    start_url: "/current/",
-    scope: "/current/",
-    display: "standalone",
-    icons: [
-      { src: "/icon192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icon512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-    ],
-  },
-  robust: {
-    name: "GalileoHub robust test",
-    short_name: "GalileoRobust",
-    start_url: "/robust/",
-    scope: "/robust/",
-    display: "standalone",
-    icons: [
-      { src: "/icon192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icon512.png", sizes: "512x512", type: "image/png" },
-      { src: "/icon512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
-    ],
-  },
+  current: baseManifest("Current", "current", [
+    { src: "/icon192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/icon512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+  ]),
+  robust: baseManifest("Robust", "robust", [
+    { src: "/icon192.png", sizes: "192x192", type: "image/png" },
+    { src: "/icon512.png", sizes: "512x512", type: "image/png" },
+    { src: "/icon512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+  ]),
+  exact144: baseManifest("Exact144", "exact144", [
+    { src: "/icon192.png", sizes: "144x144", type: "image/png", purpose: "any" },
+  ]),
+  anysize: baseManifest("AnySize", "anysize", [
+    { src: "/icon512.png", sizes: "any", type: "image/png", purpose: "any" },
+  ]),
+  noType: baseManifest("NoType", "noType", [
+    { src: "/icon192.png", sizes: "192x192", purpose: "any" },
+    { src: "/icon512.png", sizes: "512x512", purpose: "any" },
+  ]),
 };
 
 const page = (variant) => `<!doctype html><html><head><meta charset="utf-8"><link rel="manifest" href="/${variant}.webmanifest"></head><body>${variant}<script>navigator.serviceWorker.register('/sw-test.js',{scope:'/'}).then(async()=>{await navigator.serviceWorker.ready;if(!navigator.serviceWorker.controller) location.reload();});</script></body></html>`;
@@ -43,10 +43,10 @@ const server = http.createServer((req, res) => {
   if (pathname === "/icon192.png") { res.writeHead(200,{"Content-Type":"image/png","Cache-Control":"no-store"}); return res.end(icon192); }
   if (pathname === "/icon512.png") { res.writeHead(200,{"Content-Type":"image/png","Cache-Control":"no-store"}); return res.end(icon512); }
   if (pathname === "/sw-test.js") { res.writeHead(200,{"Content-Type":"text/javascript","Cache-Control":"no-store"}); return res.end(sw); }
-  if (pathname === "/current.webmanifest") { res.writeHead(200,{"Content-Type":"application/manifest+json","Cache-Control":"no-store"}); return res.end(JSON.stringify(manifests.current)); }
-  if (pathname === "/robust.webmanifest") { res.writeHead(200,{"Content-Type":"application/manifest+json","Cache-Control":"no-store"}); return res.end(JSON.stringify(manifests.robust)); }
-  if (pathname.startsWith("/current")) { res.writeHead(200,{"Content-Type":"text/html","Cache-Control":"no-store"}); return res.end(page("current")); }
-  if (pathname.startsWith("/robust")) { res.writeHead(200,{"Content-Type":"text/html","Cache-Control":"no-store"}); return res.end(page("robust")); }
+  const manifestMatch = pathname.match(/^\/(current|robust|exact144|anysize|noType)\.webmanifest$/);
+  if (manifestMatch) { res.writeHead(200,{"Content-Type":"application/manifest+json","Cache-Control":"no-store"}); return res.end(JSON.stringify(manifests[manifestMatch[1]])); }
+  const pageMatch = pathname.match(/^\/(current|robust|exact144|anysize|noType)\/?$/);
+  if (pageMatch) { res.writeHead(200,{"Content-Type":"text/html","Cache-Control":"no-store"}); return res.end(page(pageMatch[1])); }
   res.writeHead(404); res.end();
 });
 await new Promise((resolve) => server.listen(4173, "127.0.0.1", resolve));
@@ -61,11 +61,11 @@ try {
   const client = await CDP({host:"127.0.0.1",port:9223});
   const {Page,Runtime} = client;
   await Promise.all([Page.enable(),Runtime.enable()]);
-  for (const variant of ["current","robust"]) {
+  for (const variant of Object.keys(manifests)) {
     await Page.navigate({url:`http://127.0.0.1:4173/${variant}/`});
-    await sleep(4000);
+    await sleep(2500);
     await Page.reload({ignoreCache:true});
-    await sleep(3000);
+    await sleep(2000);
     out[variant]={
       manifest: await Page.getAppManifest(),
       installability: await Page.getInstallabilityErrors(),
