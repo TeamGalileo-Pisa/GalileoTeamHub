@@ -29,33 +29,26 @@ jobs:
           npm install --ignore-scripts chrome-remote-interface
 
       - name: Locate Chrome
+        id: chrome
         shell: bash
-        run: |
-          set -euxo pipefail
-          which google-chrome || which google-chrome-stable || which chromium || which chromium-browser
-          google-chrome --version || google-chrome-stable --version || chromium --version || chromium-browser --version
-
-      - name: Diagnose production installability
-        timeout-minutes: 2
-        shell: bash
-        env:
-          PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
-          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
         run: |
           set -euxo pipefail
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
-          "$CHROME" --headless=new --no-sandbox --disable-gpu --remote-debugging-port=9222 --user-data-dir=/tmp/galileo-pwa-chrome about:blank >/tmp/chrome.log 2>&1 &
-          CHROME_PID=$!
-          trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
-          sleep 3
-          node scripts/diagnose-pwa-production.mjs
+          echo "bin=$CHROME" >> "$GITHUB_OUTPUT"
+          "$CHROME" --version
+
+      - name: Diagnose production installability
+        timeout-minutes: 2
+        env:
+          PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
+          CHROME_BIN: ${{ steps.chrome.outputs.bin }}
+        run: node scripts/diagnose-pwa-production.mjs
 
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pwa-production-diagnostics
-          path: |
-            pwa-production-diagnostics.json
-            /tmp/chrome.log
+          path: pwa-production-diagnostics.json
           if-no-files-found: warn
