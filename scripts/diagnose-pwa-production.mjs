@@ -1,7 +1,9 @@
 import { writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 
 const cdpModule = process.env.CDP_MODULE ?? "chrome-remote-interface";
 const target = process.env.PWA_TARGET ?? "https://galileohub.info-teamgalileo.workers.dev";
+const chromeBin = process.env.CHROME_BIN;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function probe(path, binary = false) {
@@ -25,41 +27,79 @@ async function probe(path, binary = false) {
   return { url, status: response.status, headers, text: text.slice(0, 12000) };
 }
 
+async function waitForChrome() {
+  for (let i = 0; i < 30; i += 1) {
+    try {
+      const response = await fetch("http://127.0.0.1:9222/json/version");
+      if (response.ok) return;
+    } catch {}
+    await sleep(500);
+  }
+  throw new Error("Chrome DevTools endpoint unavailable after launch");
+}
+
 async function cdpDiagnostics() {
-  const { default: CDP } = await import(cdpModule);
-  const client = await CDP({ host: "127.0.0.1", port: 9222 });
-  const { Page, Runtime, Network } = client;
-  await Promise.all([Page.enable(), Runtime.enable(), Network.enable()]);
-  await Page.navigate({ url: target });
-  await sleep(10000);
+  if (!chromeBin) throw new Error("CHROME_BIN is not set");
+  const chrome = spawn(
+    chromeBin,
+    [
+      "--headless=new",
+      "--no-sandbox",
+      "--disable-gpu",
+      "--remote-debugging-port=9222",
+      "--remote-allow-origins=*",
+      "--user-data-dir=/tmp/galileo-pwa-chrome-node",
+      "about:blank",
+    ],
+    { stdio: ["ignore", "ignore", "pipe"] },
+  );
+  let chromeLog = "";
+  chrome.stderr.on("data", (chunk) => {
+    chromeLog += String(chunk);
+  });
 
-  const [manifest, installability, icons, appId, runtime] = await Promise.all([
-    Page.getAppManifest().catch((error) => ({ error: String(error) })),
-    Page.getInstallabilityErrors().catch((error) => ({ error: String(error) })),
-    Page.getManifestIcons().catch((error) => ({ error: String(error) })),
-    Page.getAppId().catch((error) => ({ error: String(error) })),
-    Runtime.evaluate({
-      expression: `(async () => ({
-        href: location.href,
-        secureContext: window.isSecureContext,
-        manifestHref: document.querySelector('link[rel="manifest"]')?.href ?? null,
-        serviceWorkerSupported: 'serviceWorker' in navigator,
-        serviceWorkerController: navigator.serviceWorker?.controller?.scriptURL ?? null,
-        registrations: 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).map(r => ({ scope: r.scope, active: r.active?.scriptURL ?? null, waiting: r.waiting?.scriptURL ?? null, installing: r.installing?.scriptURL ?? null })) : []
-      }))()`,
-      awaitPromise: true,
-      returnByValue: true,
-    }).catch((error) => ({ error: String(error) })),
-  ]);
+  try {
+    await waitForChrome();
+    const { default: CDP } = await import(cdpModule);
+    const client = await CDP({ host: "127.0.0.1", port: 9222 });
+    const { Page, Runtime, Network } = client;
+    await Promise.all([Page.enable(), Runtime.enable(), Network.enable()]);
+    const navigation = await Page.navigate({ url: target });
+    await sleep(10000);
 
-  await client.close();
-  return {
-    manifest,
-    installability,
-    icons: icons && typeof icons.primaryIcon === "string" ? { ...icons, primaryIcon: `[data URL omitted: ${icons.primaryIcon.length} chars]` } : icons,
-    appId,
-    runtime: runtime?.result?.value ?? runtime,
-  };
+    const [manifest, installability, icons, appId, runtime] = await Promise.all([
+      Page.getAppManifest().catch((error) => ({ error: String(error) })),
+      Page.getInstallabilityErrors().catch((error) => ({ error: String(error) })),
+      Page.getManifestIcons().catch((error) => ({ error: String(error) })),
+      Page.getAppId().catch((error) => ({ error: String(error) })),
+      Runtime.evaluate({
+        expression: `(async () => ({
+          href: location.href,
+          title: document.title,
+          secureContext: window.isSecureContext,
+          manifestHref: document.querySelector('link[rel="manifest"]')?.href ?? null,
+          serviceWorkerSupported: 'serviceWorker' in navigator,
+          serviceWorkerController: ('serviceWorker' in navigator) ? (navigator.serviceWorker.controller?.scriptURL ?? null) : null,
+          registrations: 'serviceWorker' in navigator ? (await navigator.serviceWorker.getRegistrations()).map(r => ({ scope: r.scope, active: r.active?.scriptURL ?? null, waiting: r.waiting?.scriptURL ?? null, installing: r.installing?.scriptURL ?? null })) : []
+        }))()`,
+        awaitPromise: true,
+        returnByValue: true,
+      }).catch((error) => ({ error: String(error) })),
+    ]);
+
+    await client.close();
+    return {
+      navigation,
+      manifest,
+      installability,
+      icons: icons && typeof icons.primaryIcon === "string" ? { ...icons, primaryIcon: `[data URL omitted: ${icons.primaryIcon.length} chars]` } : icons,
+      appId,
+      runtime: runtime?.result?.value ?? runtime,
+      chromeLog: chromeLog.slice(-8000),
+    };
+  } finally {
+    chrome.kill("SIGTERM");
+  }
 }
 
 const result = {
