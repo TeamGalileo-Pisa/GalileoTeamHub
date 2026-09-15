@@ -21,7 +21,10 @@ export function registerPwa() {
 
 async function setupServiceWorker() {
   try {
-    registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    registration = await navigator.serviceWorker.register("/sw.js", {
+      scope: "/",
+      updateViaCache: "none",
+    });
 
     if (registration.waiting && navigator.serviceWorker.controller) {
       window.dispatchEvent(new CustomEvent("galileo:pwa-update-ready"));
