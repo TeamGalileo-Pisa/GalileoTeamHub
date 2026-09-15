@@ -35,21 +35,20 @@ jobs:
           which google-chrome || which google-chrome-stable || which chromium || which chromium-browser
           google-chrome --version || google-chrome-stable --version || chromium --version || chromium-browser --version
 
-      - name: Start headless Chrome
+      - name: Diagnose production installability
+        timeout-minutes: 2
         shell: bash
+        env:
+          PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
+          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
         run: |
           set -euxo pipefail
           CHROME="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
           "$CHROME" --headless=new --no-sandbox --disable-gpu --remote-debugging-port=9222 --user-data-dir=/tmp/galileo-pwa-chrome about:blank >/tmp/chrome.log 2>&1 &
-          echo $! >/tmp/chrome.pid
+          CHROME_PID=$!
+          trap 'kill "$CHROME_PID" 2>/dev/null || true' EXIT
           sleep 3
-
-      - name: Diagnose production installability
-        timeout-minutes: 2
-        env:
-          PWA_TARGET: https://galileohub.info-teamgalileo.workers.dev
-          CDP_MODULE: file:///tmp/cdp/node_modules/chrome-remote-interface/index.js
-        run: node scripts/diagnose-pwa-production.mjs
+          node scripts/diagnose-pwa-production.mjs
 
       - name: Upload diagnostics
         if: always()
