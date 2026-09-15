@@ -16,3 +16,6 @@ Thumbs.db
 supabase/.temp/
 supabase/functions/.env
 
+# Generated PWA icon assets (rebuilt from scripts/generate-pwa-assets.mjs)
+public/apple-touch-icon.png
+public/icons/*.png
