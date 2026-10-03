@@ -69,12 +69,12 @@ export function CalendarPage() {
     enabled: access?.isAdmin,
   });
   const query = useQuery({
-    queryKey: ["calendar", access?.userId, first],
+    queryKey: ["calendar", access?.userId, first, selectedAreas],
     queryFn: () =>
       rpc<CalendarItem[]>("list_calendar_bookings", {
         p_start: romeInputToIso(first + "T00:00"),
         p_end: romeInputToIso(last + "T00:00"),
-        p_area_id: null,
+        p_area_id: selectedAreas.length === 1 ? selectedAreas[0] : null,
       }),
   });
 
