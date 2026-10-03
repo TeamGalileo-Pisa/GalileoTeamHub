@@ -164,3 +164,19 @@ export interface AnnouncementInput {
   important: boolean;
   pinned: boolean;
 }
+
+export interface ManagedBooking {
+  bookingId: string;
+  candidateName: string;
+  candidateEmail: string;
+  areaName: string;
+  roomName: string;
+  startsAt: string;
+  endsAt: string;
+}
+export interface ManagedBookingSlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  roomName: string;
+}
