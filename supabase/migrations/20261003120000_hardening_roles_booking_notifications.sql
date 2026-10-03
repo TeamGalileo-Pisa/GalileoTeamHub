@@ -90,6 +90,13 @@ begin
 
   if v_area_id is null then return new; end if;
 
+  if tg_op='UPDATE' and new.slot_id<>old.slot_id then
+    update public.booking_manage_tokens t
+    set expires_at=sl.starts_at
+    from public.slots sl
+    where t.booking_id=new.id and sl.id=new.slot_id;
+  end if;
+
   if tg_op='INSERT' then
     v_type:='booking.created'; v_title:='Nuova prenotazione';
     v_body:=v_name||' ha prenotato un colloquio per '||
