@@ -82,6 +82,7 @@ export interface StaffMember {
   displayName: string;
   status: "active" | "disabled";
   isAdmin: boolean;
+  role: "admin" | "team_leader" | "area_lead";
   areas: AreaSummary[];
 }
 
