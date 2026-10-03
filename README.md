@@ -9,14 +9,18 @@ L'interfaccia è progettata per desktop, notebook, tablet e smartphone, inclusi 
 ## Moduli e funzionalità attuali
 
 - accesso globale Amministrazione;
+- ruolo Team Leader con privilegi amministrativi;
 - account separati per i Capi Area;
 - nove aree iniziali indipendenti dagli utenti;
-- bacheca e comunicazioni;
+- bacheca, comunicazioni e notifiche di sistema;
+- notifiche browser tramite service worker;
 - campagne recruitment con storico;
 - disponibilità delle aule separate dalle fasce prese dalle aree;
 - sessioni e generazione slot con durata personalizzata;
 - link area stabili e revocabili per la prenotazione candidati;
 - prenotazione senza account candidato;
+- cutoff minimo di 24 ore per le prenotazioni pubbliche;
+- gestione candidato tramite link sicuro per modifica/annullamento;
 - vincolo atomico contro le doppie prenotazioni;
 - coda email Gmail API con worker automatico, retry e diagnostica;
 - disponibilità giornaliere create in gruppo con anteprima;
