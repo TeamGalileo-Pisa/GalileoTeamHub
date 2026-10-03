@@ -232,13 +232,10 @@ export function StaffPage() {
                         </span>
                       </td>
                       <td>
-                        {member.isAdmin ? (
-                          <span className="role-label">
-                            <ShieldCheck size={15} /> Amministrazione
-                          </span>
-                        ) : (
-                          "Capo Area"
-                        )}
+                        <span className="role-label">
+                          {member.isAdmin ? <ShieldCheck size={15} /> : null}
+                          {member.role === "team_leader" ? "Team Leader" : member.isAdmin ? "Amministrazione" : "Capo Area"}
+                        </span>
                       </td>
                       <td>
                         {member.areas.map((area) => area.name).join(", ") ||
