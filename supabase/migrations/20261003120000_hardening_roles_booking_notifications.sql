@@ -153,6 +153,26 @@ drop trigger if exists announcement_targets_notify_area_leads on public.announce
 create trigger announcement_targets_notify_area_leads
 after insert on public.announcement_targets for each row execute function private.notify_targeted_announcement();
 
+create or replace function private.guard_one_confirmed_booking_per_candidate()
+returns trigger language plpgsql security definer set search_path=''
+as $
+begin
+  if exists(
+    select 1 from public.bookings b
+    where b.candidate_id=new.candidate_id
+      and b.status='confirmed'
+      and b.id<>coalesce(new.id,'00000000-0000-0000-0000-000000000000'::uuid)
+  ) then
+    raise exception 'CANDIDATE_ALREADY_BOOKED';
+  end if;
+  return new;
+end;
+$;
+drop trigger if exists bookings_one_confirmed_per_candidate on public.bookings;
+create trigger bookings_one_confirmed_per_candidate
+before insert on public.bookings
+for each row execute function private.guard_one_confirmed_booking_per_candidate();
+
 create or replace function private.guard_public_booking_24h()
 returns trigger language plpgsql security definer set search_path=''
 as $$
@@ -171,7 +191,7 @@ drop trigger if exists bookings_public_24h_guard on public.bookings;
 create trigger bookings_public_24h_guard
 before insert on public.bookings for each row execute function private.guard_public_booking_24h();
 
-revoke all on function private.notify_booking_change(),private.notify_announcement(),private.notify_targeted_announcement(),private.guard_public_booking_24h() from public,anon;
+revoke all on function private.notify_booking_change(),private.notify_announcement(),private.notify_targeted_announcement(),private.guard_public_booking_24h(),private.guard_one_confirmed_booking_per_candidate() from public,anon;
 grant execute on function private.notify_booking_change(),private.notify_announcement(),private.notify_targeted_announcement(),private.guard_public_booking_24h() to authenticated,service_role;
 
 commit;
