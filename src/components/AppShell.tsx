@@ -89,7 +89,15 @@ export function AppShell() {
       document.visibilityState !== "visible"
     ) {
       const item = latestUnread[0];
-      new Notification(item.title, { body: item.body, icon: "/icons/galileohub-192-v2.png" });
+      void navigator.serviceWorker?.ready.then((registration) =>
+        registration.showNotification(item.title, {
+          body: item.body,
+          icon: "/icons/galileohub-192-v2.png",
+          badge: "/icons/galileohub-192-v2.png",
+          tag: item.id,
+          data: { url: "/area/bacheca" },
+        }),
+      );
     }
     previousNotificationCount.current = latestUnread.length;
   }, [notificationQuery.data]);
