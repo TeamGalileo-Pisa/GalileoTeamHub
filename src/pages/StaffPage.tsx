@@ -32,7 +32,7 @@ const schema = z
       .regex(/[a-z]/, "Aggiungi una lettera minuscola")
       .regex(/[0-9]/, "Aggiungi un numero")
       .regex(/[^A-Za-z0-9]/, "Aggiungi un simbolo"),
-    role: z.enum(["admin", "area_lead"]),
+    role: z.enum(["admin", "team_leader", "area_lead"]),
     areaId: z.string().optional(),
   })
   .superRefine((value, context) => {
@@ -61,7 +61,8 @@ export function StaffPage() {
         username: values.username,
         displayName: values.displayName,
         temporaryPassword: values.temporaryPassword,
-        isAdmin: values.role === "admin",
+        isAdmin: values.role !== "area_lead",
+        role: values.role,
         areaId: values.role === "area_lead" ? values.areaId : undefined,
       }),
     onSuccess: async () => {
@@ -130,6 +131,7 @@ export function StaffPage() {
               {...form.register("role")}
             >
               <option value="area_lead">Capo Area</option>
+              <option value="team_leader">Team Leader</option>
               <option value="admin">Amministrazione</option>
             </select>
           </div>
@@ -138,13 +140,13 @@ export function StaffPage() {
             <select
               id="staff-area"
               className="select"
-              disabled={selectedRole === "admin"}
+              disabled={selectedRole !== "area_lead"}
               defaultValue=""
               {...form.register("areaId")}
             >
               <option value="">
-                {selectedRole === "admin"
-                  ? "Non richiesta per Amministrazione"
+                {selectedRole !== "area_lead"
+                  ? "Non richiesta per ruolo globale"
                   : "Seleziona area"}
               </option>
               {areasQuery.data
