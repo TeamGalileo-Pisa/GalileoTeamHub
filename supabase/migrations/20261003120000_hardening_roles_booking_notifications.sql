@@ -460,4 +460,49 @@ $;
 revoke all on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) from public,anon,authenticated;
 grant execute on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) to service_role;
 
+
+
+create or replace function private.protect_last_admin()
+returns trigger language plpgsql security definer set search_path=''
+as $
+declare v_id uuid; v_removes boolean;
+begin
+  perform pg_catalog.pg_advisory_xact_lock(706202601);
+  if tg_table_name='profiles' then
+    v_id:=old.id;
+    v_removes:=tg_op='DELETE' or (old.status='active' and new.status='disabled');
+  else
+    v_id:=old.user_id;
+    v_removes:=true;
+  end if;
+  if v_removes and exists(
+    select 1 from public.profiles p join public.system_roles r on r.user_id=p.id
+    where p.id=v_id and p.status='active' and r.role in ('admin','team_leader')
+  ) and not exists(
+    select 1 from public.profiles p join public.system_roles r on r.user_id=p.id
+    where p.id<>v_id and p.status='active' and r.role in ('admin','team_leader')
+  ) then
+    raise exception 'LAST_ACTIVE_ADMIN';
+  end if;
+  if tg_op='DELETE' then return old; end if;
+  return new;
+end;
+$;
+
+create or replace function private.guard_profile_deletion()
+returns trigger language plpgsql security definer set search_path=''
+as $
+begin
+  perform pg_catalog.pg_advisory_xact_lock(706202601);
+  if private.has_references('public.profiles',old.id,array['public.system_roles','system_roles','private.staff_operations'])
+     or exists(select 1 from public.audit_logs where actor_user_id=old.id or (entity_type='profile' and entity_id=old.id))
+  then raise exception 'HAS_HISTORY'; end if;
+  if exists(select 1 from public.system_roles where user_id=old.id and role in ('admin','team_leader'))
+     and not exists(select 1 from public.profiles p join public.system_roles r on r.user_id=p.id
+       where p.id<>old.id and p.status='active' and r.role in ('admin','team_leader'))
+  then raise exception 'LAST_ACTIVE_ADMIN'; end if;
+  return old;
+end;
+$;
+
 commit;
