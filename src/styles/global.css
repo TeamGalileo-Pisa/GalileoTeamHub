@@ -818,6 +818,13 @@ p {
 }
 
 @media (max-width: 620px) {
+  .notification-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .notification-item .button {
+    grid-column: 2;
+    justify-self: start;
+  }
   .stats-grid,
   .form-grid {
     grid-template-columns: 1fr;
