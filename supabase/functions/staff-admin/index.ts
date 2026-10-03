@@ -163,6 +163,7 @@ Deno.serve(async (request) => {
           !/^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9]$/.test(proposed) ||
           typeof body.displayName !== "string" ||
           typeof body.isAdmin !== "boolean" ||
+          !["admin", "team_leader", "area_lead"].includes(body.role ?? (body.isAdmin ? "admin" : "area_lead")) ||
           !["active", "disabled"].includes(body.status ?? "")
         )
           throw new Error("INVALID_STAFF_DATA");
