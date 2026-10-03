@@ -194,4 +194,135 @@ before insert on public.bookings for each row execute function private.guard_pub
 revoke all on function private.notify_booking_change(),private.notify_announcement(),private.notify_targeted_announcement(),private.guard_public_booking_24h(),private.guard_one_confirmed_booking_per_candidate() from public,anon;
 grant execute on function private.notify_booking_change(),private.notify_announcement(),private.notify_targeted_announcement(),private.guard_public_booking_24h() to authenticated,service_role;
 
+
+alter table public.email_deliveries
+  add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+create table if not exists public.booking_manage_tokens (
+  id uuid primary key default extensions.gen_random_uuid(),
+  booking_id uuid not null unique references public.bookings(id) on delete cascade,
+  token_hash bytea not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default pg_catalog.now()
+);
+create index if not exists booking_manage_tokens_hash_idx on public.booking_manage_tokens(token_hash);
+alter table public.booking_manage_tokens enable row level security;
+revoke all on public.booking_manage_tokens from public,anon,authenticated;
+
+create or replace function private.create_booking_manage_token()
+returns trigger language plpgsql security definer set search_path=''
+as $$
+declare
+  v_raw text;
+  v_starts timestamptz;
+  v_public_url text := coalesce(current_setting('app.public_url',true),'https://galileohub.info-teamgalileo.workers.dev');
+begin
+  if new.kind<>'booking_confirmation' then return new; end if;
+  select sl.starts_at into v_starts
+  from public.bookings b join public.slots sl on sl.id=b.slot_id
+  where b.id=new.booking_id;
+  v_raw:=encode(extensions.gen_random_bytes(32),'hex');
+  insert into public.booking_manage_tokens(booking_id,token_hash,expires_at)
+  values(new.booking_id,extensions.digest(v_raw,'sha256'),v_starts);
+  update public.email_deliveries
+  set metadata=jsonb_build_object('manage_url',rtrim(v_public_url,'/')||'/manage/'||v_raw)
+  where id=new.id;
+  return new;
+end;
+$$;
+drop trigger if exists email_delivery_create_manage_token on public.email_deliveries;
+create trigger email_delivery_create_manage_token
+after insert on public.email_deliveries for each row
+execute function private.create_booking_manage_token();
+
+create or replace function public.get_booking_by_manage_token(p_token text)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare v_booking uuid; v jsonb;
+begin
+  select booking_id into v_booking from public.booking_manage_tokens
+  where token_hash=extensions.digest(coalesce(p_token,''),'sha256') and expires_at>pg_catalog.now();
+  if v_booking is null then raise exception 'INVALID_MANAGE_TOKEN'; end if;
+  select jsonb_build_object(
+    'booking_id',b.id,'candidate_name',c.first_name||' '||c.last_name,
+    'candidate_email',c.email::text,'area_name',ar.name::text,'room_name',r.name::text,
+    'starts_at',sl.starts_at,'ends_at',sl.ends_at
+  ) into v
+  from public.bookings b
+  join public.candidates c on c.id=b.candidate_id
+  join public.slots sl on sl.id=b.slot_id
+  join public.interview_sessions s on s.id=sl.session_id
+  join public.area_allocations al on al.id=s.allocation_id
+  join public.campaign_areas ca on ca.id=al.campaign_area_id
+  join public.areas ar on ar.id=ca.area_id
+  join public.room_availabilities ra on ra.id=al.room_availability_id
+  join public.rooms r on r.id=ra.room_id
+  where b.id=v_booking and b.status='confirmed';
+  if v is null then raise exception 'BOOKING_NOT_FOUND'; end if;
+  return v;
+end;
+$$;
+
+create or replace function public.change_booking_by_manage_token(p_token text,p_new_slot_id uuid)
+returns jsonb language plpgsql security definer set search_path=''
+as $$
+declare
+  v_booking uuid; v_candidate uuid; v_old_slot uuid; v_new_start timestamptz;
+  v_new_end timestamptz; v_area uuid; v_campaign uuid;
+begin
+  perform pg_catalog.pg_advisory_xact_lock(706202602);
+  select booking_id into v_booking from public.booking_manage_tokens
+  where token_hash=extensions.digest(coalesce(p_token,''),'sha256') and expires_at>pg_catalog.now();
+  if v_booking is null then raise exception 'INVALID_MANAGE_TOKEN'; end if;
+  select b.candidate_id,b.slot_id,ca.area_id,ca.campaign_id
+    into v_candidate,v_old_slot,v_area,v_campaign
+  from public.bookings b
+  join public.slots sl on sl.id=b.slot_id
+  join public.interview_sessions s on s.id=sl.session_id
+  join public.area_allocations al on al.id=s.allocation_id
+  join public.campaign_areas ca on ca.id=al.campaign_area_id
+  where b.id=v_booking and b.status='confirmed';
+  if v_candidate is null then raise exception 'BOOKING_NOT_FOUND'; end if;
+  select sl.starts_at,sl.ends_at into v_new_start,v_new_end
+  from public.slots sl
+  join public.interview_sessions s on s.id=sl.session_id
+  join public.area_allocations al on al.id=s.allocation_id
+  join public.campaign_areas ca on ca.id=al.campaign_area_id
+  where sl.id=p_new_slot_id and sl.status='available' and sl.starts_at>=pg_catalog.now()+interval '24 hours'
+    and ca.campaign_id=v_campaign and ca.area_id=v_area and s.status in ('draft','published')
+    and al.status='active' and ca.active;
+  if v_new_start is null then raise exception 'SLOT_UNAVAILABLE_OR_LESS_THAN_24H'; end if;
+  if p_new_slot_id=v_old_slot then return public.get_booking_by_manage_token(p_token); end if;
+  begin
+    update public.bookings set slot_id=p_new_slot_id where id=v_booking and status='confirmed';
+  exception when unique_violation then raise exception 'SLOT_UNAVAILABLE'; end;
+  insert into public.email_deliveries(booking_id,kind,idempotency_key)
+  values(v_booking,'booking_changed',v_booking::text||':candidate_changed:'||extensions.gen_random_uuid()::text);
+  return public.get_booking_by_manage_token(p_token);
+end;
+$$;
+
+create or replace function public.cancel_booking_by_manage_token(p_token text)
+returns void language plpgsql security definer set search_path=''
+as $$
+declare v_booking uuid;
+begin
+  perform pg_catalog.pg_advisory_xact_lock(706202602);
+  select booking_id into v_booking from public.booking_manage_tokens
+  where token_hash=extensions.digest(coalesce(p_token,''),'sha256') and expires_at>pg_catalog.now();
+  if v_booking is null then raise exception 'INVALID_MANAGE_TOKEN'; end if;
+  update public.bookings
+  set status='cancelled',cancelled_at=pg_catalog.now()
+  where id=v_booking and status='confirmed';
+  if not found then raise exception 'BOOKING_NOT_FOUND'; end if;
+  insert into public.email_deliveries(booking_id,kind,idempotency_key)
+  values(v_booking,'booking_cancelled',v_booking::text||':candidate_cancelled:'||extensions.gen_random_uuid()::text);
+end;
+$$;
+
+revoke all on function private.create_booking_manage_token() from public,anon,authenticated;
+grant execute on function private.create_booking_manage_token() to service_role;
+revoke all on function public.get_booking_by_manage_token(text),public.change_booking_by_manage_token(text,uuid),public.cancel_booking_by_manage_token(text) from public,anon,authenticated;
+grant execute on function public.get_booking_by_manage_token(text),public.change_booking_by_manage_token(text,uuid),public.cancel_booking_by_manage_token(text) to service_role;
+
 commit;
