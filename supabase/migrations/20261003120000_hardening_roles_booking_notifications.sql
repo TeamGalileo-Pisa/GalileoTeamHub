@@ -327,6 +327,7 @@ begin
   begin
     update public.bookings set slot_id=p_new_slot_id where id=v_booking and status='confirmed';
   exception when unique_violation then raise exception 'SLOT_UNAVAILABLE'; end;
+  update public.booking_manage_tokens set expires_at=v_new_start where booking_id=v_booking;
   insert into public.email_deliveries(booking_id,kind,idempotency_key)
   values(v_booking,'booking_changed',v_booking::text||':candidate_changed:'||extensions.gen_random_uuid()::text);
   return public.get_booking_by_manage_token(p_token);
