@@ -103,6 +103,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
     "SLOT_UNAVAILABLE",
     "Questo slot è appena stato prenotato. Scegline un altro.",
   ],
+  ["BOOKING_REQUIRES_24_HOURS", "La prenotazione deve essere effettuata almeno 24 ore prima del colloquio."],
   ["INVALID_BOOKING_LINK", "Il link non è valido oppure è scaduto."],
   [
     "SESSION_ALREADY_HAS_SLOTS",
