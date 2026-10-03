@@ -2186,6 +2186,30 @@ p {
   display: grid;
   gap: 8px;
 }
+.calendar-area-filter {
+  display: grid;
+  gap: 8px;
+  min-width: min(100%, 360px);
+}
+.calendar-area-filter__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.calendar-area-filter__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--page-raised);
+  font-size: 13px;
+}
+.calendar-area-filter__option input {
+  accent-color: var(--azure);
+}
+
 .weekday-picker {
   border: 1px solid var(--border);
   padding: 12px;
