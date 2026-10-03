@@ -140,34 +140,24 @@ export function CalendarPage() {
           />
         </label>
         {access?.isAdmin && (
-          <div className="calendar-area-filter" aria-label="Filtro aree">
-            <strong>Aree</strong>
-            <button
-              className="button button--small button--secondary"
-              type="button"
-              onClick={() => setSelectedAreas([])}
+          <label>
+            Area
+            <select
+              className="select calendar-area-select"
+              multiple
+              size={Math.min(4, Math.max(2, areas.data?.length ?? 2))}
+              value={selectedAreas}
+              onChange={(event) =>
+                setSelectedAreas(Array.from(event.target.selectedOptions, (option) => option.value))
+              }
+              aria-label="Area"
             >
-              Tutte
-            </button>
-            <div className="calendar-area-filter__options">
-              {areas.data?.map((a) => (
-                <label key={a.id} className="calendar-area-filter__option">
-                  <input
-                    type="checkbox"
-                    checked={selectedAreas.includes(a.id)}
-                    onChange={(e) =>
-                      setSelectedAreas((current) =>
-                        e.target.checked
-                          ? [...current, a.id]
-                          : current.filter((id) => id !== a.id),
-                      )
-                    }
-                  />
-                  <span>{a.name}</span>
-                </label>
+              {areas.data?.map((area) => (
+                <option key={area.id} value={area.id}>{area.name}</option>
               ))}
-            </div>
-          </div>
+            </select>
+            <small className="field-help">Ctrl/Cmd + click per selezionare più aree. Nessuna selezione = tutte.</small>
+          </label>
         )}
       </section>
 
