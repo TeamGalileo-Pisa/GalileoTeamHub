@@ -106,8 +106,10 @@ Deno.serve(async (request) => {
       if (oldError || authError || !oldAuth.user)
         throw new Error("ACCOUNT_UPDATE_FAILED");
       if (action === "reset_password") {
+        const initialPassword = Deno.env.get("DEFAULT_INITIAL_PASSWORD");
         const suffix = Deno.env.get("DEFAULT_PASSWORD_SUFFIX");
-        if (!suffix) throw new Error("DEFAULT_PASSWORD_NOT_CONFIGURED");
+        const resetPassword = initialPassword || (suffix ? old.username + suffix : "");
+        if (!resetPassword) throw new Error("DEFAULT_PASSWORD_NOT_CONFIGURED");
         // Only server memory: never return or log the derived password.
         const { error: flagError } = await serviceClient
           .from("profiles")
@@ -117,7 +119,7 @@ Deno.serve(async (request) => {
         const { error } = await serviceClient.auth.admin.updateUserById(
           body.id,
           {
-            password: old.username + suffix,
+            password: resetPassword,
             app_metadata: {
               ...oldAuth.user.app_metadata,
               password_reset_nonce: crypto.randomUUID(),
@@ -137,13 +139,13 @@ Deno.serve(async (request) => {
           entity_id: body.id,
         });
       } else if (action === "delete") {
-        const { error: guard } = await serviceClient.rpc(
-          "check_staff_deletion",
+        const { error: prepareError } = await serviceClient.rpc(
+          "prepare_staff_deletion",
           { p_id: body.id },
         );
-        if (guard)
+        if (prepareError)
           throw new Error(
-            guard.message.includes("LAST_ACTIVE_ADMIN")
+            prepareError.message.includes("LAST_ACTIVE_ADMIN")
               ? "LAST_ACTIVE_ADMIN"
               : "HAS_HISTORY",
           );
@@ -179,13 +181,14 @@ Deno.serve(async (request) => {
             },
           });
         if (renameError) throw new Error("ACCOUNT_UPDATE_FAILED");
-        const { error } = await serviceClient.rpc("update_staff_profile", {
+        const requestedRole = body.role ?? (body.isAdmin ? "admin" : "area_lead");
+        const { error } = await serviceClient.rpc("update_staff_profile_v2", {
           p_actor_id: user.id,
           p_id: body.id,
           p_username: proposed,
           p_display_name: body.displayName,
-          p_is_admin: body.isAdmin,
-          p_area_id: body.isAdmin ? null : body.areaId,
+          p_role: requestedRole,
+          p_area_id: requestedRole === "area_lead" ? body.areaId : null,
           p_status: body.status,
         });
         if (error) {
