@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "area_lead";
+export type AppRole = "admin" | "team_leader" | "area_lead";
 
 export interface AreaSummary {
   id: string;
