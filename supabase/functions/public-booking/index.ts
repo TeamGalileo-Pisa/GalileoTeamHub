@@ -45,6 +45,7 @@ function bookingErrorCode(message: string): string {
     "PRIVACY_CONSENT_REQUIRED",
     "PRIVACY_VERSION_OUTDATED",
     "PRIVACY_NOT_CONFIGURED",
+    "BOOKING_REQUIRES_24_HOURS",
   ];
 
   return knownCodes.find((code) => message.includes(code)) ?? "BOOKING_FAILED";
