@@ -14,6 +14,8 @@ import {
   deleteAnnouncement,
   listAnnouncements,
   listAreas,
+  listNotifications,
+  markNotificationRead,
   markAnnouncementRead,
   updateAnnouncement,
 } from "../lib/data";
@@ -63,6 +65,15 @@ export function AnnouncementsPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const notificationsQuery = useQuery({
+    queryKey: ["system-notifications", access?.userId],
+    queryFn: listNotifications,
+    enabled: Boolean(access),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  const announcementNotifications = notificationsQuery.data ?? [];
+
   const announcementsQuery = useQuery({
     queryKey: ["announcements", access?.userId],
     queryFn: listAnnouncements,
@@ -130,6 +141,14 @@ export function AnnouncementsPage() {
     },
   });
 
+  const notificationReadMutation = useMutation({
+    mutationFn: markNotificationRead,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["system-notifications"] });
+      await queryClient.invalidateQueries({ queryKey: ["unread-notifications"] });
+    },
+  });
+
   function stopEditing() {
     setEditing(null);
     form.reset({ ...emptyForm, publishedAt: localDateTime() });
@@ -148,6 +167,42 @@ export function AnnouncementsPage() {
       />
 
       {feedback && <div className="form-success page-feedback" role="status">{feedback}</div>}
+
+      {announcementNotifications.length > 0 && (
+        <section className="panel notifications-panel" aria-labelledby="system-notifications-title">
+          <div className="panel__header">
+            <div>
+              <h2 id="system-notifications-title">Notifiche di sistema</h2>
+              <p>Nuove prenotazioni, modifiche, annullamenti e comunicazioni importanti.</p>
+            </div>
+            <BellRing size={20} />
+          </div>
+          <div className="notifications-list">
+            {announcementNotifications.slice(0, 12).map((notification) => (
+              <article className={`notification-item ${notification.readAt ? "" : "notification-item--new"}`} key={notification.id}>
+                <div className="notification-item__icon"><BellRing size={16} /></div>
+                <div className="notification-item__content">
+                  <strong>{notification.title}</strong>
+                  <p>{notification.body}</p>
+                  <time>{formatDateTime(notification.createdAt)}</time>
+                </div>
+                {!notification.readAt && (
+                  <button
+                    className="button button--secondary button--small"
+                    type="button"
+                    disabled={notificationReadMutation.isPending}
+                    onClick={() => notificationReadMutation.mutate(notification.id)}
+                  >
+                    Segna letto
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+
 
       {isAdmin && (
         <section className="panel announcement-form-panel">
