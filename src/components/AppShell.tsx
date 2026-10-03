@@ -70,7 +70,7 @@ export function AppShell() {
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
-  const previousNotificationCount = useRef(0);
+  const previousNotificationCount = useRef<number | null>(null);
 
   const reportPresence = useCallback(async () => {
     if (!access?.userId || document.visibilityState === "hidden") return;
@@ -81,6 +81,7 @@ export function AppShell() {
     const notifications = notificationQuery.data ?? [];
     const latestUnread = notifications.filter((item) => !item.readAt);
     if (
+      previousNotificationCount.current !== null &&
       latestUnread.length > previousNotificationCount.current &&
       typeof window !== "undefined" &&
       "Notification" in window &&
