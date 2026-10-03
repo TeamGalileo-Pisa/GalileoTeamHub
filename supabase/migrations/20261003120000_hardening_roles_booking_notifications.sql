@@ -263,6 +263,37 @@ begin
 end;
 $$;
 
+create or replace function public.list_booking_change_slots(p_token text)
+returns jsonb language plpgsql security definer set search_path=''
+as $
+declare v_booking uuid; v_session uuid; v_slots jsonb;
+begin
+  select b.id,s.id into v_booking,v_session
+  from public.booking_manage_tokens t
+  join public.bookings b on b.id=t.booking_id
+  join public.slots old_slot on old_slot.id=b.slot_id
+  join public.interview_sessions s on s.id=old_slot.session_id
+  where t.token_hash=extensions.digest(coalesce(p_token,''),'sha256')
+    and t.expires_at>pg_catalog.now() and b.status='confirmed';
+  if v_booking is null then raise exception 'INVALID_MANAGE_TOKEN'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id',sl.id,'starts_at',sl.starts_at,'ends_at',sl.ends_at,'room_name',r.name::text) order by sl.starts_at),'[]'::jsonb)
+  into v_slots
+  from public.slots sl
+  join public.interview_sessions s on s.id=sl.session_id
+  join public.area_allocations al on al.id=s.allocation_id
+  join public.room_availabilities ra on ra.id=al.room_availability_id
+  join public.rooms r on r.id=ra.room_id
+  join public.campaign_areas ca on ca.id=al.campaign_area_id
+  where sl.session_id=v_session and sl.status='available'
+    and sl.starts_at>=pg_catalog.now()+interval '24 hours'
+    and not exists(select 1 from public.bookings b2 where b2.slot_id=sl.id and b2.status='confirmed');
+  return v_slots;
+end;
+$;
+
+revoke all on function public.list_booking_change_slots(text) from public,anon,authenticated;
+grant execute on function public.list_booking_change_slots(text) to service_role;
+
 create or replace function public.change_booking_by_manage_token(p_token text,p_new_slot_id uuid)
 returns jsonb language plpgsql security definer set search_path=''
 as $$
