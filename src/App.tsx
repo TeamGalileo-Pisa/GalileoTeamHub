@@ -37,6 +37,9 @@ const HelpPage = lazy(() =>
 const LegalDocumentsPage = lazy(() =>
   import("./pages/LegalDocumentsPage").then((module) => ({ default: module.LegalDocumentsPage })),
 );
+const ManageBookingPage = lazy(() =>
+  import("./pages/ManageBookingPage").then((module) => ({ default: module.ManageBookingPage })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
@@ -69,6 +72,7 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:token" element={<PublicBookingPage />} />
+          <Route path="/manage/:token" element={<ManageBookingPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/change-password" element={<ChangePasswordPage />} />
