@@ -191,7 +191,25 @@ p {
 .sidebar__nav {
   display: grid;
   gap: 4px;
-  padding: 0 13px;
+  padding: 0 13px 12px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 141, 204, 0.45) transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar {
+  width: 7px;
+}
+
+.sidebar__nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(43, 141, 204, 0.45);
+}
+
+.sidebar__footer {
+  flex: 0 0 auto;
 }
 
 .nav-item {
