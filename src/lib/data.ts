@@ -322,6 +322,7 @@ export async function createStaffMember(input: {
   displayName: string;
   temporaryPassword: string;
   isAdmin: boolean;
+  role?: "admin" | "team_leader" | "area_lead";
   areaId?: string;
 }): Promise<void> {
   const { error } = await supabase.functions.invoke("staff-admin", {
