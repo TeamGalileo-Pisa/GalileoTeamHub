@@ -364,4 +364,100 @@ grant execute on function private.create_booking_manage_token() to service_role;
 revoke all on function public.get_booking_by_manage_token(text),public.change_booking_by_manage_token(text,uuid),public.cancel_booking_by_manage_token(text) from public,anon,authenticated;
 grant execute on function public.get_booking_by_manage_token(text),public.change_booking_by_manage_token(text,uuid),public.cancel_booking_by_manage_token(text) to service_role;
 
+
+
+-- Team Leader is a first-class global role and must be editable like Admin.
+create or replace function public.list_staff_members()
+returns table (
+  id uuid,
+  username text,
+  display_name text,
+  status public.profile_status,
+  is_admin boolean,
+  role public.app_role,
+  areas jsonb
+)
+language plpgsql stable security definer set search_path=''
+as $
+begin
+  if not private.is_admin() then raise exception 'FORBIDDEN'; end if;
+  return query
+  select p.id,p.username::text,p.display_name,p.status,
+    exists(select 1 from public.system_roles r where r.user_id=p.id and r.role in ('admin','team_leader')),
+    coalesce((select r.role from public.system_roles r where r.user_id=p.id order by case when r.role='admin' then 1 when r.role='team_leader' then 2 else 3 end limit 1),'area_lead'::public.app_role),
+    coalesce((
+      select jsonb_agg(jsonb_build_object('id',a.id,'name',a.name::text,'slug',a.slug::text) order by a.name)
+      from public.area_memberships m join public.areas a on a.id=m.area_id
+      where m.user_id=p.id and m.ended_at is null
+    ),'[]'::jsonb)
+  from public.profiles p
+  order by p.display_name;
+end;
+$;
+revoke all on function public.list_staff_members() from public,anon;
+grant execute on function public.list_staff_members() to authenticated;
+
+create or replace function public.update_staff_profile(
+  p_actor_id uuid,p_id uuid,p_username text,p_display_name text,
+  p_is_admin boolean,p_area_id uuid,p_status public.profile_status
+)
+returns void language plpgsql security definer set search_path=''
+as $
+begin
+  perform public.update_staff_profile_v2(
+    p_actor_id,p_id,p_username,p_display_name,
+    case when p_is_admin then 'admin'::public.app_role else 'area_lead'::public.app_role end,
+    p_area_id,p_status
+  );
+end;
+$;
+
+create or replace function public.update_staff_profile_v2(
+  p_actor_id uuid,p_id uuid,p_username text,p_display_name text,
+  p_role public.app_role,p_area_id uuid,p_status public.profile_status
+)
+returns void language plpgsql security definer set search_path=''
+as $
+declare v_old public.profiles%rowtype;
+begin
+  perform pg_catalog.pg_advisory_xact_lock(706202601);
+  if not exists(
+    select 1 from public.profiles p
+    where p.id=p_actor_id and p.status='active' and not p.must_change_password
+      and exists(select 1 from public.system_roles r where r.user_id=p_actor_id and r.role in ('admin','team_leader'))
+  ) then raise exception 'FORBIDDEN'; end if;
+  if p_role not in ('admin','team_leader','area_lead') then raise exception 'INVALID_STAFF_DATA'; end if;
+  select * into strict v_old from public.profiles where id=p_id for update;
+  if p_username !~ '^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9] then raise exception 'INVALID_STAFF_DATA'; end if;
+  if p_role='area_lead' and not exists(
+    select 1 from public.areas a where a.id=p_area_id and
+      (a.active or exists(select 1 from public.area_memberships m where m.user_id=p_id and m.area_id=a.id and m.ended_at is null))
+  ) then raise exception 'INVALID_STAFF_DATA'; end if;
+  if exists(select 1 from public.system_roles r where r.user_id=p_id and r.role in ('admin','team_leader'))
+     and (p_role='area_lead' or p_status='disabled')
+     and not exists(select 1 from public.profiles p join public.system_roles r on r.user_id=p.id
+                    where p.id<>p_id and p.status='active' and r.role in ('admin','team_leader')) then
+    raise exception 'LAST_ACTIVE_ADMIN';
+  end if;
+  update public.profiles set username=trim(p_username),display_name=trim(p_display_name),status=p_status where id=p_id;
+  delete from public.system_roles where user_id=p_id;
+  if p_role in ('admin','team_leader') then
+    insert into public.system_roles(user_id,role,granted_by) values(p_id,p_role,p_actor_id);
+    update public.area_memberships set ended_at=greatest(clock_timestamp(),started_at+interval '1 microsecond')
+      where user_id=p_id and ended_at is null;
+  else
+    update public.area_memberships set ended_at=greatest(clock_timestamp(),started_at+interval '1 microsecond')
+      where user_id=p_id and ended_at is null and area_id<>p_area_id;
+    if not exists(select 1 from public.area_memberships where user_id=p_id and area_id=p_area_id and ended_at is null) then
+      insert into public.area_memberships(user_id,area_id,created_by) values(p_id,p_area_id,p_actor_id);
+    end if;
+  end if;
+  insert into public.audit_logs(actor_user_id,actor_type,action,entity_type,entity_id,before_value,after_value)
+    values(p_actor_id,'staff','staff.updated','profile',p_id,to_jsonb(v_old),
+      jsonb_build_object('username',p_username,'display_name',p_display_name,'status',p_status,'role',p_role,'area_id',p_area_id));
+end;
+$;
+revoke all on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) from public,anon,authenticated;
+grant execute on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) to service_role;
+
 commit;
