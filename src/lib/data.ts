@@ -532,6 +532,41 @@ export async function markAnnouncementRead(
   throwIfError(error);
 }
 
+export interface SystemNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export async function listNotifications(): Promise<SystemNotification[]> {
+  const { data, error } = await supabase.rpc("list_notifications", { p_limit: 30 });
+  throwIfError(error);
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    id: asString(row.id),
+    type: asString(row.type),
+    title: asString(row.title),
+    body: asString(row.body),
+    data: (row.data && typeof row.data === "object" ? row.data : {}) as Record<string, unknown>,
+    createdAt: asString(row.created_at),
+    readAt: typeof row.read_at === "string" ? row.read_at : null,
+  }));
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const { data, error } = await supabase.rpc("get_unread_notification_count");
+  throwIfError(error);
+  return asNumber(data);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_notification_read", { p_notification_id: id });
+  throwIfError(error);
+}
+
 export async function getUnreadAnnouncementCount(): Promise<number> {
   const { data, error } = await supabase.rpc("get_unread_announcement_count");
   throwIfError(error);
