@@ -10,6 +10,7 @@ interface StaffRequest {
   displayName?: string;
   temporaryPassword?: string;
   isAdmin?: boolean;
+  role?: "admin" | "team_leader" | "area_lead";
   areaId?: string;
 }
 
@@ -241,14 +242,15 @@ Deno.serve(async (request) => {
     !/[a-z]/.test(password) ||
     !/[0-9]/.test(password) ||
     !/[^A-Za-z0-9]/.test(password) ||
-    (!body.isAdmin && !body.areaId)
+    ((body.role ?? (body.isAdmin ? "admin" : "area_lead")) === "area_lead" && !body.areaId)
   ) {
     return jsonResponse(request, { error: "INVALID_STAFF_DATA" }, 400);
   }
 
-  if (typeof body.isAdmin !== "boolean")
+  const requestedRole = body.role ?? (body.isAdmin ? "admin" : "area_lead");
+  if (!["admin", "team_leader", "area_lead"].includes(requestedRole))
     return jsonResponse(request, { error: "INVALID_STAFF_DATA" }, 400);
-  if (!body.isAdmin) {
+  if (requestedRole === "area_lead") {
     const { data: area } = await serviceClient
       .from("areas")
       .select("id")
@@ -277,10 +279,10 @@ Deno.serve(async (request) => {
       .update({ username: body.username?.trim(), must_change_password: true })
       .eq("id", createdUserId);
     if (profileError) throw profileError;
-    if (body.isAdmin) {
+    if (requestedRole === "admin" || requestedRole === "team_leader") {
       const { error } = await serviceClient.from("system_roles").insert({
         user_id: createdUserId,
-        role: "admin",
+        role: requestedRole,
         granted_by: user.id,
       });
       if (error) throw error;
