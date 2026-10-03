@@ -8,7 +8,7 @@ import {
 } from "../_shared/booking-validation.ts";
 
 interface BookingRequest {
-  action?: "availability" | "book";
+  action?: "availability" | "book" | "manage" | "change" | "cancel";
   token?: string;
   slotId?: string;
   firstName?: string;
@@ -16,6 +16,8 @@ interface BookingRequest {
   email?: string;
   privacyAccepted?: boolean;
   privacyVersion?: number;
+  manageToken?: string;
+  newSlotId?: string;
 }
 
 function snakeToCamelAvailability(data: Record<string, unknown>) {
@@ -47,6 +49,9 @@ function bookingErrorCode(message: string): string {
     "PRIVACY_NOT_CONFIGURED",
     "BOOKING_REQUIRES_24_HOURS",
     "CANDIDATE_ALREADY_BOOKED",
+    "INVALID_MANAGE_TOKEN",
+    "BOOKING_NOT_FOUND",
+    "SLOT_UNAVAILABLE_OR_LESS_THAN_24H",
   ];
 
   return knownCodes.find((code) => message.includes(code)) ?? "BOOKING_FAILED";
@@ -83,6 +88,43 @@ Deno.serve(async (request) => {
   }
 
   const client = createServiceClient();
+
+  if (body.action === "manage") {
+    if (typeof body.manageToken !== "string" || body.manageToken.length !== 64)
+      return jsonResponse(request, { error: "INVALID_MANAGE_TOKEN" }, 404);
+    const [bookingResult, slotsResult] = await Promise.all([
+      client.rpc("get_booking_by_manage_token", { p_token: body.manageToken }),
+      client.rpc("list_booking_change_slots", { p_token: body.manageToken }),
+    ]);
+    if (bookingResult.error || slotsResult.error || !bookingResult.data)
+      return jsonResponse(request, { error: "INVALID_MANAGE_TOKEN" }, 404);
+    return jsonResponse(request, { booking: bookingResult.data, slots: slotsResult.data ?? [] });
+  }
+
+  if (body.action === "change") {
+    if (typeof body.manageToken !== "string" || typeof body.newSlotId !== "string")
+      return jsonResponse(request, { error: "INVALID_MANAGE_TOKEN" }, 400);
+    const { data, error } = await client.rpc("change_booking_by_manage_token", {
+      p_token: body.manageToken,
+      p_new_slot_id: body.newSlotId,
+    });
+    if (error) {
+      const code = bookingErrorCode(error.message);
+      return jsonResponse(request, { error: code }, code === "SLOT_UNAVAILABLE" ? 409 : 400);
+    }
+    return jsonResponse(request, { booking: data });
+  }
+
+  if (body.action === "cancel") {
+    if (typeof body.manageToken !== "string")
+      return jsonResponse(request, { error: "INVALID_MANAGE_TOKEN" }, 400);
+    const { error } = await client.rpc("cancel_booking_by_manage_token", { p_token: body.manageToken });
+    if (error) {
+      const code = bookingErrorCode(error.message);
+      return jsonResponse(request, { error: code }, 400);
+    }
+    return jsonResponse(request, { ok: true });
+  }
 
   if (body.action === "availability") {
     const { data, error } = await client.rpc(
