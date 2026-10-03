@@ -239,7 +239,7 @@ export function StaffEditor({
   const cache = useQueryClient();
   const [username, setUsername] = useState(member.username);
   const [displayName, setDisplayName] = useState(member.displayName);
-  const [isAdmin, setIsAdmin] = useState(member.isAdmin);
+  const [role, setRole] = useState(member.role);
   const [areaId, setAreaId] = useState(member.areas[0]?.id ?? "");
   const [status, setStatus] = useState(member.status);
   const [confirm, setConfirm] = useState<"reset_password" | "delete" | null>(
@@ -254,8 +254,9 @@ export function StaffEditor({
           ? {
               username,
               displayName,
-              isAdmin,
-              areaId: areaId || undefined,
+              isAdmin: role !== "area_lead",
+              role,
+              areaId: role === "area_lead" ? areaId || undefined : undefined,
               status,
             }
           : {}),
@@ -304,10 +305,11 @@ export function StaffEditor({
           Ruolo
           <select
             className="select"
-            value={isAdmin ? "admin" : "area_lead"}
-            onChange={(e) => setIsAdmin(e.target.value === "admin")}
+            value={role}
+            onChange={(e) => setRole(e.target.value as typeof role)}
           >
             <option value="admin">Amministrazione globale</option>
+            <option value="team_leader">Team Leader</option>
             <option value="area_lead">Capo Area</option>
           </select>
         </label>
@@ -315,8 +317,8 @@ export function StaffEditor({
           Area
           <select
             className="select"
-            required={!isAdmin}
-            disabled={isAdmin}
+            required={role === "area_lead"}
+            disabled={role !== "area_lead"}
             value={areaId}
             onChange={(e) => setAreaId(e.target.value)}
           >
