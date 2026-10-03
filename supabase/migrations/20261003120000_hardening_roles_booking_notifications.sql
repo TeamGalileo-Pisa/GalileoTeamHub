@@ -444,9 +444,13 @@ begin
     raise exception 'LAST_ACTIVE_ADMIN';
   end if;
   update public.profiles set username=trim(p_username),display_name=trim(p_display_name),status=p_status where id=p_id;
-  delete from public.system_roles where user_id=p_id;
   if p_role in ('admin','team_leader') then
-    insert into public.system_roles(user_id,role,granted_by) values(p_id,p_role,p_actor_id);
+    if exists(select 1 from public.system_roles where user_id=p_id and role in ('admin','team_leader')) then
+      update public.system_roles set role=p_role,granted_by=p_actor_id where user_id=p_id and role in ('admin','team_leader');
+    else
+      insert into public.system_roles(user_id,role,granted_by) values(p_id,p_role,p_actor_id);
+    end if;
+    delete from public.system_roles where user_id=p_id and role not in ('admin','team_leader');
     update public.area_memberships set ended_at=greatest(clock_timestamp(),started_at+interval '1 microsecond')
       where user_id=p_id and ended_at is null;
   else
