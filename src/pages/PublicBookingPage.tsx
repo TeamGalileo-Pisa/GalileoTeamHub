@@ -71,10 +71,12 @@ export function PublicBookingPage() {
     },
     onSuccess: (result) => setConfirmation(result),
   });
-  const slots = useMemo(
-    () => availabilityQuery.data?.slots ?? [],
-    [availabilityQuery.data?.slots],
-  );
+  const slots = useMemo(() => {
+    const cutoff = Date.now() + 24 * 60 * 60 * 1000;
+    return (availabilityQuery.data?.slots ?? []).filter(
+      (slot) => new Date(slot.startsAt).getTime() >= cutoff,
+    );
+  }, [availabilityQuery.data?.slots]);
   const sortedSlots = useMemo(
     () => [...slots].sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()),
     [slots],
