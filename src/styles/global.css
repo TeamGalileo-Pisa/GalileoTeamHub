@@ -1483,6 +1483,49 @@ p {
 .announcement-form-panel {
   margin-bottom: 20px;
 }
+.notifications-panel {
+  margin-bottom: 20px;
+}
+.notifications-list {
+  display: grid;
+}
+.notification-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  padding: 15px 18px;
+  border-top: 1px solid var(--border);
+}
+.notification-item--new {
+  background: rgba(43, 141, 204, 0.07);
+}
+.notification-item__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--azure-light);
+  background: rgba(43, 141, 204, 0.12);
+}
+.notification-item__content {
+  min-width: 0;
+}
+.notification-item__content strong {
+  color: var(--white);
+}
+.notification-item__content p {
+  margin: 4px 0;
+  color: var(--muted-strong);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.notification-item__content time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 
 .check-row {
   display: inline-flex;
