@@ -175,9 +175,13 @@ begin
   return new;
 end;
 $;
+create unique index if not exists bookings_one_confirmed_per_candidate_idx
+on public.bookings(candidate_id)
+where status='confirmed';
+
 drop trigger if exists bookings_one_confirmed_per_candidate on public.bookings;
 create trigger bookings_one_confirmed_per_candidate
-before insert on public.bookings
+before insert or update of candidate_id,status on public.bookings
 for each row execute function private.guard_one_confirmed_booking_per_candidate();
 
 create or replace function private.guard_public_booking_24h()
