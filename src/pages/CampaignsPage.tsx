@@ -8,7 +8,13 @@ import { CampaignEditor } from "../components/AdminEditors";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
-import {\n  activateCampaign,\n  createCampaign,\n  listCampaigns,\n  listRecruitmentAreaControls,\n  setRecruitmentAreaOpen,\n} from "../lib/data";
+import {
+  activateCampaign,
+  createCampaign,
+  listCampaigns,
+  listRecruitmentAreaControls,
+  setRecruitmentAreaOpen,
+} from "../lib/data";
 import { formatDateOnly } from "../lib/dates";
 import { archiveCampaign } from "../lib/hub-enhancements";
 import type { RecruitmentCampaign } from "../types/domain";
@@ -30,7 +36,8 @@ const schema = z
 export function CampaignsPage() {
   const [editing, setEditing] = useState<RecruitmentCampaign | null>(null);
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["campaigns"], queryFn: listCampaigns });\n  const areaControlsQuery = useQuery({ queryKey: ["recruitment-area-controls"], queryFn: listRecruitmentAreaControls });
+  const query = useQuery({ queryKey: ["campaigns"], queryFn: listCampaigns });
+  const areaControlsQuery = useQuery({ queryKey: ["recruitment-area-controls"], queryFn: listRecruitmentAreaControls });
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
@@ -44,7 +51,11 @@ export function CampaignsPage() {
     mutationFn: activateCampaign,
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
   });
-  const areaOpenMutation = useMutation({\n    mutationFn: ({ areaId, open }: { areaId: string; open: boolean }) => setRecruitmentAreaOpen(areaId, open),\n    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["recruitment-area-controls"] }),\n  });\n  const archiveMutation = useMutation({
+  const areaOpenMutation = useMutation({
+    mutationFn: ({ areaId, open }: { areaId: string; open: boolean }) => setRecruitmentAreaOpen(areaId, open),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["recruitment-area-controls"] }),
+  });
+  const archiveMutation = useMutation({
     mutationFn: ({ id, remove }: { id: string; remove: boolean }) => archiveCampaign(id, remove),
     onSuccess: async () => {
       setEditing(null);
