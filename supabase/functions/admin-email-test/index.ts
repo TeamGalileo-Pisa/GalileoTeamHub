@@ -38,7 +38,7 @@ Deno.serve(async (request) => {
     .from("system_roles")
     .select("role")
     .eq("user_id", user.id)
-    .eq("role", "admin")
+    .in("role", ["admin", "team_leader"])
     .maybeSingle();
   if (!adminRole) {
     return jsonResponse(request, { error: "FORBIDDEN" }, 403);
