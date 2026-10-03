@@ -429,7 +429,24 @@ export async function getManagedBooking(token: string): Promise<{ booking: Manag
     body: { action: "manage", manageToken: token },
   });
   await throwIfFunctionError(error);
-  return data as { booking: ManagedBooking; slots: ManagedBookingSlot[] };
+  const raw = data as { booking: JsonRecord; slots: JsonRecord[] };
+  return {
+    booking: {
+      bookingId: asString(raw.booking.booking_id),
+      candidateName: asString(raw.booking.candidate_name),
+      candidateEmail: asString(raw.booking.candidate_email),
+      areaName: asString(raw.booking.area_name),
+      roomName: asString(raw.booking.room_name),
+      startsAt: asString(raw.booking.starts_at),
+      endsAt: asString(raw.booking.ends_at),
+    },
+    slots: (raw.slots ?? []).map((slot) => ({
+      id: asString(slot.id),
+      startsAt: asString(slot.starts_at),
+      endsAt: asString(slot.ends_at),
+      roomName: asString(slot.room_name),
+    })),
+  };
 }
 
 export async function changeManagedBooking(token: string, newSlotId: string): Promise<ManagedBooking> {
@@ -437,7 +454,16 @@ export async function changeManagedBooking(token: string, newSlotId: string): Pr
     body: { action: "change", manageToken: token, newSlotId },
   });
   await throwIfFunctionError(error);
-  return (data as { booking: ManagedBooking }).booking;
+  const raw = (data as { booking: JsonRecord }).booking;
+  return {
+    bookingId: asString(raw.booking_id),
+    candidateName: asString(raw.candidate_name),
+    candidateEmail: asString(raw.candidate_email),
+    areaName: asString(raw.area_name),
+    roomName: asString(raw.room_name),
+    startsAt: asString(raw.starts_at),
+    endsAt: asString(raw.ends_at),
+  };
 }
 
 export async function cancelManagedBooking(token: string): Promise<void> {
