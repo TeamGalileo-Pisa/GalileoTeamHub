@@ -634,3 +634,36 @@ export async function sendAdminTestEmail(toEmail: string): Promise<void> {
   });
   await throwIfFunctionError(error);
 }
+
+export interface RecruitmentAreaControl {
+  areaId: string;
+  areaName: string;
+  areaSlug: string;
+  areaActive: boolean;
+  applicationOpen: boolean;
+  bookingLink: string | null;
+  activeCampaigns: number;
+}
+
+export async function listRecruitmentAreaControls(): Promise<RecruitmentAreaControl[]> {
+  const { data, error } = await supabase.rpc("list_recruitment_area_controls");
+  throwIfError(error);
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    areaId: asString(row.area_id),
+    areaName: asString(row.area_name),
+    areaSlug: asString(row.area_slug),
+    areaActive: asBoolean(row.area_active),
+    applicationOpen: asBoolean(row.application_open),
+    bookingLink: typeof row.booking_link === "string" ? row.booking_link : null,
+    activeCampaigns: asNumber(row.active_campaigns),
+  }));
+}
+
+export async function setRecruitmentAreaOpen(areaId: string, open: boolean): Promise<string | null> {
+  const { data, error } = await supabase.rpc("set_recruitment_area_open", {
+    p_area_id: areaId,
+    p_open: open,
+  });
+  throwIfError(error);
+  return typeof data === "string" ? data : null;
+}
