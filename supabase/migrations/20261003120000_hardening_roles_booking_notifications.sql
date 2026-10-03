@@ -370,6 +370,8 @@ grant execute on function public.get_booking_by_manage_token(text),public.change
 
 
 
+
+
 -- Team Leader is a first-class global role and must be editable like Admin.
 create or replace function public.list_staff_members()
 returns table (
@@ -382,7 +384,7 @@ returns table (
   areas jsonb
 )
 language plpgsql stable security definer set search_path=''
-as $
+as $$
 begin
   if not private.is_admin() then raise exception 'FORBIDDEN'; end if;
   return query
@@ -397,7 +399,7 @@ begin
   from public.profiles p
   order by p.display_name;
 end;
-$;
+$$;
 revoke all on function public.list_staff_members() from public,anon;
 grant execute on function public.list_staff_members() to authenticated;
 
@@ -406,7 +408,7 @@ create or replace function public.update_staff_profile(
   p_is_admin boolean,p_area_id uuid,p_status public.profile_status
 )
 returns void language plpgsql security definer set search_path=''
-as $
+as $$
 begin
   perform public.update_staff_profile_v2(
     p_actor_id,p_id,p_username,p_display_name,
@@ -414,14 +416,14 @@ begin
     p_area_id,p_status
   );
 end;
-$;
+$$;
 
 create or replace function public.update_staff_profile_v2(
   p_actor_id uuid,p_id uuid,p_username text,p_display_name text,
   p_role public.app_role,p_area_id uuid,p_status public.profile_status
 )
 returns void language plpgsql security definer set search_path=''
-as $
+as $$
 declare v_old public.profiles%rowtype;
 begin
   perform pg_catalog.pg_advisory_xact_lock(706202601);
@@ -432,7 +434,7 @@ begin
   ) then raise exception 'FORBIDDEN'; end if;
   if p_role not in ('admin','team_leader','area_lead') then raise exception 'INVALID_STAFF_DATA'; end if;
   select * into strict v_old from public.profiles where id=p_id for update;
-  if p_username !~ '^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9] then raise exception 'INVALID_STAFF_DATA'; end if;
+  if p_username !~ '^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9]$' then raise exception 'INVALID_STAFF_DATA'; end if;
   if p_role='area_lead' and not exists(
     select 1 from public.areas a where a.id=p_area_id and
       (a.active or exists(select 1 from public.area_memberships m where m.user_id=p_id and m.area_id=a.id and m.ended_at is null))
@@ -464,15 +466,13 @@ begin
     values(p_actor_id,'staff','staff.updated','profile',p_id,to_jsonb(v_old),
       jsonb_build_object('username',p_username,'display_name',p_display_name,'status',p_status,'role',p_role,'area_id',p_area_id));
 end;
-$;
+$$;
 revoke all on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) from public,anon,authenticated;
 grant execute on function public.update_staff_profile_v2(uuid,uuid,text,text,public.app_role,uuid,public.profile_status) to service_role;
 
-
-
 create or replace function private.protect_last_admin()
 returns trigger language plpgsql security definer set search_path=''
-as $
+as $$
 declare v_id uuid; v_removes boolean;
 begin
   perform pg_catalog.pg_advisory_xact_lock(706202601);
@@ -495,11 +495,11 @@ begin
   if tg_op='DELETE' then return old; end if;
   return new;
 end;
-$;
+$$;
 
 create or replace function private.guard_profile_deletion()
 returns trigger language plpgsql security definer set search_path=''
-as $
+as $$
 begin
   perform pg_catalog.pg_advisory_xact_lock(706202601);
   if private.has_references('public.profiles',old.id,array['public.system_roles','system_roles','private.staff_operations'])
@@ -511,7 +511,7 @@ begin
   then raise exception 'LAST_ACTIVE_ADMIN'; end if;
   return old;
 end;
-$;
+$$;
 
 create or replace function public.book_public_slot(
   p_token text,
@@ -524,7 +524,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_public_id uuid;
   v_secret text;
@@ -552,7 +552,7 @@ begin
   end;
 
   v_secret := pg_catalog.split_part(p_token, '.', 2);
-  if v_secret !~ '^[0-9a-f]{64} then
+  if v_secret !~ '^[0-9a-f]{64}$' then
     raise exception 'INVALID_BOOKING_LINK';
   end if;
 
@@ -563,7 +563,7 @@ begin
 
   if p_slot_id is null then raise exception 'INVALID_SLOT'; end if;
   if p_email is null or pg_catalog.char_length(trim(coalesce(p_email, ''))) > 254
-     or pg_catalog.lower(trim(p_email)) !~ '^[^[:space:]@]+@studenti\.unipi\.it then
+     or pg_catalog.lower(trim(p_email)) !~ '^[^[:space:]@]+@studenti\.unipi\.it$' then
     raise exception 'INVALID_STUDENT_EMAIL';
   end if;
 
@@ -655,7 +655,7 @@ begin
     'ends_at', v_ends_at
   );
 end;
-$;
+$$;
 
 
 create or replace function public.get_public_booking_availability(p_token text)
@@ -664,7 +664,7 @@ language plpgsql
 stable
 security definer
 set search_path = ''
-as $
+as $$
 declare
   v_public_id uuid;
   v_secret text;
@@ -685,7 +685,7 @@ begin
   end;
 
   v_secret := pg_catalog.split_part(p_token, '.', 2);
-  if v_secret !~ '^[0-9a-f]{64} then
+  if v_secret !~ '^[0-9a-f]{64}$' then
     raise exception 'INVALID_BOOKING_LINK';
   end if;
 
@@ -738,7 +738,7 @@ begin
     'slots', v_slots
   );
 end;
-$;
+$$;
 
 drop function public.list_room_availabilities();
 
