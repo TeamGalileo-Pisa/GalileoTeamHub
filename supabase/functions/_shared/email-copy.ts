@@ -14,6 +14,7 @@ export interface DeliveryPayload {
   starts_at: string;
   ends_at: string;
   custom_message?: string;
+  manage_url?: string;
 }
 
 export const OFFICIAL_EMAIL_FROM =
@@ -153,6 +154,7 @@ export function emailCopy(payload: DeliveryPayload) {
         "",
         "Per eventuali contrattempi, avvisaci appena possibile rispondendo a questa email.",
         "La puntualità e il rispetto dell’impegno preso ci aiutano a organizzare al meglio i colloqui.",
+        ...(payload.manage_url ? ["", "Puoi modificare o annullare la prenotazione qui:", payload.manage_url] : []),
         ...(roomNote ? ["", roomNote] : []),
         "",
         "Team Galileo",
