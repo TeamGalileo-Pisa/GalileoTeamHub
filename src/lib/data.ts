@@ -14,6 +14,8 @@ import type {
   RoomAvailability,
   RoomAvailabilityUsage,
   StaffMember,
+  ManagedBooking,
+  ManagedBookingSlot,
   UpcomingInterview,
 } from "../types/domain";
 import { friendlyError } from "./errors";
@@ -420,6 +422,29 @@ export async function rotateBookingLink(sessionId: string): Promise<string> {
   });
   throwIfError(error);
   return asString(data);
+}
+
+export async function getManagedBooking(token: string): Promise<{ booking: ManagedBooking; slots: ManagedBookingSlot[] }> {
+  const { data, error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "manage", manageToken: token },
+  });
+  await throwIfFunctionError(error);
+  return data as { booking: ManagedBooking; slots: ManagedBookingSlot[] };
+}
+
+export async function changeManagedBooking(token: string, newSlotId: string): Promise<ManagedBooking> {
+  const { data, error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "change", manageToken: token, newSlotId },
+  });
+  await throwIfFunctionError(error);
+  return (data as { booking: ManagedBooking }).booking;
+}
+
+export async function cancelManagedBooking(token: string): Promise<void> {
+  const { error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "cancel", manageToken: token },
+  });
+  await throwIfFunctionError(error);
 }
 
 export async function getPublicBookingAvailability(
