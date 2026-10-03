@@ -162,7 +162,7 @@ after insert on public.announcement_targets for each row execute function privat
 
 create or replace function private.guard_one_confirmed_booking_per_candidate()
 returns trigger language plpgsql security definer set search_path=''
-as $
+as $$
 begin
   if exists(
     select 1 from public.bookings b
@@ -174,7 +174,7 @@ begin
   end if;
   return new;
 end;
-$;
+$$;
 create unique index if not exists bookings_one_confirmed_per_candidate_idx
 on public.bookings(candidate_id)
 where status='confirmed';
@@ -276,7 +276,7 @@ $$;
 
 create or replace function public.list_booking_change_slots(p_token text)
 returns jsonb language plpgsql security definer set search_path=''
-as $
+as $$
 declare v_booking uuid; v_session uuid; v_slots jsonb;
 begin
   select b.id,s.id into v_booking,v_session
@@ -300,7 +300,7 @@ begin
     and not exists(select 1 from public.bookings b2 where b2.slot_id=sl.id and b2.status='confirmed');
   return v_slots;
 end;
-$;
+$$;
 
 revoke all on function public.list_booking_change_slots(text) from public,anon,authenticated;
 grant execute on function public.list_booking_change_slots(text) to service_role;
