@@ -58,7 +58,7 @@ export function CalendarPage() {
   const { access } = useAuth();
   const [mode, setMode] = useState<"list" | "week">("list");
   const [date, setDate] = useState(today);
-  const [area, setArea] = useState("");
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   const first = weekStart(date);
   const last = dateShift(first, 7);
@@ -69,16 +69,16 @@ export function CalendarPage() {
     enabled: access?.isAdmin,
   });
   const query = useQuery({
-    queryKey: ["calendar", access?.userId, first, area],
+    queryKey: ["calendar", access?.userId, first],
     queryFn: () =>
       rpc<CalendarItem[]>("list_calendar_bookings", {
         p_start: romeInputToIso(first + "T00:00"),
         p_end: romeInputToIso(last + "T00:00"),
-        p_area_id: area || null,
+        p_area_id: null,
       }),
   });
 
-  const items = query.data ?? [];
+  const items = (query.data ?? []).filter((item) => !access?.isAdmin || selectedAreas.length === 0 || selectedAreas.includes(item.areaId));
   const days = Array.from({ length: 7 }, (_, i) => dateShift(first, i));
   const bookedCount = items.filter(
     (item) => item.kind === "booking" && item.status === "confirmed",
@@ -140,13 +140,34 @@ export function CalendarPage() {
           />
         </label>
         {access?.isAdmin && (
-          <label>
-            Area
-            <select className="select" value={area} onChange={(e) => setArea(e.target.value)}>
-              <option value="">Tutte le aree</option>
-              {areas.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </label>
+          <div className="calendar-area-filter" aria-label="Filtro aree">
+            <strong>Aree</strong>
+            <button
+              className="button button--small button--secondary"
+              type="button"
+              onClick={() => setSelectedAreas([])}
+            >
+              Tutte
+            </button>
+            <div className="calendar-area-filter__options">
+              {areas.data?.map((a) => (
+                <label key={a.id} className="calendar-area-filter__option">
+                  <input
+                    type="checkbox"
+                    checked={selectedAreas.includes(a.id)}
+                    onChange={(e) =>
+                      setSelectedAreas((current) =>
+                        e.target.checked
+                          ? [...current, a.id]
+                          : current.filter((id) => id !== a.id),
+                      )
+                    }
+                  />
+                  <span>{a.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
         )}
       </section>
 
