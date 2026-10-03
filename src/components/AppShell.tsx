@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { getUnreadAnnouncementCount } from "../lib/data";
+import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
 import { Brand } from "./Brand";
 
@@ -56,10 +56,41 @@ export function AppShell() {
     enabled: Boolean(access),
   });
 
+  const notificationQuery = useQuery({
+    queryKey: ["system-notifications", access?.userId],
+    queryFn: listNotifications,
+    enabled: Boolean(access),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  const unreadNotificationQuery = useQuery({
+    queryKey: ["unread-notifications", access?.userId],
+    queryFn: getUnreadNotificationCount,
+    enabled: Boolean(access),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  const previousNotificationCount = useState(0)[0];
+
   const reportPresence = useCallback(async () => {
     if (!access?.userId || document.visibilityState === "hidden") return;
     await supabase.rpc("touch_user_presence", { p_path: location.pathname });
   }, [access?.userId, location.pathname]);
+
+  useEffect(() => {
+    const notifications = notificationQuery.data ?? [];
+    const latestUnread = notifications.filter((item) => !item.readAt);
+    if (
+      latestUnread.length > previousNotificationCount &&
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted" &&
+      document.visibilityState !== "visible"
+    ) {
+      const item = latestUnread[0];
+      new Notification(item.title, { body: item.body, icon: "/icons/galileohub-192-v2.png" });
+    }
+  }, [notificationQuery.data, previousNotificationCount]);
 
   useEffect(() => {
     if (!access?.userId) return;
@@ -76,6 +107,7 @@ export function AppShell() {
   }, [access?.userId, reportPresence]);
 
   const navigation = access?.isAdmin ? adminNavigation : areaNavigation;
+  const notificationCount = (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0);
   const areaLabel = access?.isAdmin
     ? "Amministrazione"
     : access?.areas.map((area) => area.name).join(", ") || "Area";
@@ -128,9 +160,9 @@ export function AppShell() {
             >
               <Icon size={19} />
               <span>{label}</span>
-              {label === "Bacheca" && (unreadQuery.data ?? 0) > 0 && (
-                <span className="nav-badge" aria-label={`${unreadQuery.data} comunicazioni non lette`}>
-                  {unreadQuery.data}
+              {label === "Bacheca" && notificationCount > 0 && (
+                <span className="nav-badge" aria-label={`${notificationCount} notifiche non lette`}>
+                  {notificationCount}
                 </span>
               )}
             </NavLink>
@@ -142,6 +174,17 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
+          {"Notification" in window && Notification.permission !== "granted" && (
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Attiva notifiche"
+              title="Attiva notifiche"
+              onClick={() => void Notification.requestPermission()}
+            >
+              <Megaphone size={18} />
+            </button>
+          )}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
