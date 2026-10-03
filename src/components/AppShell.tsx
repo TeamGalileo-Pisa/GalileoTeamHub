@@ -15,7 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
@@ -70,7 +70,7 @@ export function AppShell() {
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
-  const previousNotificationCount = useState(0)[0];
+  const previousNotificationCount = useRef(0);
 
   const reportPresence = useCallback(async () => {
     if (!access?.userId || document.visibilityState === "hidden") return;
@@ -81,7 +81,7 @@ export function AppShell() {
     const notifications = notificationQuery.data ?? [];
     const latestUnread = notifications.filter((item) => !item.readAt);
     if (
-      latestUnread.length > previousNotificationCount &&
+      latestUnread.length > previousNotificationCount.current &&
       typeof window !== "undefined" &&
       "Notification" in window &&
       Notification.permission === "granted" &&
@@ -90,7 +90,8 @@ export function AppShell() {
       const item = latestUnread[0];
       new Notification(item.title, { body: item.body, icon: "/icons/galileohub-192-v2.png" });
     }
-  }, [notificationQuery.data, previousNotificationCount]);
+    previousNotificationCount.current = latestUnread.length;
+  }, [notificationQuery.data]);
 
   useEffect(() => {
     if (!access?.userId) return;
