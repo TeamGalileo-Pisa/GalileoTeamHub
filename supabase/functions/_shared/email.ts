@@ -207,6 +207,15 @@ export async function sendQueuedEmail(
   if (!data) return;
 
   const payload = data as DeliveryPayload;
+  const { data: deliveryMeta } = await client
+    .from("email_deliveries")
+    .select("metadata")
+    .eq("id", deliveryId)
+    .maybeSingle();
+  const metadata = deliveryMeta?.metadata && typeof deliveryMeta.metadata === "object"
+    ? (deliveryMeta.metadata as Record<string, unknown>)
+    : {};
+  if (typeof metadata.manage_url === "string") payload.manage_url = metadata.manage_url;
   const provider = Deno.env.get("EMAIL_PROVIDER");
 
   try {
