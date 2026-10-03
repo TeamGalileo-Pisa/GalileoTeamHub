@@ -86,7 +86,11 @@ Deno.serve(async (request) => {
       idempotencyId: `admin-test-${crypto.randomUUID()}`,
     });
     return jsonResponse(request, { ok: true, providerMessageId });
-  } catch {
-    return jsonResponse(request, { error: "TEST_EMAIL_FAILED" }, 502);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "TEST_EMAIL_FAILED";
+    const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_LOOKUP_FAILED|GMAIL_SEND_FAILED:\d{3}|GMAIL_SEND_UNCERTAIN)$/.test(message)
+      ? message
+      : "TEST_EMAIL_FAILED";
+    return jsonResponse(request, { error: safe }, 502);
   }
 });
