@@ -31,7 +31,8 @@ async function fetchAccessContext(session: Session): Promise<AccessContext> {
       .from("system_roles")
       .select("role")
       .eq("user_id", userId)
-      .eq("role", "admin")
+       .in("role", ["admin", "team_leader"])
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("area_memberships")
