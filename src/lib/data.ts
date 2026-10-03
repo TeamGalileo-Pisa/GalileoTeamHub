@@ -309,6 +309,10 @@ export async function listStaff(): Promise<StaffMember[]> {
     displayName: asString(row.display_name),
     status: row.status === "disabled" ? "disabled" : "active",
     isAdmin: asBoolean(row.is_admin),
+    role:
+      row.role === "team_leader" || row.role === "admin"
+        ? row.role
+        : "area_lead",
     areas: Array.isArray(row.areas)
       ? (row.areas as JsonRecord[]).map((area) => ({
           id: asString(area.id),
