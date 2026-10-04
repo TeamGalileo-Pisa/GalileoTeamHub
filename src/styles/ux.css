@@ -996,6 +996,70 @@ textarea::placeholder {
   }
 }
 
+.merch-product-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.48fr);
+  align-items: end;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.merch-option-field {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  color: var(--muted-strong);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.merch-stock-note {
+  grid-column: 1 / -1;
+  margin-top: -5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.application-choice-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 42px;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-strong);
+  background: #fff;
+  line-height: 1.45;
+  cursor: pointer;
+}
+
+.application-choice-option:hover {
+  border-color: var(--border-strong);
+  background: #f6f9fa;
+}
+
+.application-choice-option input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+  accent-color: #286b7c;
+}
+
+.form-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 540px) {
+  .merch-product-options {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1147,3 +1211,4 @@ textarea::placeholder {
     width: 100%;
   }
 }
+
