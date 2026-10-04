@@ -307,27 +307,69 @@ textarea::placeholder {
   background: rgba(1, 70, 126, 0.2);
 }
 
-.skip-to-content {
-  position: fixed;
-  z-index: 1000;
-  top: 12px;
-  left: 12px;
-  padding: 12px 16px;
-  transform: translateY(-160%);
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  color: #fff;
-  background: #07588f;
-  font-weight: 700;
-}
-
-.skip-to-content:focus {
-  transform: translateY(0);
-}
-
 .app-main-content {
   min-width: 0;
   scroll-margin-top: 24px;
+}
+
+.application-review-card {
+  margin-top: 20px;
+  overflow: hidden;
+}
+
+.application-review-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.application-review-card__header h2 {
+  margin: 4px 0 6px;
+}
+
+.application-review-card__header p:last-child {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.application-question-list {
+  display: grid;
+  gap: 1px;
+  background: var(--border);
+}
+
+.application-question {
+  padding: 18px 24px;
+  background: var(--surface);
+}
+
+.application-question > p {
+  margin: 0 0 5px;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.application-question h3 {
+  margin: 0 0 16px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.application-question__answer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .application-review-card__header {
+    flex-direction: column;
+  }
 }
 
 .push-setup-button {
@@ -1105,4 +1147,3 @@ textarea::placeholder {
     width: 100%;
   }
 }
-
