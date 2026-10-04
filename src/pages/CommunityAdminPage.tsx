@@ -46,22 +46,6 @@ export function CommunityAdminPage() {
       }[];
     },
   });
-  const invitations = useQuery({
-    queryKey: ["membership-invitations"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("membership_invitations")
-        .select("id,email,submitted_at,expires_at").order("created_at", {
-          ascending: false,
-        });
-      if (error) throw error;
-      return data as {
-        id: string;
-        email: string;
-        submitted_at: string | null;
-        expires_at: string;
-      }[];
-    },
-  });
   const deliveries = useQuery({
     queryKey: ["community-mail"],
     refetchInterval: 30000,
@@ -91,15 +75,12 @@ export function CommunityAdminPage() {
     },
     onSuccess: () => cache.invalidateQueries(),
   });
-  const invite = useMutation({
-    mutationFn: (f: FormData) =>
-      community({
-        action: "invite",
-        email: f.get("email"),
-        areaId: f.get("areaId"),
-      }),
-    onSuccess: () =>
-      cache.invalidateQueries({ queryKey: ["membership-invitations"] }),
+  const [membershipLink, setMembershipLink] = useState("");
+  const sharedLink = useMutation({
+    mutationFn: () => community<{ url: string }>({
+      action: "get_membership_form_link",
+    }),
+    onSuccess: ({ url }) => setMembershipLink(url),
   });
   const member = useMutation({
     mutationFn: (areaId: string) =>
@@ -113,7 +94,7 @@ export function CommunityAdminPage() {
     mutationFn: downloadMembershipExport,
   });
   const error = deliveries.error ?? settings.error ?? controls.error ??
-    applications.error ?? invitations.error ?? toggle.error ?? invite.error ??
+    applications.error ?? toggle.error ?? sharedLink.error ??
     member.error ?? exportMembership.error;
   return (
     <div className="page-container">
@@ -163,11 +144,35 @@ export function CommunityAdminPage() {
         ))}
       </section>
       <section className="panel panel__body">
-        <h2>Invia il modulo di adesione</h2>
+        <h2>Link pubblico al modulo di adesione</h2>
         <p>
-          Ogni risposta viene salvata automaticamente. Scarica l'Excel aggiornato
-          per vedere le bozze e i moduli inviati, una riga per ciascuna adesione.
+          Condividi lo stesso link con tutti i membri. Ognuno sceglie la propria
+          area, compila il modulo e riceve via email il PDF personale da stampare,
+          firmare e consegnare. Le bozze vengono salvate e ogni compilazione resta
+          separata nell'Excel.
         </p>
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={sharedLink.isPending}
+          onClick={() => sharedLink.mutate()}
+        >
+          {sharedLink.isPending ? "Caricamento link…" : "Mostra link condivisibile"}
+        </button>
+        {membershipLink && (
+          <div className="generated-link" aria-live="polite">
+            <p>Link pubblico unico</p>
+            <a href={membershipLink} target="_blank" rel="noreferrer">{membershipLink}</a>
+            <button
+              className="button button--secondary button--small"
+              type="button"
+              onClick={() => void navigator.clipboard?.writeText(membershipLink)}
+            >
+              Copia link
+            </button>
+          </div>
+        )}
+        {sharedLink.error && <p role="alert" className="form-error">{sharedLink.error.message}</p>}
         <button
           className="button button--secondary"
           type="button"
@@ -177,55 +182,6 @@ export function CommunityAdminPage() {
           {exportMembership.isPending ? "Preparazione Excel…" : "Scarica Excel adesioni"}
         </button>
         {exportMembership.isSuccess && <p role="status">File Excel scaricato.</p>}
-        <form
-          className="form-grid"
-          onSubmit={(e) => {
-            e.preventDefault();
-            invite.mutate(new FormData(e.currentTarget));
-          }}
-        >
-          <label className="form-field">
-            Email del membro<input
-              className="input"
-              name="email"
-              type="email"
-              required
-            />
-          </label>
-          <label className="form-field">
-            Area assegnata<select
-              className="select"
-              name="areaId"
-              required
-              defaultValue=""
-            >
-              <option value="">Seleziona area</option>
-              {areas.data?.filter((a) => a.active).map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="button button--primary"
-            disabled={invite.isPending}
-          >
-            Invia invito personale
-          </button>
-          {invite.isSuccess && (
-            <p role="status">Invito accodato per l'invio email.</p>
-          )}
-        </form>
-        <ul>
-          {invitations.data?.map((i) => (
-            <li key={i.id}>
-              {i.email} · {i.submitted_at
-                ? "Compilato"
-                : new Date(i.expires_at) < new Date()
-                ? "Scaduto"
-                : "In attesa"}
-            </li>
-          ))}
-        </ul>
       </section>
       <section className="panel panel__body">
         <h2>Account membri per area</h2>
