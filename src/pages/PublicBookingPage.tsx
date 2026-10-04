@@ -114,7 +114,7 @@ export function PublicBookingPage() {
       <section className="booking-hero">
         <p className="eyebrow">Recruitment Team Galileo</p>
         <h1>Prenota il tuo colloquio</h1>
-        <p>Scegli un orario disponibile e inserisci i soli dati necessari per ricevere la conferma.</p>
+        <p>Scegli un orario disponibile e inserisci i soli dati necessari per ricevere la conferma. La prenotazione è consentita solo con almeno 24 ore di anticipo.</p>
       </section>
 
       {!appConfig.hasSupabaseConfiguration ? (
@@ -245,3 +245,4 @@ export function PublicBookingPage() {
     </main>
   );
 }
+
