@@ -225,7 +225,7 @@ export function MerchandisingPage() {
         <label className="form-field">Nome<input className="input" autoComplete="given-name" required maxLength={100} value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
         <label className="form-field">Cognome<input className="input" autoComplete="family-name" required maxLength={100} value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
         <label className="form-field form-field--full">Email istituzionale
-          <input className="input" type="email" autoComplete="email" inputMode="email" required maxLength={254} pattern="[^@\\s]+@studenti\\.unipi\\.it" title="Usa un indirizzo @studenti.unipi.it" placeholder="nome@studenti.unipi.it" value={email} onChange={(event) => setEmail(event.target.value)} />
+          <input className="input" type="email" autoComplete="email" inputMode="email" required maxLength={254} pattern="[^ @]+@studenti[.]unipi[.]it" title="Usa un indirizzo @studenti.unipi.it" placeholder="nome@studenti.unipi.it" value={email} onChange={(event) => setEmail(event.target.value)} />
         </label>
       </div>}
       <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || busy} onClick={() => void checkout()}>{busy ? "Invio…" : "Invia richiesta d’ordine"}</button>
