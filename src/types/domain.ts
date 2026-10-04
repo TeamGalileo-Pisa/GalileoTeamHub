@@ -147,6 +147,11 @@ export interface Announcement {
   allAreas: boolean;
   targetAreaIds: string[];
   targetAreaNames: string[];
+  targetLeadIds: string[];
+  targetLeadNames: string[];
+  targetMembers: boolean;
+  targetAreaLeads: boolean;
+  allAreaLeads: boolean;
   publishedAt: string;
   expiresAt: string | null;
   important: boolean;
@@ -162,10 +167,19 @@ export interface AnnouncementInput {
   body: string;
   allAreas: boolean;
   targetAreaIds: string[];
+  targetLeadIds: string[];
+  targetMembers: boolean;
+  allAreaLeads: boolean;
   publishedAt: string;
   expiresAt?: string;
   important: boolean;
   pinned: boolean;
+}
+
+export interface AnnouncementLeadOption {
+  userId: string;
+  displayName: string;
+  areaName: string;
 }
 
 export interface ManagedBooking {
