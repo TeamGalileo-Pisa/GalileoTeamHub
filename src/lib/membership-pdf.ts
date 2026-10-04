@@ -1,5 +1,6 @@
 import { PDFDocument, rgb, StandardFonts, type PDFFont } from "pdf-lib";
 import { membershipTerms } from "./membership-terms.ts";
+import { membershipLogoBytes } from "../../supabase/functions/_shared/membership-logo.ts";
 
 // Layout follows the supplied A4 HTML template: centered identity block, one
 // framed personal-data area, section rules, a two-column signature row, and
@@ -59,8 +60,14 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   };
   const drawBox = (top: number, height: number) => page.drawRectangle({ x: left, y: top - height, width, height, borderColor: black, borderWidth: 0.8 });
 
-  // The HTML template's logo comes from an external OneDrive file that was not
-  // packaged with the supplied flow. This reserved area keeps its exact place.
+  const logo = await doc.embedPng(membershipLogoBytes());
+  const logoSize = 40;
+  page.drawImage(logo, {
+    x: (595.28 - logoSize) / 2,
+    y: 798,
+    width: logoSize,
+    height: logoSize,
+  });
   y -= 44;
   centered("MODULO DI INGRESSO NEL TEAM", y, 12, bold); y -= 14;
   centered("Anno Accademico 2026/2027", y, 9, italic); y -= 11;
