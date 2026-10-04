@@ -87,6 +87,10 @@ await db.exec(await readFile(
   "supabase/migrations/20261004075202_merch_product_visibility_and_order_notifications.sql",
   "utf8",
 ));
+await db.exec(await readFile(
+  "supabase/migrations/20261004101000_merch_hide_inactive_products_for_buyers.sql",
+  "utf8",
+));
 await db.exec(
   `create trigger protect_profiles before update or delete on profiles for each row execute function private.protect_last_admin();create trigger protect_roles before update or delete on system_roles for each row execute function private.protect_last_admin();`,
 );
@@ -277,6 +281,10 @@ await db.query(
    ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Tutti',3000,'everyone')`,
 );
 await db.query(
+  `insert into merch_products(id,name,price_cents,visibility,active) values
+   ('dddddddd-dddd-4ddd-8ddd-dddddddddddd','Ritirato',4000,'everyone',false)`,
+);
+await db.query(
   `insert into merch_variants(id,product_id,label,stock) values
    ('aaaaaaaa-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Unica',5),
    ('bbbbbbbb-0000-4000-8000-000000000002','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Unica',5),
@@ -287,7 +295,7 @@ const visibleAs = async (userId) => {
   return (await db.query("select name from merch_products order by name")).rows.map((row) => row.name);
 };
 await db.exec("set role authenticated");
-assert.deepEqual(await visibleAs(leaderId), ["Solo leader", "Staff", "Tutti"]);
+assert.deepEqual(await visibleAs(leaderId), ["Ritirato", "Solo leader", "Staff", "Tutti"]);
 assert.deepEqual(await visibleAs(areaLeadId), ["Staff", "Tutti"]);
 assert.deepEqual(await visibleAs(memberId), ["Tutti"]);
 await db.exec("reset role");
