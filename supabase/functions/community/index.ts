@@ -1,6 +1,7 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 import { createSharedAccount } from "../_shared/shared-accounts.ts";
+import { membershipExcel, type MembershipExportRow } from "../_shared/membership-excel.ts";
 import { requireActor } from "../_shared/actor.ts";
 import {
   applicationChoices,
@@ -14,6 +15,43 @@ const validEmail = (s: unknown): s is string =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
 const validText = (s: unknown, max = 4000): s is string =>
   typeof s === "string" && s.trim().length > 0 && s.length <= max;
+const membershipAreas = [
+  "Mobility Division", "Manipulation Division", "Electronics, RF & Power Supply Division",
+  "Software, Nav & Controls Division", "Geology Division", "Life Detection Division",
+  "Business Area", "Marketing & Comm. Area", "Logistics Area", "Direzione tecnica/Responsabile",
+];
+const membershipLeadershipRoles = [
+  "Team Leader", "Engineering Director", "Science Director", "Head of Mobility Division",
+  "Head of Manipulation Division", "Head of Electronics, RF & Power Supply Division",
+  "Head of Software, Nav & Controls Division", "Head of Geology Division",
+  "Head of Life Detection Division", "Head of Business Area", "Head of Marketing & Comm. Area",
+  "Head of Logistics Area",
+];
+const membershipLimits: Record<string, number> = {
+  firstName: 100, lastName: 100, degree: 180, department: 180, studentNumber: 30,
+  area: 80, leadershipRole: 100, commitmentsAccepted: 3, internalRegulationAccepted: 3,
+  ipAccepted: 3, selfCertificationAccepted: 3, gdprAccepted: 3,
+  institutionalEmail: 254, phone: 40, linkedin: 500, privacyAccepted: 3,
+};
+function membershipAnswers(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("INVALID_DATA");
+  const source = value as Record<string, unknown>;
+  const result: Record<string, string> = {};
+  for (const [key, limit] of Object.entries(membershipLimits)) {
+    if (!(key in source)) continue;
+    if (typeof source[key] !== "string" || source[key].length > limit) throw new Error("INVALID_DATA");
+    result[key] = source[key] as string;
+  }
+  if (result.area && !membershipAreas.includes(result.area)) throw new Error("INVALID_DATA");
+  if (result.leadershipRole && !membershipLeadershipRoles.includes(result.leadershipRole)) throw new Error("INVALID_DATA");
+  if (result.area !== "Direzione tecnica/Responsabile") delete result.leadershipRole;
+  if (result.institutionalEmail && (!validEmail(result.institutionalEmail) || !result.institutionalEmail.toLowerCase().endsWith("@studenti.unipi.it"))) throw new Error("INVALID_DATA");
+  if (result.linkedin && !/^https:\/\//i.test(result.linkedin)) throw new Error("INVALID_DATA");
+  for (const key of ["commitmentsAccepted", "internalRegulationAccepted", "ipAccepted", "selfCertificationAccepted", "gdprAccepted", "privacyAccepted"]) {
+    if (key in result && result[key] !== "" && result[key] !== "yes") throw new Error("INVALID_DATA");
+  }
+  return result;
+}
 const hash = async (token: string) =>
   "\\x" +
   Array.from(
@@ -39,6 +77,66 @@ Deno.serve(async (request) => {
       p_url: Deno.env.get("SUPABASE_URL"),
     });
     if (workerError) throw new Error("SERVER_NOT_CONFIGURED");
+    if (body.action === "get_membership_draft" || body.action === "save_membership_draft" || body.action === "submit_membership") {
+      if (typeof body.token !== "string" || !/^[a-f0-9]{64}$/.test(body.token)) throw new Error("INVALID_INVITATION");
+      if (body.action === "get_membership_draft") {
+        const { data, error } = await client.rpc("get_membership_draft", { p_token: body.token });
+        if (error) throw new Error(error.message.includes("INVALID_INVITATION") ? "INVALID_INVITATION" : "SAVE_FAILED");
+        return jsonResponse(request, data);
+      }
+      const data = membershipAnswers(body.data);
+      const rpc = body.action === "submit_membership" ? "submit_membership" : "save_membership_draft";
+      const { error } = await client.rpc(rpc, { p_token: body.token, p_data: data });
+      if (error) throw new Error(error.message.includes("ALREADY_SUBMITTED") ? "ALREADY_SUBMITTED" : error.message.includes("INVALID_INVITATION") ? "INVALID_INVITATION" : error.message.includes("INVALID_DATA") ? "INVALID_DATA" : "SAVE_FAILED");
+      return jsonResponse(request, { ok: true });
+    }
+    if (body.action === "get_member_adhesion_draft" || body.action === "save_member_adhesion_draft" || body.action === "submit_member_adhesion") {
+      const { user } = await requireActor(request, false);
+      if (typeof body.draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.draftId)) throw new Error("INVALID_DATA");
+      if (body.action === "get_member_adhesion_draft") {
+        const { data, error } = await client.rpc("get_member_adhesion_draft", { p_actor: user.id, p_draft_id: body.draftId });
+        if (error) throw new Error(error.message.includes("FORBIDDEN") ? "FORBIDDEN" : "SAVE_FAILED");
+        return jsonResponse(request, data);
+      }
+      const data = membershipAnswers(body.data);
+      const rpc = body.action === "submit_member_adhesion" ? "submit_member_adhesion" : "save_member_adhesion_draft";
+      const { error } = await client.rpc(rpc, { p_actor: user.id, p_draft_id: body.draftId, p_data: data });
+      if (error) throw new Error(error.message.includes("INVALID_DATA") ? "INVALID_DATA" : error.message.includes("FORBIDDEN") ? "FORBIDDEN" : error.message.includes("ALREADY_SUBMITTED") ? "ALREADY_SUBMITTED" : "SAVE_FAILED");
+      return jsonResponse(request, { ok: true });
+    }
+    if (body.action === "export_membership_excel") {
+      const { client: adminClient } = await requireActor(request);
+      const areaMap = new Map<string, string>();
+      const { data: areaRows, error: areaError } = await adminClient.from("areas").select("id,name");
+      if (areaError) throw new Error("SAVE_FAILED");
+      for (const area of areaRows ?? []) areaMap.set(area.id, area.name);
+      const rows: MembershipExportRow[] = [];
+      const pageSize = 1000;
+      for (let offset = 0; offset < 100000; offset += pageSize) {
+        const { data, error } = await adminClient.from("member_adhesions")
+          .select("status,area_id,answers,created_at,updated_at,submitted_at")
+          .order("created_at", { ascending: true }).range(offset, offset + pageSize - 1);
+        if (error) throw new Error("SAVE_FAILED");
+        for (const row of data ?? []) rows.push({
+          status: row.status,
+          assignedArea: areaMap.get(row.area_id) ?? "",
+          answers: (row.answers && typeof row.answers === "object" ? row.answers : {}) as Record<string, unknown>,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          submittedAt: row.submitted_at,
+        });
+        if (!data || data.length < pageSize) break;
+        if (offset + pageSize >= 100000) throw new Error("SAVE_FAILED");
+      }
+      const bytes = membershipExcel(rows);
+      return new Response(bytes, { status: 200, headers: {
+        ...corsHeaders(request),
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="adesioni-team-galileo.xlsx"',
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      }});
+    }
     if (body.action === "apply") {
       const a = body.answers;
       if (
@@ -78,63 +176,6 @@ Deno.serve(async (request) => {
             : "SAVE_FAILED",
         );
       }
-      return jsonResponse(request, { ok: true });
-    }
-    if (body.action === "submit_membership") {
-      if (
-        typeof body.token !== "string" || !/^[a-f0-9]{64}$/.test(body.token) ||
-        !body.data || body.data.confirmed !== "yes"
-      ) throw new Error("INVALID_DATA");
-      const data: Record<string, string> = {};
-      for (
-        const key of [
-          "firstName",
-          "lastName",
-          "studentNumber",
-          "degree",
-          "department",
-        ]
-      ) {
-        if (!validText(body.data[key], 180)) throw new Error("INVALID_DATA");
-        data[key] = body.data[key].trim();
-      }
-      const { error } = await client.rpc("submit_membership", {
-        p_token: body.token,
-        p_data: data,
-      });
-      if (error) {
-        throw new Error(
-          error.message.includes("ALREADY_SUBMITTED")
-            ? "ALREADY_SUBMITTED"
-            : error.message.includes("INVALID_INVITATION")
-            ? "INVALID_INVITATION"
-            : "SAVE_FAILED",
-        );
-      }
-      return jsonResponse(request, { ok: true });
-    }
-    if (body.action === "submit_member_adhesion") {
-      const { user } = await requireActor(request, false);
-      const data = body.data;
-      if (!data || data.confirmed !== "yes" || !validEmail(data.email)) {
-        throw new Error("INVALID_DATA");
-      }
-      for (const key of ["firstName", "lastName", "studentNumber", "degree", "department"]) {
-        if (!validText(data[key], key === "studentNumber" ? 30 : 180)) throw new Error("INVALID_DATA");
-      }
-      const { error } = await client.rpc("submit_member_adhesion", {
-        p_actor: user.id,
-        p_data: {
-          firstName: data.firstName.trim(),
-          lastName: data.lastName.trim(),
-          studentNumber: data.studentNumber.trim(),
-          degree: data.degree.trim(),
-          department: data.department.trim(),
-          email: data.email.trim().toLowerCase(),
-          confirmed: "yes",
-        },
-      });
-      if (error) throw new Error(error.message.includes("INVALID_DATA") ? "INVALID_DATA" : error.message.includes("FORBIDDEN") ? "FORBIDDEN" : error.code === "23505" ? "ALREADY_SUBMITTED" : "SAVE_FAILED");
       return jsonResponse(request, { ok: true });
     }
     const { user } = await requireActor(request);

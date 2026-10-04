@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { community } from "../lib/community";
 import { listAreas } from "../lib/data";
+import { downloadMembershipExport } from "../lib/membership-export";
 import { PageHeader } from "../components/PageHeader";
 export function CommunityAdminPage() {
   const cache = useQueryClient();
@@ -108,9 +109,12 @@ export function CommunityAdminPage() {
       }),
     onSuccess: setCredentials,
   });
+  const exportMembership = useMutation({
+    mutationFn: downloadMembershipExport,
+  });
   const error = deliveries.error ?? settings.error ?? controls.error ??
     applications.error ?? invitations.error ?? toggle.error ?? invite.error ??
-    member.error;
+    member.error ?? exportMembership.error;
   return (
     <div className="page-container">
       <PageHeader
@@ -160,6 +164,19 @@ export function CommunityAdminPage() {
       </section>
       <section className="panel panel__body">
         <h2>Invia il modulo di adesione</h2>
+        <p>
+          Ogni risposta viene salvata automaticamente. Scarica l'Excel aggiornato
+          per vedere le bozze e i moduli inviati, una riga per ciascuna adesione.
+        </p>
+        <button
+          className="button button--secondary"
+          type="button"
+          disabled={exportMembership.isPending}
+          onClick={() => exportMembership.mutate()}
+        >
+          {exportMembership.isPending ? "Preparazione Excel…" : "Scarica Excel adesioni"}
+        </button>
+        {exportMembership.isSuccess && <p role="status">File Excel scaricato.</p>}
         <form
           className="form-grid"
           onSubmit={(e) => {
@@ -292,3 +309,4 @@ export function CommunityAdminPage() {
     </div>
   );
 }
+

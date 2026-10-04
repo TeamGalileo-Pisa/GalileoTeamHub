@@ -69,6 +69,12 @@ create table public.merch_order_items(
   product_name text not null,variant_label text not null,unit_price_cents integer not null,
   quantity integer not null,line_total_cents integer not null
 );
+create table public.member_adhesions(
+  id uuid primary key default gen_random_uuid(),area_id uuid not null references public.areas(id),
+  submitted_by uuid not null references public.profiles(id),email text not null,first_name text not null,
+  last_name text not null,student_number text not null,degree text not null,department text not null,
+  created_at timestamptz not null default now()
+);
 create or replace function private.can_manage_merchandising()
 returns boolean language sql stable security definer set search_path=''
 as $$ select private.is_admin() or exists(
@@ -89,6 +95,10 @@ await db.exec(await readFile(
 ));
 await db.exec(await readFile(
   "supabase/migrations/20261004101000_merch_hide_inactive_products_for_buyers.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004113000_membership_questionnaire_drafts_and_export.sql",
   "utf8",
 ));
 await db.exec(
@@ -201,11 +211,23 @@ await db.query(
   `insert into membership_invitations(token_hash,email,area_id,created_by) values(extensions.digest('test','sha256'),'sample@example.test',$1,$2)`,
   [area, a],
 );
-await db.query(`select submit_membership('test','{"firstName":"Example"}')`);
+const validAnswers = {
+  firstName: "Example", lastName: "Member", degree: "Ingegneria",
+  department: "Dipartimento di Ingegneria", studentNumber: "123456",
+  area: "Mobility Division", commitmentsAccepted: "yes",
+  internalRegulationAccepted: "yes", ipAccepted: "yes",
+  selfCertificationAccepted: "yes", gdprAccepted: "yes",
+  institutionalEmail: "example@studenti.unipi.it", phone: "+393331234567",
+  linkedin: "", privacyAccepted: "yes",
+};
+await db.query(`select save_membership_draft('test',$1::jsonb)`, [JSON.stringify({ firstName: "Example" })]);
+assert.equal(await scalar("select status from member_adhesions where invitation_id=(select id from membership_invitations where email='sample@example.test')"), "draft");
+await db.query(`select submit_membership('test',$1::jsonb)`, [JSON.stringify(validAnswers)]);
 await assert.rejects(
-  db.query(`select submit_membership('test','{}')`),
+  db.query(`select submit_membership('test',$1::jsonb)`, [JSON.stringify(validAnswers)]),
   /ALREADY_SUBMITTED/,
 );
+assert.equal(await scalar("select answers->>'area' from member_adhesions where invitation_id=(select id from membership_invitations where email='sample@example.test')"), "Mobility Division");
 assert.equal(
   await scalar(
     `select count(*)::int from community_outbox where kind='membership'`,
@@ -217,6 +239,28 @@ assert.equal(claimed.rows.length, 2);
 assert.equal(
   (await db.query("select * from claim_community_mail()")).rows.length,
   0,
+);
+await db.query(
+  `insert into profiles(id,username,display_name) values($1,'member-drafter','Member Drafter') on conflict(id) do update set status='active',must_change_password=false`,
+  [c],
+);
+await db.query(`insert into area_shared_accounts(area_id,user_id) values($1,$2)`, [area, c]);
+const draftId = "88888888-8888-4888-8888-888888888888";
+await db.query(
+  `select save_member_adhesion_draft($1,$2,'{"firstName":"Saved progressively"}'::jsonb)`,
+  [c, draftId],
+);
+const draft = await scalar(`select get_member_adhesion_draft($1,$2)`, [c, draftId]);
+assert.equal(draft.answers.firstName, "Saved progressively");
+const nonLeadershipAnswers = { ...validAnswers, leadershipRole: "Team Leader" };
+await db.query(
+  `select submit_member_adhesion($1,$2,$3::jsonb)`,
+  [c, draftId, JSON.stringify(nonLeadershipAnswers)],
+);
+assert.equal(await scalar("select answers ? 'leadershipRole' from member_adhesions where draft_id=$1", [draftId]), false);
+await assert.rejects(
+  db.query(`select save_member_adhesion_draft($1,$2,'{}'::jsonb)`, [c, draftId]),
+  /ALREADY_SUBMITTED/,
 );
 await db.query(
   `insert into push_devices(user_id,platform,address) values($1,'web','https://fcm.googleapis.com/test')`,
