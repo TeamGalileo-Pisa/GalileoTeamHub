@@ -1065,6 +1065,14 @@ textarea::placeholder {
   background: #fff;
 }
 
+.application-form.form-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.application-form.form-grid > * {
+  grid-column: 1;
+}
+
 .application-choice-list legend {
   padding-inline: 6px;
   color: var(--muted-strong);
