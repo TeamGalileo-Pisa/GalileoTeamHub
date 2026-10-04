@@ -92,7 +92,7 @@ export function ApplicationPage() {
         )
         : (
           <form
-            className="panel panel__body form-grid"
+            className="panel panel__body form-grid application-form"
             onSubmit={(e) => {
               e.preventDefault();
               const form = e.currentTarget;
