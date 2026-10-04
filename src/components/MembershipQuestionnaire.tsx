@@ -159,9 +159,15 @@ export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDra
     </fieldset>
 
     <fieldset className="form-field--full">
-      <legend>12. Trattamento dati personali e diritto all'immagine (GDPR) *</legend>
-      <p>Autorizza il Team Galileo e l'Università di Pisa al trattamento dei propri dati personali per finalità istituzionali. Presta altresì consenso gratuito e senza limiti temporali alla diffusione di materiale multimediale (foto, video) realizzato durante le attività ufficiali per scopi promozionali e divulgativi.</p>
-      <label><input type="checkbox" name="gdprAccepted" value="yes" checked={checked("gdprAccepted")} required /> Autorizzo al trattamento dei dati personali e materiale multimediale</label>
+      <legend>12. Trattamento dei dati personali *</legend>
+      <p>Acconsento al trattamento dei dati personali da parte del Team Galileo Pisa per la gestione amministrativa della mia adesione e l'organizzazione delle attività del team, secondo l'informativa privacy.</p>
+      <label><input type="checkbox" name="gdprAccepted" value="yes" checked={checked("gdprAccepted")} required /> Acconsento al trattamento dei dati personali</label>
+    </fieldset>
+
+    <fieldset className="form-field--full">
+      <legend>Consenso facoltativo per immagini e video</legend>
+      <p>Acconsento facoltativamente all'uso di immagini e video che mi ritraggono, realizzati durante le attività ufficiali del Team Galileo, per comunicazioni e contenuti promozionali del team. Posso non prestare o revocare questo consenso senza che ciò impedisca l'adesione.</p>
+      <label><input type="checkbox" name="mediaAccepted" value="yes" checked={checked("mediaAccepted")} /> Acconsento all'uso di immagini e video</label>
     </fieldset>
 
     <label className="form-field--full">13. Email istituzionale (xxx@studenti.unipi.it) *<input className="input" name="institutionalEmail" type="email" required maxLength={254} pattern=".+@studenti\.unipi\.it" title="Inserisci l'indirizzo @studenti.unipi.it" value={answers.institutionalEmail ?? ""} /></label>
@@ -178,4 +184,3 @@ export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDra
     <button className="button button--primary" type="submit" disabled={submitting}>{submitting ? "Invio…" : "Invia il modulo e ricevi il PDF"}</button>
   </form>;
 }
-

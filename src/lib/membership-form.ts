@@ -48,6 +48,7 @@ export const membershipAnswerKeys = [
   "ipAccepted",
   "selfCertificationAccepted",
   "gdprAccepted",
+  "mediaAccepted",
   "institutionalEmail",
   "phone",
   "linkedin",
@@ -66,4 +67,3 @@ export function normalizeMembershipAnswers(value: unknown): MembershipAnswers {
   if (answers.area !== "Direzione tecnica/Responsabile") answers.leadershipRole = "";
   return answers;
 }
-

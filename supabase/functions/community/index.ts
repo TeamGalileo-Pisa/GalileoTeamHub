@@ -30,7 +30,7 @@ const membershipLeadershipRoles = [
 const membershipLimits: Record<string, number> = {
   firstName: 100, lastName: 100, degree: 180, department: 180, studentNumber: 30,
   area: 80, leadershipRole: 100, commitmentsAccepted: 3, internalRegulationAccepted: 3,
-  ipAccepted: 3, selfCertificationAccepted: 3, gdprAccepted: 3,
+  ipAccepted: 3, selfCertificationAccepted: 3, gdprAccepted: 3, mediaAccepted: 3,
   institutionalEmail: 254, phone: 40, linkedin: 500, privacyAccepted: 3,
 };
 function membershipAnswers(value: unknown): Record<string, string> {
@@ -47,7 +47,7 @@ function membershipAnswers(value: unknown): Record<string, string> {
   if (result.area !== "Direzione tecnica/Responsabile") delete result.leadershipRole;
   if (result.institutionalEmail && (!validEmail(result.institutionalEmail) || !result.institutionalEmail.toLowerCase().endsWith("@studenti.unipi.it"))) throw new Error("INVALID_DATA");
   if (result.linkedin && !/^https:\/\//i.test(result.linkedin)) throw new Error("INVALID_DATA");
-  for (const key of ["commitmentsAccepted", "internalRegulationAccepted", "ipAccepted", "selfCertificationAccepted", "gdprAccepted", "privacyAccepted"]) {
+  for (const key of ["commitmentsAccepted", "internalRegulationAccepted", "ipAccepted", "selfCertificationAccepted", "gdprAccepted", "mediaAccepted", "privacyAccepted"]) {
     if (key in result && result[key] !== "" && result[key] !== "yes") throw new Error("INVALID_DATA");
   }
   return result;
@@ -245,4 +245,3 @@ Deno.serve(async (request) => {
     );
   }
 });
-
