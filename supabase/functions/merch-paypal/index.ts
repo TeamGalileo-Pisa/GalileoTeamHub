@@ -34,7 +34,7 @@ Deno.serve(async (request) => {
     const service = createServiceClient();
     if (body.action === "public-catalog") {
       const { data, error } = await service.from("merch_products")
-        .select("id,name,description,image_url,price_cents,variants:merch_variants(id,label,stock)")
+        .select("id,name,description,image_url,price_cents,variants:merch_variants!inner(id,label,stock)")
         .eq("active", true).eq("visibility", "everyone")
         .eq("variants.active", true).order("sort_order").order("created_at");
       if (error) throw new Error("CATALOG_UNAVAILABLE");
