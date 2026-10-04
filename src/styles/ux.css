@@ -332,7 +332,7 @@ textarea::placeholder {
 
 .application-review-card__header p:last-child {
   margin: 0;
-  color: var(--text-muted);
+  color: var(--muted);
 }
 
 .application-question-list {
@@ -343,12 +343,12 @@ textarea::placeholder {
 
 .application-question {
   padding: 18px 24px;
-  background: var(--surface);
+  background: var(--page-raised);
 }
 
 .application-question > p {
   margin: 0 0 5px;
-  color: var(--text-muted);
+  color: var(--muted);
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
