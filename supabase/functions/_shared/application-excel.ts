@@ -1,5 +1,5 @@
 import { strToU8, zipSync } from "npm:fflate@0.8.2";
-import { divisions } from "./application-fields.ts";
+import { divisions, genericDivision } from "./application-fields.ts";
 
 export type ApplicationExportRow = {
   firstName: string;
@@ -11,7 +11,10 @@ export type ApplicationExportRow = {
   createdAt: string;
 };
 
-const areaQuestions = [...new Set(Object.values(divisions).map((division) => division.question))];
+const areaQuestions = [...new Set([
+  ...Object.values(divisions).map((division) => division.question),
+  genericDivision.question,
+])];
 const columns: { key: string; label: string }[] = [
   { key: "firstName", label: "Nome" },
   { key: "lastName", label: "Cognome" },
@@ -31,7 +34,7 @@ const columns: { key: string; label: string }[] = [
   { key: "certifications", label: "Certificazioni extra o competenze linguistiche" },
   { key: "problemSolving", label: "Di fronte a un problema tecnico o logistico senza soluzione, qual è il tuo primo istinto?" },
   { key: "projects", label: "Progetti personali" },
-  { key: "privacyAccepted", label: "Consenso al trattamento dei dati per selezione e attività del Team Galileo" },
+  { key: "privacyAccepted", label: "Acconsento al trattamento dei dati inseriti esclusivamente da parte dei promotori del Team Galileo Pisa ai fini della selezione e dell'organizzazione delle attività del team." },
   { key: "createdAt", label: "Data di ricezione" },
 ];
 
@@ -67,7 +70,7 @@ export function applicationExcel(applications: ApplicationExportRow[]) {
     columns.map((column) => column.label),
     ...applications.map((application) => {
       const answers = application.answers ?? {};
-      const selectedAreaQuestion = divisions[application.areaSlug]?.question;
+      const selectedAreaQuestion = (divisions[application.areaSlug] ?? genericDivision).question;
       const answerByKey: Record<string, unknown> = {
         firstName: application.firstName,
         lastName: application.lastName,
