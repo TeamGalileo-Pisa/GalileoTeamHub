@@ -55,18 +55,16 @@ export function LoginPage() {
           <Brand />
           <div className="auth-hero__copy">
             <p className="eyebrow">Team Galileo Pisa</p>
-            <h1 id="auth-title">Un unico hub per tutto il Team.</h1>
+            <h1 id="auth-title">Candidature, organizzazione e comunicazioni.</h1>
             <p>
-              GalileoHub nasce come gestionale centrale del Team Galileo: oggi
-              integra il recruitment e l’organizzazione operativa, domani potrà
-              accogliere nuovi moduli senza cambiare piattaforma.
+              Gli strumenti del Team Galileo, raccolti in un unico spazio. Accedi per consultare le funzioni disponibili per il tuo ruolo.
             </p>
           </div>
           <div className="auth-feature">
             <ShieldCheck size={20} />
             <span>
-              <strong>Accesso riservato e modulare</strong>
-              <small>Permessi e dati separati per ruolo, area e funzione</small>
+              <strong>Accesso riservato</strong>
+              <small>Ogni account mostra le funzioni del proprio ruolo e della propria area.</small>
             </span>
           </div>
         </div>
@@ -79,7 +77,7 @@ export function LoginPage() {
           </span>
           <h2>Accedi a GalileoHub</h2>
           <p className="auth-card__intro">
-            Usa le credenziali assegnate al tuo ruolo o alla tua area.
+            Inserisci il nome utente e la password che ti sono stati assegnati.
           </p>
 
           {!appConfig.hasSupabaseConfiguration && (
@@ -97,7 +95,7 @@ export function LoginPage() {
                 className="input"
                 id="username"
                 autoComplete="username"
-                placeholder="es. Software"
+                placeholder="Nome utente"
                 {...register("username")}
               />
               {errors.username && (
@@ -155,4 +153,5 @@ export function LoginPage() {
     </main>
   );
 }
+
 
