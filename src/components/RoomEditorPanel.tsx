@@ -16,14 +16,14 @@ export function RoomEditorPanel({ rooms }: { rooms: Room[] }) {
     <section className="panel">
       <div className="panel__header">
         <div>
-          <h2>Modifica aula</h2>
-          <p>Aggiorna nome, posizione e limite fisico senza ricreare l'aula.</p>
+          <h2>Modifica un’aula esistente</h2>
+          <p>Seleziona l’aula, aggiorna i suoi dati e salva. Le fasce orarie si gestiscono nella sezione Disponibilità.</p>
         </div>
         <Pencil size={20} />
       </div>
       <div className="panel__body form-grid">
         <label className="form-field form-field--full">
-          Aula
+          Seleziona aula
           <select
             className="select"
             value={roomId}
@@ -35,7 +35,7 @@ export function RoomEditorPanel({ rooms }: { rooms: Room[] }) {
             ))}
           </select>
         </label>
-        {room && <RoomEditorForm key={room.id} room={room} />}
+      {room && <div className="room-editor-fields"><div className="room-editor-fields__intro"><strong>{room.name}</strong><span>Modifica qui nome, posizione o capienza.</span></div><RoomEditorForm key={room.id} room={room} /></div>}
       </div>
     </section>
   );
@@ -109,7 +109,7 @@ function RoomEditorForm({ room }: { room: Room }) {
         />
       </label>
       <label className="form-field form-field--full">
-        Limite fisico simultaneo
+        Capienza massima simultanea
         <input
           className="input"
           inputMode="numeric"
@@ -118,7 +118,7 @@ function RoomEditorForm({ room }: { room: Room }) {
           onChange={(event) => setPhysicalLimit(event.target.value)}
         />
         <small className="field-help">
-          Il database impedisce di impostare un limite inferiore alla capacità già configurata nelle disponibilità attive dell'aula.
+          Limite di persone che possono sostenere colloqui contemporaneamente nell’aula. La disponibilità oraria si configura separatamente.
         </small>
       </label>
       {mutation.error && (
@@ -144,3 +144,4 @@ function RoomEditorForm({ room }: { room: Room }) {
     </>
   );
 }
+
