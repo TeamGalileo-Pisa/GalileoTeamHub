@@ -13,6 +13,26 @@ async function invoke(body: Record<string, unknown>) {
   return data;
 }
 const key = "galileo-push-address";
+
+export async function pushIsReady() {
+  const address = localStorage.getItem(key);
+  if (!address) return false;
+
+  if (Capacitor.isNativePlatform()) {
+    const permission = await PushNotifications.checkPermissions();
+    return permission.receive === "granted";
+  }
+
+  if (!("Notification" in window) || Notification.permission !== "granted" ||
+    !("serviceWorker" in navigator) || !("PushManager" in window)) {
+    return false;
+  }
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return false;
+  const subscription = await registration.pushManager.getSubscription();
+  return Boolean(subscription && subscription.endpoint === address);
+}
+
 export async function enablePush() {
   if (Capacitor.isNativePlatform()) {
     const permission = await PushNotifications.requestPermissions();
@@ -94,3 +114,4 @@ export async function disablePush() {
     await (await registration?.pushManager.getSubscription())?.unsubscribe();
   }
 }
+
