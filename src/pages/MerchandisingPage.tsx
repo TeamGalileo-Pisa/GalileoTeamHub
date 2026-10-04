@@ -63,7 +63,7 @@ export function MerchandisingPage() {
     queryKey: ["merch-orders", access?.userId],
     enabled: canManage,
     queryFn: async () => {
-      const { data, error } = await supabase.from("merch_orders").select("id,status,total_cents,created_at,buyer_first_name,buyer_last_name,items:merch_order_items(product_name,variant_label,quantity,line_total_cents)").order("created_at", { ascending: false }).limit(100);
+      const { data, error } = await supabase.from("merch_orders").select("id,status,total_cents,created_at,buyer_first_name,buyer_last_name,items:merch_order_items(product_name,variant_label,quantity,line_total_cents)").eq("status", "paid").order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data ?? [];
     },
@@ -225,6 +225,6 @@ export function MerchandisingPage() {
       <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || payBusy} onClick={() => void checkout()}>{payBusy ? "Attendi…" : `Paga ${euro(cartTotal)} con PayPal`}</button>
     </section>
 
-    {canManage && <section className="panel panel__body"><h2>Ordini ricevuti</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>{order.status === "paid" ? "Pagato" : order.status === "pending" ? "In attesa di pagamento" : order.status}</strong><span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name} · ` : ""}{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine registrato.</p>}</section>}
+    {canManage && <section className="panel panel__body"><h2>Ordini pagati e confermati</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>Pagato e confermato</strong><span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name} · ` : ""}{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine pagato e confermato.</p>}</section>}
   </div>;
 }
