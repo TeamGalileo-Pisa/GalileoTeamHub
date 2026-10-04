@@ -35,6 +35,33 @@ export function PublicHomePage() {
         </a>
       </section>
 
+      <section className="public-info-links" aria-label="Installazione privata di GalileoHub">
+        <article>
+          <h2>Windows</h2>
+          <p>Apri GalileoHub in Edge o Chrome e scegli Installa app dal menu del browser o dall’icona nella barra degli indirizzi.</p>
+        </article>
+        <article>
+          <h2>Android</h2>
+          <p>Apri il link in Chrome e scegli Installa app o Aggiungi a schermata Home. Non serve passare dal Play Store.</p>
+        </article>
+        <article>
+          <h2>iPhone e iPad</h2>
+          <p>Apri il link in Safari, tocca Condividi e scegli Aggiungi alla schermata Home. Le notifiche push web richiedono iOS/iPadOS 16.4 o successivo.</p>
+        </article>
+        <article>
+          <h2>Mac</h2>
+          <p>In Safari scegli File → Aggiungi al Dock; in Chrome o Edge usa Installa GalileoHub dal menu del browser.</p>
+        </article>
+        <article>
+          <h2>Notifiche obbligatorie</h2>
+          <p>Dopo l’accesso, abilita le notifiche quando richiesto. GalileoHub blocca l’uso finché questo dispositivo non risulta registrato per le push.</p>
+        </article>
+        <article>
+          <h2>Distribuzione privata</h2>
+          <p>È la stessa app su tutti i dispositivi: condividi il link con i membri e loro la installano dal browser, senza store e senza pacchetti pubblici.</p>
+        </article>
+      </section>
+
       <section className="public-info-links" aria-label="Informazioni legali">
         <article>
           <ShieldCheck size={21} />
@@ -61,3 +88,4 @@ export function PublicHomePage() {
     </main>
   );
 }
+
