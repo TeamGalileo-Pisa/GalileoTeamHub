@@ -76,6 +76,15 @@ export function AppShell() {
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
+  const openApplicationAreas = useQuery({
+    queryKey: ["my-open-application-areas", access?.userId],
+    enabled: Boolean(access && !access.isAdmin && !access.isMember),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("list_my_open_application_areas");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const [pushStatus,setPushStatus] = useState("");
   const [pushState,setPushState] = useState<{ userId: string; ready: boolean } | null>(null);
   const [pushBusy,setPushBusy] = useState(false);
@@ -132,7 +141,15 @@ export function AppShell() {
     {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
     {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
     {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
-  ] : isLogisticsLead ? areaNavigation : areaNavigation.filter((item) => item.to !== "/merchandising");
+  ] : (() => {
+    const items = isLogisticsLead ? [...areaNavigation] : areaNavigation.filter((item) => item.to !== "/merchandising");
+    if ((openApplicationAreas.data?.length ?? 0) > 0) {
+      const merchIndex = items.findIndex((item) => item.to === "/merchandising");
+      items.splice(merchIndex < 0 ? items.length : merchIndex, 0,
+        { to: "/area/candidature", label: "Candidature", icon: FileText });
+    }
+    return items;
+  })();
   const notificationCount = (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0);
   const areaLabel = access?.isAdmin
     ? access.isTeamLeader ? "Team Leader" : "Amministrazione"
