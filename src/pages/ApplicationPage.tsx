@@ -145,7 +145,7 @@ export function ApplicationPage() {
               </select>
             </label>
             {division && (
-              <fieldset className="form-field--full" key={areaId}>
+              <fieldset className="application-choice-list form-field--full" key={areaId}>
                 <legend>{division.question} *</legend>
                 {division.skills.map((s) => (
                   <label key={s} className="application-choice-option">
@@ -183,7 +183,7 @@ export function ApplicationPage() {
               "deadlines",
               "Come gestisci solitamente le scadenze importanti o i momenti di picco di lavoro?",
             )}
-            <fieldset className="form-field--full">
+            <fieldset className="application-choice-list form-field--full">
               <legend>Certificazioni extra o competenze linguistiche *</legend>
               {certifications.map((s) => (
                 <label key={s} className="application-choice-option">
