@@ -109,7 +109,9 @@ export async function processPush(client: SupabaseClient) {
         title: notice.title,
         body: "Apri GalileoHub per leggere la comunicazione.",
         id: notice.id,
-        url: notice.type === "merch.order_paid" ? "/merchandising" : "/",
+        url: typeof notice.data?.route === "string" && notice.data.route.startsWith("/") && !notice.data.route.startsWith("//")
+          ? notice.data.route
+          : notice.type === "merch.order_paid" ? "/merchandising" : "/",
       };
       if (device.platform === "web") {
         const { publicKey, privateKey } = await webPushConfig(client);
