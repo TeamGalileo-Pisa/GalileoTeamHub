@@ -17,6 +17,7 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
           "Hai già inviato una candidatura per questa area.",
         INVALID_DATA: "Completa tutti i campi obbligatori.",
         FORBIDDEN: "Non hai i permessi necessari.",
+        NOT_FOUND: "La candidatura non è più disponibile.",
         UNAUTHORIZED: "Accedi nuovamente.",
         EMAIL_NOT_CONFIGURED: "Invio email non configurato sul server.",
       };
@@ -26,4 +27,3 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data as T;
 }
-
