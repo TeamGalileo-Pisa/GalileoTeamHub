@@ -59,9 +59,13 @@ const StaffPage = lazy(() =>
   import("./pages/StaffPage").then((module) => ({ default: module.StaffPage })),
 );
 
+const ApplicationPage = lazy(() => import('./pages/ApplicationPage').then(m=>({default:m.ApplicationPage})));
+const MembershipPage = lazy(() => import('./pages/MembershipPage').then(m=>({default:m.MembershipPage})));
+const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(m=>({default:m.CommunityAdminPage})));
+const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
 function HomeRedirect() {
   const { access } = useAuth();
-  return <Navigate to={access?.isAdmin ? "/admin" : "/area"} replace />;
+  return <Navigate to={access?.isAdmin ? "/admin" : access?.isMember ? "/membri" : "/area"} replace />;
 }
 
 export default function App() {
@@ -70,6 +74,8 @@ export default function App() {
       <PwaControls />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          <Route path="/candidature" element={<ApplicationPage />} />
+          <Route path="/adesione/:token" element={<MembershipPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:token" element={<PublicBookingPage />} />
           <Route path="/manage/:token" element={<ManageBookingPage />} />
@@ -80,6 +86,8 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route index element={<HomeRedirect />} />
 
+                <Route path="/membri" element={<MemberPage />} />
+                <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/area" element={<DashboardPage />} />
                 <Route path="/area/disponibilita" element={<AvailabilityPage />} />
                 <Route path="/area/sessioni" element={<AreaSessionsPage />} />
@@ -88,7 +96,9 @@ export default function App() {
                 <Route path="/area/bacheca" element={<AnnouncementsPage />} />
                 <Route path="/area/assistenza" element={<HelpPage />} />
 
+                </Route>
                 <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/admin/candidature" element={<CommunityAdminPage />} />
                   <Route path="/admin" element={<DashboardPage />} />
                   <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
                   <Route path="/admin/calendario" element={<CalendarPage />} />

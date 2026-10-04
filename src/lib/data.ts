@@ -310,7 +310,7 @@ export async function listStaff(): Promise<StaffMember[]> {
     status: row.status === "disabled" ? "disabled" : "active",
     isAdmin: asBoolean(row.is_admin),
     role:
-      row.role === "team_leader" || row.role === "admin"
+      row.role === "member" || row.role === "team_leader" || row.role === "admin"
         ? row.role
         : "area_lead",
     areas: Array.isArray(row.areas)

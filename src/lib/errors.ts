@@ -1,4 +1,11 @@
 const ERROR_MESSAGES: Array<[string, string]> = [
+  ["INVALID_STAFF_PASSWORD", "Usa almeno 12 caratteri con maiuscola, minuscola, numero e simbolo."],
+  ["STAFF_MIGRATION_REQUIRED", "Il backend account non è aggiornato. Applicare le migrazioni Supabase e ridistribuire staff-admin."],
+  ["GMAIL_OAUTH_FAILED:invalid_grant", "Gmail: autorizzazione revocata o refresh token scaduto. Verificare che il consenso OAuth sia In produzione e ricollegare il mittente."],
+  ["GMAIL_OAUTH_FAILED", "Gmail: rinnovo OAuth non riuscito. Controllare client, secret e refresh token sul server."],
+  ["GMAIL_SCOPE_REQUIRED", "Gmail: mancano i permessi di lettura necessari per verificare l'invio. Riautorizzare gmail.send e gmail.readonly."],
+  ["GMAIL_WRONG_SENDER", "L'account Gmail autorizzato non corrisponde a info.teamgalileo@gmail.com."],
+  ["GMAIL_LOOKUP_FAILED", "Gmail non permette di verificare i messaggi già inviati. Controllare i permessi OAuth."],
   ["PRIVACY_CONSENT_REQUIRED", "Per confermare la prenotazione devi leggere e accettare l'informativa privacy."],
   ["PRIVACY_VERSION_OUTDATED", "L'informativa privacy è stata aggiornata. Rileggila e conferma nuovamente l'accettazione."],
   ["PRIVACY_NOT_CONFIGURED", "L'informativa privacy non è configurata. Contatta Amministrazione."],
@@ -28,7 +35,7 @@ const ERROR_MESSAGES: Array<[string, string]> = [
   ],
   [
     "HAS_HISTORY",
-    "Questo elemento ha uno storico: usa Annulla per conservarlo oppure Annulla ed elimina se vuoi rimuoverlo definitivamente.",
+    "Questo elemento ha dati storici collegati e non può essere eliminato. Per un account usa Disattivato.",
   ],
   [
     "CAMPAIGN_DATES_CONFLICT",

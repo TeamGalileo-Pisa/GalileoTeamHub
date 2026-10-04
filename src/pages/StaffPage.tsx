@@ -234,7 +234,7 @@ export function StaffPage() {
                       <td>
                         <span className="role-label">
                           {member.isAdmin ? <ShieldCheck size={15} /> : null}
-                          {member.role === "team_leader" ? "Team Leader" : member.isAdmin ? "Amministrazione" : "Capo Area"}
+                          {member.role === "member" ? "Membri area" : member.role === "team_leader" ? "Team Leader" : member.isAdmin ? "Amministrazione" : "Capo Area"}
                         </span>
                       </td>
                       <td>

@@ -17,7 +17,7 @@
       "src": "/icons/galileohub-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable",
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/galileohub-512-v2.png",

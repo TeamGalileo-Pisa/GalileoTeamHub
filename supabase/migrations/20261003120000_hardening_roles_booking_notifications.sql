@@ -164,6 +164,12 @@ create or replace function private.guard_one_confirmed_booking_per_candidate()
 returns trigger language plpgsql security definer set search_path=''
 as $$
 begin
+  if new.status <> 'confirmed' then return new; end if;
+  if tg_op='UPDATE' then
+    if old.status='confirmed' and old.candidate_id=new.candidate_id then return new; end if;
+  end if;
+  -- Serialize new confirmations while preserving pre-existing duplicates.
+  perform 1 from public.candidates where id=new.candidate_id for update;
   if exists(
     select 1 from public.bookings b
     where b.candidate_id=new.candidate_id
@@ -175,7 +181,7 @@ begin
   return new;
 end;
 $$;
-create unique index if not exists bookings_one_confirmed_per_candidate_idx
+create index if not exists bookings_confirmed_candidate_idx
 on public.bookings(candidate_id)
 where status='confirmed';
 
@@ -373,7 +379,8 @@ grant execute on function public.get_booking_by_manage_token(text),public.change
 
 
 -- Team Leader is a first-class global role and must be editable like Admin.
-create or replace function public.list_staff_members()
+drop function if exists public.list_staff_members();
+create function public.list_staff_members()
 returns table (
   id uuid,
   username text,
@@ -456,6 +463,7 @@ begin
     update public.area_memberships set ended_at=greatest(clock_timestamp(),started_at+interval '1 microsecond')
       where user_id=p_id and ended_at is null;
   else
+    delete from public.system_roles where user_id=p_id;
     update public.area_memberships set ended_at=greatest(clock_timestamp(),started_at+interval '1 microsecond')
       where user_id=p_id and ended_at is null and area_id<>p_area_id;
     if not exists(select 1 from public.area_memberships where user_id=p_id and area_id=p_area_id and ended_at is null) then
@@ -740,7 +748,7 @@ begin
 end;
 $$;
 
-drop function public.list_room_availabilities();
+-- Preserve the availability RPC used by the frontend.
 
 
 create or replace function public.claim_email_delivery(p_delivery_id uuid)

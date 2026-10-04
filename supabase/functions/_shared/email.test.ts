@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { sendGmailMessage, sendQueuedEmail } from "./email";
+import { sendGmailMessage, sendQueuedEmail, checkGmailConfiguration } from "./email";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
 const message = {
   to: "recipient@example.test",
@@ -43,6 +43,12 @@ function setup(existing = false) {
 }
 afterEach(() => vi.unstubAllGlobals());
 describe("Gmail transport and queue", () => {
+  it("checks live configuration without sending mail", async () => {
+    const fetchMock = setup();
+    expect(await checkGmailConfiguration()).toMatchObject({oauth: "ok", deliveryTested: false});
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.some(([url]) => url.includes('/messages/send'))).toBe(false);
+  });
   it("sends MIME through Gmail after checking Message-ID", async () => {
     const fetchMock = setup();
     fetchMock.mockResolvedValueOnce(Response.json({ id: "sent-id" }));
@@ -56,6 +62,20 @@ describe("Gmail transport and queue", () => {
     expect(mime).toContain(
       "Message-ID: <unit-delivery@colloqui.teamgalileo.local>",
     );
+  });
+  it("attaches the generated PDF as a MIME attachment", async () => {
+    const f=setup();f.mockResolvedValueOnce(Response.json({id:"sent-id"}));
+    await sendGmailMessage({...message,html:"<p>Adesione</p>",attachments:[{name:"Adesione.pdf",content:new TextEncoder().encode("%PDF-test")}]});
+    const raw=JSON.parse(f.mock.calls[3][1].body).raw;
+    const mime=atob(raw.replaceAll("-","+").replaceAll("_","/"));
+    expect(mime).toContain('Content-Type: multipart/mixed');
+    expect(mime).toContain('filename="Adesione.pdf"');
+    expect(mime).toContain(btoa('%PDF-test'));
+  });
+  it("reports missing Gmail scopes distinctly from a wrong sender", async () => {
+    const f=setup();f.mockReset().mockResolvedValueOnce(Response.json({access_token:"token"})).mockResolvedValueOnce(new Response('',{status:403}));
+    await expect(sendGmailMessage(message)).rejects.toThrow('GMAIL_SCOPE_REQUIRED');
+    expect(f).toHaveBeenCalledTimes(2);
   });
   it("does not send when Message-ID already exists", async () => {
     const fetchMock = setup(true);

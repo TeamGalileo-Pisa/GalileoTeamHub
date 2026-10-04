@@ -1,0 +1,3 @@
+-- Deployment audit marker. The Supabase management API applied the enum
+-- migrations 20261003110000 and 20261003205000 together and recorded their
+-- original versions. Fresh installations already execute those files above.

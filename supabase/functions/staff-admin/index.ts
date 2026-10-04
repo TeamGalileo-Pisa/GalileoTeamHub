@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { requireActor } from "../_shared/actor.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 
@@ -10,7 +10,7 @@ interface StaffRequest {
   displayName?: string;
   temporaryPassword?: string;
   isAdmin?: boolean;
-  role?: "admin" | "team_leader" | "area_lead";
+  role?: "admin" | "team_leader" | "area_lead" | "member";
   areaId?: string;
 }
 
@@ -32,42 +32,11 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "METHOD_NOT_ALLOWED" }, 405);
   }
 
-  const authorization = request.headers.get("authorization");
-  const url = Deno.env.get("SUPABASE_URL");
-  const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!authorization || !url || !publishableKey) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const userClient = createClient(url, publishableKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-  if (userError || !user) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const { data: adminRole } = await userClient
-    .from("system_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .in("role", ["admin", "team_leader"])
-    .limit(1)
-    .maybeSingle();
-  if (!adminRole) {
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
-  }
-  const { data: actorProfile } = await userClient
-    .from("profiles")
-    .select("status,must_change_password")
-    .eq("id", user.id)
-    .single();
-  if (actorProfile?.status !== "active" || actorProfile.must_change_password)
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
+  let actor;
+  try { actor = await requireActor(request); }
+  catch (error) { return jsonResponse(request, { error: error instanceof Error ? error.message : "UNAUTHORIZED" }, 401); }
+  const { user } = actor;
+  const url = Deno.env.get("SUPABASE_URL")!;
 
   let body: StaffRequest;
   try {
@@ -94,7 +63,7 @@ Deno.serve(async (request) => {
       { p_actor: user.id, p_user: body.id },
     );
     if (leaseError)
-      return jsonResponse(request, { error: "ACCOUNT_BUSY" }, 409);
+      return jsonResponse(request, { error: leaseError.message.includes("ACCOUNT_BUSY") ? "ACCOUNT_BUSY" : "STAFF_MIGRATION_REQUIRED" }, 409);
     try {
       const { data: old, error: oldError } = await serviceClient
         .from("profiles")
@@ -108,14 +77,10 @@ Deno.serve(async (request) => {
       if (action === "reset_password") {
         const initialPassword = Deno.env.get("DEFAULT_INITIAL_PASSWORD");
         const suffix = Deno.env.get("DEFAULT_PASSWORD_SUFFIX");
-        const resetPassword = initialPassword || (suffix ? old.username + suffix : "");
+        const resetPassword = body.temporaryPassword || initialPassword || (suffix ? old.username + suffix : "");
+        if (resetPassword.length < 12 || !/[A-Z]/.test(resetPassword) || !/[a-z]/.test(resetPassword) || !/[0-9]/.test(resetPassword) || !/[^A-Za-z0-9]/.test(resetPassword)) throw new Error("INVALID_STAFF_PASSWORD");
         if (!resetPassword) throw new Error("DEFAULT_PASSWORD_NOT_CONFIGURED");
         // Only server memory: never return or log the derived password.
-        const { error: flagError } = await serviceClient
-          .from("profiles")
-          .update({ must_change_password: true })
-          .eq("id", body.id);
-        if (flagError) throw new Error("ACCOUNT_UPDATE_FAILED");
         const { error } = await serviceClient.auth.admin.updateUserById(
           body.id,
           {
@@ -150,7 +115,7 @@ Deno.serve(async (request) => {
               : "HAS_HISTORY",
           );
         const { error } = await serviceClient.auth.admin.deleteUser(body.id);
-        if (error) throw new Error("HAS_HISTORY");
+        if (error) throw new Error(error.message.includes("HAS_HISTORY") ? "HAS_HISTORY" : "ACCOUNT_UPDATE_FAILED");
         await serviceClient.from("audit_logs").insert({
           actor_user_id: user.id,
           actor_type: "staff",
@@ -165,10 +130,12 @@ Deno.serve(async (request) => {
           !/^[A-Za-z0-9][A-Za-z0-9._-]{1,48}[A-Za-z0-9]$/.test(proposed) ||
           typeof body.displayName !== "string" ||
           typeof body.isAdmin !== "boolean" ||
-          !["admin", "team_leader", "area_lead"].includes(body.role ?? (body.isAdmin ? "admin" : "area_lead")) ||
+          !["admin", "team_leader", "area_lead", "member"].includes(body.role ?? (body.isAdmin ? "admin" : "area_lead")) ||
           !["active", "disabled"].includes(body.status ?? "")
         )
           throw new Error("INVALID_STAFF_DATA");
+        const { data: shared } = await serviceClient.from("area_shared_accounts").select("user_id").eq("user_id",body.id).maybeSingle();
+        if (Boolean(shared) !== (body.role === "member")) throw new Error("INVALID_STAFF_DATA");
         const newEmail = normalizeUsername(proposed) + "@" + domain;
         const { error: renameError } =
           await serviceClient.auth.admin.updateUserById(body.id, {
@@ -182,13 +149,12 @@ Deno.serve(async (request) => {
           });
         if (renameError) throw new Error("ACCOUNT_UPDATE_FAILED");
         const requestedRole = body.role ?? (body.isAdmin ? "admin" : "area_lead");
-        const { error } = await serviceClient.rpc("update_staff_profile_v2", {
+        const { error } = await serviceClient.rpc(requestedRole === "member" ? "update_shared_account" : "update_staff_profile_v2", {
           p_actor_id: user.id,
           p_id: body.id,
           p_username: proposed,
           p_display_name: body.displayName,
-          p_role: requestedRole,
-          p_area_id: requestedRole === "area_lead" ? body.areaId : null,
+          ...(requestedRole === "member" ? {} : {p_role: requestedRole, p_area_id: requestedRole === "area_lead" ? body.areaId : null}),
           p_status: body.status,
         });
         if (error) {
@@ -217,6 +183,7 @@ Deno.serve(async (request) => {
         "LAST_ACTIVE_ADMIN",
         "HAS_HISTORY",
         "DEFAULT_PASSWORD_NOT_CONFIGURED",
+        "INVALID_STAFF_PASSWORD",
         "INVALID_STAFF_DATA",
       ].includes(message)
         ? message

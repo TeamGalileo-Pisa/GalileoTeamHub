@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { requireActor } from "../_shared/actor.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { sendGmailMessage } from "../_shared/email.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
@@ -15,41 +15,11 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "METHOD_NOT_ALLOWED" }, 405);
   }
 
-  const authorization = request.headers.get("authorization");
-  const url = Deno.env.get("SUPABASE_URL");
-  const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!authorization || !url || !publishableKey) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const userClient = createClient(url, publishableKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-  if (userError || !user) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const { data: adminRole } = await userClient
-    .from("system_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .in("role", ["admin", "team_leader"])
-    .maybeSingle();
-  if (!adminRole) {
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
-  }
-  const { data: profile } = await userClient
-    .from("profiles")
-    .select("status,must_change_password")
-    .eq("id", user.id)
-    .single();
-  if (profile?.status !== "active" || profile.must_change_password)
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
+  let actor;
+  try { actor = await requireActor(request); }
+  catch (error) { return jsonResponse(request, { error: error instanceof Error ? error.message : "UNAUTHORIZED" }, 401); }
+  const { user } = actor;
+  const url = Deno.env.get("SUPABASE_URL")!;
 
   let body: TestEmailRequest;
   try {
@@ -88,7 +58,7 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { ok: true, providerMessageId });
   } catch (error) {
     const message = error instanceof Error ? error.message : "TEST_EMAIL_FAILED";
-    const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_LOOKUP_FAILED|GMAIL_SEND_FAILED:\d{3}|GMAIL_SEND_UNCERTAIN)$/.test(message)
+    const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_SCOPE_REQUIRED|GMAIL_LOOKUP_FAILED|GMAIL_SEND_FAILED:\d{3}|GMAIL_SEND_UNCERTAIN)$/.test(message)
       ? message
       : "TEST_EMAIL_FAILED";
     return jsonResponse(request, { error: safe }, 502);

@@ -44,7 +44,7 @@ export function ChangePasswordPage() {
     try {
       await completePasswordChange();
       await refreshAccess();
-      navigate(access?.isAdmin ? "/admin" : "/area", { replace: true });
+      navigate(access?.isAdmin ? "/admin" : access?.isMember ? "/membri" : "/area", { replace: true });
     } catch {
       setSubmitError(
         "Password aggiornata, ma il profilo non è stato sincronizzato. Esci e accedi di nuovo.",

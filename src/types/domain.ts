@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "team_leader" | "area_lead";
+export type AppRole = "admin" | "team_leader" | "area_lead" | "member";
 
 export interface AreaSummary {
   id: string;
@@ -11,6 +11,8 @@ export interface AccessContext {
   username: string;
   displayName: string;
   isAdmin: boolean;
+  isMember?: boolean;
+  isTeamLeader?: boolean;
   mustChangePassword: boolean;
   areas: AreaSummary[];
 }
@@ -82,7 +84,7 @@ export interface StaffMember {
   displayName: string;
   status: "active" | "disabled";
   isAdmin: boolean;
-  role: "admin" | "team_leader" | "area_lead";
+  role: "admin" | "team_leader" | "area_lead" | "member";
   areas: AreaSummary[];
 }
 

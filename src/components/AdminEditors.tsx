@@ -242,6 +242,7 @@ export function StaffEditor({
   const [role, setRole] = useState(member.role);
   const [areaId, setAreaId] = useState(member.areas[0]?.id ?? "");
   const [status, setStatus] = useState(member.status);
+  const [temporaryPassword, setTemporaryPassword] = useState("");
   const [confirm, setConfirm] = useState<"reset_password" | "delete" | null>(
     null,
   );
@@ -250,11 +251,12 @@ export function StaffEditor({
       staffAction({
         action,
         id: member.id,
+        ...(action === "reset_password" ? { temporaryPassword } : {}),
         ...(action === "update"
           ? {
               username,
               displayName,
-              isAdmin: role !== "area_lead",
+              isAdmin: role === "admin" || role === "team_leader",
               role,
               areaId: role === "area_lead" ? areaId || undefined : undefined,
               status,
@@ -306,8 +308,10 @@ export function StaffEditor({
           <select
             className="select"
             value={role}
+            disabled={member.role === "member"}
             onChange={(e) => setRole(e.target.value as typeof role)}
           >
+            {member.role === "member" && <option value="member">Membri area</option>}
             <option value="admin">Amministrazione globale</option>
             <option value="team_leader">Team Leader</option>
             <option value="area_lead">Capo Area</option>
@@ -348,18 +352,17 @@ export function StaffEditor({
           Deve rimanere almeno un amministratore attivo. Gli account con storico
           si disattivano: non vengono eliminati.
         </p>
+        <label className="form-field form-field--full">Nuova password temporanea (per il reset)
+          <input className="input" type="password" autoComplete="new-password" value={temporaryPassword} onChange={(e) => setTemporaryPassword(e.target.value)} />
+          <span className="field-help">Almeno 12 caratteri, maiuscola, minuscola, numero e simbolo. Comunicala al titolare tramite un canale sicuro.</span>
+        </label>
         <Feedback error={mutation.error} />
         <div className="form-actions">
-          <button
-            className="button button--primary"
-            disabled={mutation.isPending}
-          >
-            Salva modifiche
-          </button>
+          <button className="button button--primary" disabled={mutation.isPending}>Salva modifiche</button>
           <button
             className="button button--secondary"
             type="button"
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || temporaryPassword.length < 12}
             onClick={() => setConfirm("reset_password")}
           >
             Reimposta password
@@ -383,7 +386,7 @@ export function StaffEditor({
           }
           description={
             confirm === "reset_password"
-              ? "Verrà applicata la regola iniziale configurata sul server. Al prossimo accesso sarà obbligatorio scegliere una nuova password. Il reset usa lo username già salvato."
+              ? "Verrà impostata la password temporanea inserita. Al prossimo accesso sarà obbligatorio cambiarla."
               : "L’operazione è definitiva ed è consentita soltanto senza storico. Altrimenti disattiva l’account."
           }
           pending={mutation.isPending}
