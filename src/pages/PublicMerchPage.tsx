@@ -96,10 +96,22 @@ export function PublicMerchPage() {
           {product.image_url && <img className="merch-card__image" src={product.image_url} alt={product.name} loading="lazy" />}
           <div className="panel__body"><div className="merch-card__heading"><h2>{product.name}</h2><strong>{euro(product.price_cents)}</strong></div>
             {product.description && <p>{product.description}</p>}
-            <div className="merch-variants">{product.variants.map((variant) => <label className="merch-variant" key={variant.id}>
-              <span>{variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</span>
-              <span>Quantità <input className="input" style={{ width: 86 }} aria-label={`${product.name}, ${variant.label}, quantità`} type="number" min="0" max={Math.min(20, variant.stock ?? 20)} value={quantities[variant.id] ?? 0} disabled={variant.stock === 0} onChange={(event) => setQuantities((old) => ({ ...old, [variant.id]: Number(event.target.value) }))} /></span>
-            </label>)}</div>
+            <fieldset className="merch-size-picker">
+              <legend>Seleziona taglia e quantità</legend>
+              <div className="merch-size-list">
+                {product.variants.map((variant) => <label className={`merch-size-option ${(quantities[variant.id] ?? 0) > 0 ? "merch-size-option--selected" : ""}`} key={variant.id}>
+                  <span className="merch-size-option__label">
+                    <strong>{variant.label === "Unica" ? "Taglia unica" : variant.label}</strong>
+                    {variant.stock !== null && <small>{variant.stock > 0 ? `${variant.stock} disponibili` : "Esaurita"}</small>}
+                  </span>
+                  <span className="merch-size-option__quantity">
+                    <span>Quantità</span>
+                    <input className="input" aria-label={`${product.name}, taglia ${variant.label}, quantità`} type="number" min="0" max={Math.min(20, variant.stock ?? 20)} value={quantities[variant.id] ?? 0} disabled={variant.stock === 0} onChange={(event) => setQuantities((old) => ({ ...old, [variant.id]: Number(event.target.value) }))} />
+                  </span>
+                </label>)}
+                {!product.variants.length && <p className="field-help">Le taglie non sono ancora disponibili per questo prodotto.</p>}
+              </div>
+            </fieldset>
           </div>
         </article>)}
         {!products.length && <p>Nessun prodotto disponibile.</p>}
