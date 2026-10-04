@@ -635,6 +635,14 @@ export async function sendAdminTestEmail(toEmail: string): Promise<void> {
   await throwIfFunctionError(error);
 }
 
+export async function checkAdminGmail(): Promise<{ oauth: string; sender: string; lookup: string; deliveryTested: boolean }> {
+  const { data, error } = await supabase.functions.invoke("admin-email-test", {
+    body: { action: "check" },
+  });
+  await throwIfFunctionError(error);
+  return data as { oauth: string; sender: string; lookup: string; deliveryTested: boolean };
+}
+
 export interface RecruitmentAreaControl {
   areaId: string;
   areaName: string;
