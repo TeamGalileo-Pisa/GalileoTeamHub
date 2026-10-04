@@ -35,10 +35,13 @@ export function MerchandisingPage() {
   const queryClient = useQueryClient();
   const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica"));
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(() => new URLSearchParams(window.location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Il carrello è ancora disponibile." : "");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
-  const [payBusy, setPayBusy] = useState(false);
+  const [payBusy, setPayBusy] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("paypal") === "approved" && Boolean(params.get("token") && params.get("order"));
+  });
   const productsQuery = useQuery({
     queryKey: ["merch-products", access?.userId],
     queryFn: async () => {
@@ -56,7 +59,7 @@ export function MerchandisingPage() {
       return data ?? [];
     },
   });
-  const products = productsQuery.data ?? [];
+  const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
   const cartTotal = useMemo(() => cart.reduce((sum, item) => {
     const variant = products.flatMap((p) => p.variants).find((v) => v.id === item.variantId);
     const product = products.find((p) => p.id === variant?.product_id);
@@ -68,13 +71,11 @@ export function MerchandisingPage() {
     const paypalId = params.get("token");
     const localOrder = params.get("order");
     if (params.get("paypal") === "cancelled") {
-      setNotice("Pagamento annullato. Il carrello è ancora disponibile.");
       history.replaceState(null, "", location.pathname);
       return;
     }
     if (params.get("paypal") !== "approved" || !paypalId || !localOrder) return;
     let alive = true;
-    setPayBusy(true);
     void paypalRequest<PayResult>({ action: "capture", orderId: localOrder, paypalOrderId: paypalId })
       .then((result) => { if (alive && result.paid) { setNotice("Pagamento PayPal completato. L’ordine è confermato."); setCart([]); void queryClient.invalidateQueries({ queryKey: ["merch-orders"] }); } })
       .catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : "Pagamento non verificato."); })
