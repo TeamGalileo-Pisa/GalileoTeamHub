@@ -3,6 +3,7 @@ import {
   CalendarRange,
   ChevronDown,
   ClipboardList,
+  BellRing,
   FileText,
   LayoutDashboard,
   ShoppingBag,
@@ -15,6 +16,7 @@ import {
   Warehouse,
   X,
 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
@@ -23,7 +25,6 @@ import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotificatio
 import { supabase } from "../lib/supabase";
 import { enablePush, isMobileNotificationDevice, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
-import { Capacitor } from "@capacitor/core";
 
 const adminNavigation = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -179,7 +180,7 @@ export function AppShell() {
     setPushStatus("");
     try {
       await enablePush();
-      setPushState({ userId, ready: await pushIsReady() });
+      setPushState({ userId, ready: true });
       setPushStatus("Notifiche attive su questo dispositivo.");
     } catch (error) {
       setPushStatus(error instanceof Error ? error.message : "Attivazione notifiche non riuscita.");
@@ -189,36 +190,38 @@ export function AppShell() {
     }
   };
 
-  const pushReady = !mobileNotificationsEnabled || Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
+  const pushReady = Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
   const pushCheckPending = mobileNotificationsEnabled && Boolean(access?.userId && pushState?.userId !== access.userId);
-  if (mobileNotificationsEnabled && !pushReady) {
-    const ua = navigator.userAgent;
-    const isAppleTouch = /iPhone|iPad|iPod/.test(ua) ||
-      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const installInstructions = Capacitor.isNativePlatform()
-      ? "Consenti GalileoHub nelle impostazioni Notifiche del dispositivo, poi tocca Riprova."
-      : isAppleTouch
-      ? "Apri questo sito in Safari, usa Condividi → Aggiungi alla schermata Home e avvia GalileoHub dalla nuova icona. Le notifiche web richiedono iOS/iPadOS 16.4 o successivo."
-      : /Macintosh|Mac OS X/.test(ua)
-      ? "Installa GalileoHub dal menu del browser (in Safari: File → Aggiungi al Dock), poi riaprilo dall’icona installata."
-      : "Installa GalileoHub dal menu o dall’icona di installazione del browser, poi riaprilo dall’icona dell’app.";
+  const iosInstalledApp = window.matchMedia?.("(display-mode: standalone)").matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
 
-    return <main className="page-container" style={{ maxWidth: 680, margin: "auto", padding: 24 }}>
-      <Brand />
-      <section className="panel" aria-labelledby="required-push-title" style={{ marginTop: 32 }}>
-        <h1 id="required-push-title">Attiva le notifiche per continuare</h1>
-        <p>Le notifiche push sono obbligatorie per usare GalileoHub su questo dispositivo. Riceverai avvisi su comunicazioni, ordini e attività assegnate.</p>
-        <p>{installInstructions}</p>
-        {pushCheckPending && <p role="status">Verifica delle notifiche in corso…</p>}
-        {pushStatus && <p role="alert">{pushStatus}</p>}
-        <button className="button button--primary" type="button" disabled={pushBusy} onClick={() => void handleEnablePush()}>
-          {pushBusy ? "Attivazione…" : "Attiva notifiche e continua"}
-        </button>
-        <button className="button button--secondary" type="button" style={{ marginLeft: 8 }} onClick={() => void handleSignOut()}>
-          Esci
-        </button>
-      </section>
-    </main>;
+  if (access && mobileNotificationsEnabled && !pushReady) {
+    return (
+      <main className="push-required-page">
+        <div className="push-required-brand"><Brand /></div>
+        <section className="push-required-card" aria-labelledby="push-required-title">
+          <span className="push-required-icon"><BellRing size={24} /></span>
+          <p className="eyebrow">Un ultimo passaggio</p>
+          <h1 id="push-required-title">Attiva le notifiche</h1>
+          <p className="push-required-copy">
+            Le notifiche sono necessarie per usare GalileoHub da questo dispositivo. Ti avviseranno quando ci sono comunicazioni e aggiornamenti importanti.
+          </p>
+          <div className="push-required-note">
+            <strong>Si attiva una sola volta</strong>
+            <span>Dopo aver consentito le notifiche, entrerai direttamente nel sito ai prossimi accessi.</span>
+          </div>
+          {!Capacitor.isNativePlatform() && /iPhone|iPad|iPod/i.test(navigator.userAgent) && !iosInstalledApp && (
+            <p className="push-required-help">Su iPhone e iPad, aggiungi prima GalileoHub alla schermata Home e aprilo da lì.</p>
+          )}
+          {pushCheckPending && <p className="push-required-status" role="status">Controllo delle notifiche in corso…</p>}
+          {pushStatus && <p className="push-required-error" role="alert">{pushStatus}</p>}
+          <button className="button button--primary push-required-action" type="button" disabled={pushBusy || pushCheckPending} onClick={() => void handleEnablePush()}>
+            <BellRing size={17} /> {pushBusy ? "Attivazione in corso…" : pushCheckPending ? "Verifica in corso…" : "Attiva e continua"}
+          </button>
+          <button className="push-required-signout" type="button" onClick={() => void handleSignOut()}>Esci dall’account</button>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -240,6 +243,8 @@ export function AppShell() {
           onClick={() => setMobileOpen(false)}
         />
       )}
+
+      <a className="skip-to-content" href="#main-content">Salta al contenuto</a>
 
       <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
         <div className="sidebar__brand"><Brand /></div>
@@ -275,15 +280,16 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
-          {mobileNotificationsEnabled && <button className="icon-button" type="button" aria-label="Verifica notifiche push" title="Notifiche push attive" onClick={() => { if(access?.userId) void pushIsReady().then((ready)=>setPushState({userId:access.userId,ready})); }}><Megaphone size={18}/></button>}
-          {mobileNotificationsEnabled && pushStatus && <p role="status" style={{fontSize:12}}>{pushStatus}</p>}
+          {mobileNotificationsEnabled && pushReady && <span className="push-ready-label" role="status"><BellRing size={15} /> Notifiche attive</span>}
+          {mobileNotificationsEnabled && pushStatus && <p className="push-status" role="status">{pushStatus}</p>}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
         </div>
       </aside>
 
-      <main className="app-content"><Outlet /></main>
+      <main id="main-content" className="app-content app-main-content" tabIndex={-1}><Outlet /></main>
     </div>
   );
 }
+
