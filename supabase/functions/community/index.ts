@@ -279,7 +279,7 @@ Deno.serve(async (request) => {
     }
     if (body.action === "delete_application") {
       const { user } = await requireActor(request, false);
-      if (typeof body.applicationId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.applicationId)) {
+      if (typeof body.applicationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(body.applicationId)) {
         throw new Error("INVALID_DATA");
       }
       const [{ data: roles, error: rolesError }, { data: memberships, error: membershipsError }, { data: application, error: applicationError }] = await Promise.all([
