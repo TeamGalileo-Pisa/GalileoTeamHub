@@ -54,6 +54,7 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "INVALID_EMAIL" }, 400);
   }
 
+  try {
     const client = createServiceClient();
     const { error: setupError } = await client.rpc("configure_email_worker", {
       p_url: url.replace(/\/$/, ""),
