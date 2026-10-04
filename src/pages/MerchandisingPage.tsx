@@ -66,6 +66,7 @@ export function MerchandisingPage() {
     },
   });
   const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
+  const publicOrderUrl = `${window.location.origin}/merchandising/ordine`;
   const cartTotal = useMemo(() => cart.reduce((sum, item) => {
     const variant = products.flatMap((p) => p.variants).find((v) => v.id === item.variantId);
     const product = products.find((p) => p.id === variant?.product_id);
@@ -166,7 +167,8 @@ export function MerchandisingPage() {
     <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci prodotti, varianti, immagini, prezzi e disponibilità. Gli ordini si pagano in euro con PayPal." : "Scegli il prodotto e la taglia. Il totale del carrello viene calcolato prima del pagamento PayPal."} />
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}{payBusy && <p role="status">Verifica o avvio del pagamento in corso…</p>}
     {canManage && <section className="panel panel__body merch-admin">
-      <p>Link pubblico per gli ordini: <a href="/merchandising/ordine" target="_blank" rel="noreferrer">/merchandising/ordine</a></p>
+      <p>Link pubblico per gli ordini: <a href={publicOrderUrl} target="_blank" rel="noreferrer">{publicOrderUrl}</a></p>
+      <button className="button button--secondary" type="button" onClick={() => void navigator.clipboard?.writeText(publicOrderUrl)}>Copia link pubblico</button>
       <h2>{editing ? "Modifica prodotto" : "Aggiungi un prodotto"}</h2>
       <form className="form-grid" onSubmit={(event) => { event.preventDefault(); void saveProduct(new FormData(event.currentTarget)); }} key={editing?.id ?? "new-product"}>
         <label className="form-field">Nome<input className="input" name="name" required maxLength={120} defaultValue={editing?.name ?? ""} /></label>
