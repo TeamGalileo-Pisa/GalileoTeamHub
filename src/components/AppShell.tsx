@@ -21,7 +21,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
-import { enablePush, disablePush, pushIsReady } from "../lib/push";
+import { enablePush, disablePush, isMobileNotificationDevice, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
 import { Capacitor } from "@capacitor/core";
 
@@ -55,24 +55,25 @@ const areaNavigation = [
 export function AppShell() {
   const { access, signOut } = useAuth();
   const location = useLocation();
+  const mobileNotificationsEnabled = isMobileNotificationDevice();
   const [mobileOpen, setMobileOpen] = useState(false);
   const unreadQuery = useQuery({
     queryKey: ["unread-announcements", access?.userId],
     queryFn: getUnreadAnnouncementCount,
-    enabled: Boolean(access),
+    enabled: Boolean(access && mobileNotificationsEnabled),
   });
 
   useQuery({
     queryKey: ["system-notifications", access?.userId],
     queryFn: listNotifications,
-    enabled: Boolean(access),
+    enabled: Boolean(access && mobileNotificationsEnabled),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
   const unreadNotificationQuery = useQuery({
     queryKey: ["unread-notifications", access?.userId],
     queryFn: getUnreadNotificationCount,
-    enabled: Boolean(access),
+    enabled: Boolean(access && mobileNotificationsEnabled),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
@@ -92,6 +93,13 @@ export function AppShell() {
   useEffect(() => {
     let active = true;
     if (!access?.userId) return () => { active = false; };
+    if (!mobileNotificationsEnabled) {
+      void disablePush().catch(() => undefined);
+      queueMicrotask(() => {
+        if (active) setPushState({ userId: access.userId, ready: true });
+      });
+      return () => { active = false; };
+    }
     const refresh = () => {
       void pushIsReady().then((ready) => {
         if (active) setPushState({ userId: access.userId, ready });
@@ -110,7 +118,7 @@ export function AppShell() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [access?.userId]);
+  }, [access?.userId, mobileNotificationsEnabled]);
 
   useEffect(() => {
     const notify=(event:Event)=>setPushStatus((event as CustomEvent<string>).detail);
@@ -150,7 +158,9 @@ export function AppShell() {
     }
     return items;
   })();
-  const notificationCount = (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0);
+  const notificationCount = mobileNotificationsEnabled
+    ? (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0)
+    : 0;
   const areaLabel = access?.isAdmin
     ? access.isTeamLeader ? "Team Leader" : "Amministrazione"
     : access?.areas.map((area) => area.name).join(", ") || "Area";
@@ -181,9 +191,9 @@ export function AppShell() {
     }
   };
 
-  const pushReady = Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
-  const pushCheckPending = Boolean(access?.userId && pushState?.userId !== access.userId);
-  if (!pushReady) {
+  const pushReady = !mobileNotificationsEnabled || Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
+  const pushCheckPending = mobileNotificationsEnabled && Boolean(access?.userId && pushState?.userId !== access.userId);
+  if (mobileNotificationsEnabled && !pushReady) {
     const ua = navigator.userAgent;
     const isAppleTouch = /iPhone|iPad|iPod/.test(ua) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -267,8 +277,8 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
-          <button className="icon-button" type="button" aria-label="Verifica notifiche push" title="Notifiche push attive" onClick={() => { if(access?.userId) void pushIsReady().then((ready)=>setPushState({userId:access.userId,ready})); }}><Megaphone size={18}/></button>
-          {pushStatus && <p role="status" style={{fontSize:12}}>{pushStatus}</p>}
+          {mobileNotificationsEnabled && <button className="icon-button" type="button" aria-label="Verifica notifiche push" title="Notifiche push attive" onClick={() => { if(access?.userId) void pushIsReady().then((ready)=>setPushState({userId:access.userId,ready})); }}><Megaphone size={18}/></button>}
+          {mobileNotificationsEnabled && pushStatus && <p role="status" style={{fontSize:12}}>{pushStatus}</p>}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
