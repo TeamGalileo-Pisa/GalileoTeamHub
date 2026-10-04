@@ -74,6 +74,8 @@ export function AvailabilityPage() {
   const availabilityQuery = useQuery({
     queryKey: ["room-availabilities", access?.userId],
     queryFn: listRoomAvailabilities,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
   const campaignAreasQuery = useQuery({
     queryKey: ["my-campaign-areas", access?.userId],
@@ -199,6 +201,8 @@ export function AvailabilityPage() {
           new Date(allocationValues.endsAt) > new Date(allocationValues.startsAt),
       ),
     retry: false,
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
   });
 
   const chooseAvailability = (id: string) => {
@@ -521,3 +525,4 @@ export function AvailabilityPage() {
     </div>
   );
 }
+
