@@ -21,8 +21,9 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
-import { enablePush, disablePush } from "../lib/push";
+import { enablePush, disablePush, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
+import { Capacitor } from "@capacitor/core";
 
 const adminNavigation = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -76,6 +77,31 @@ export function AppShell() {
     refetchIntervalInBackground: true,
   });
   const [pushStatus,setPushStatus] = useState("");
+  const [pushState,setPushState] = useState<{ userId: string; ready: boolean } | null>(null);
+  const [pushBusy,setPushBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (!access?.userId) return () => { active = false; };
+    const refresh = () => {
+      void pushIsReady().then((ready) => {
+        if (active) setPushState({ userId: access.userId, ready });
+      }).catch(() => {
+        if (active) setPushState({ userId: access.userId, ready: false });
+      });
+    };
+    refresh();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [access?.userId]);
 
   useEffect(() => {
     const notify=(event:Event)=>setPushStatus((event as CustomEvent<string>).detail);
@@ -120,6 +146,55 @@ export function AppShell() {
       await signOut();
     }
   };
+
+  const handleEnablePush = async () => {
+    const userId = access?.userId;
+    if (!userId) return;
+    setPushBusy(true);
+    setPushStatus("");
+    try {
+      await enablePush();
+      setPushState({ userId, ready: await pushIsReady() });
+      setPushStatus("Notifiche attive su questo dispositivo.");
+    } catch (error) {
+      setPushStatus(error instanceof Error ? error.message : "Attivazione notifiche non riuscita.");
+      if (access?.userId) setPushState({ userId: access.userId, ready: false });
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const pushReady = Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
+  const pushCheckPending = Boolean(access?.userId && pushState?.userId !== access.userId);
+  if (!pushReady) {
+    const ua = navigator.userAgent;
+    const isAppleTouch = /iPhone|iPad|iPod/.test(ua) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    const installInstructions = Capacitor.isNativePlatform()
+      ? "Consenti GalileoHub nelle impostazioni Notifiche del dispositivo, poi tocca Riprova."
+      : isAppleTouch
+      ? "Apri questo sito in Safari, usa Condividi → Aggiungi alla schermata Home e avvia GalileoHub dalla nuova icona. Le notifiche web richiedono iOS/iPadOS 16.4 o successivo."
+      : /Macintosh|Mac OS X/.test(ua)
+      ? "Installa GalileoHub dal menu del browser (in Safari: File → Aggiungi al Dock), poi riaprilo dall’icona installata."
+      : "Installa GalileoHub dal menu o dall’icona di installazione del browser, poi riaprilo dall’icona dell’app.";
+
+    return <main className="page-container" style={{ maxWidth: 680, margin: "auto", padding: 24 }}>
+      <Brand />
+      <section className="panel" aria-labelledby="required-push-title" style={{ marginTop: 32 }}>
+        <h1 id="required-push-title">Attiva le notifiche per continuare</h1>
+        <p>Le notifiche push sono obbligatorie per usare GalileoHub su questo dispositivo. Riceverai avvisi su comunicazioni, ordini e attività assegnate.</p>
+        <p>{installInstructions}</p>
+        {pushCheckPending && <p role="status">Verifica delle notifiche in corso…</p>}
+        {pushStatus && <p role="alert">{pushStatus}</p>}
+        <button className="button button--primary" type="button" disabled={pushBusy} onClick={() => void handleEnablePush()}>
+          {pushBusy ? "Attivazione…" : "Attiva notifiche e continua"}
+        </button>
+        <button className="button button--secondary" type="button" style={{ marginLeft: 8 }} onClick={() => void handleSignOut()}>
+          Esci
+        </button>
+      </section>
+    </main>;
+  }
 
   return (
     <div className="app-shell">
@@ -175,7 +250,7 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
-          <button className="icon-button" type="button" aria-label="Attiva notifiche push" title="Attiva notifiche push" onClick={() => { void enablePush().then(()=>setPushStatus("Notifiche attive su questo dispositivo.")).catch(e=>setPushStatus(e.message)); }}><Megaphone size={18}/></button>
+          <button className="icon-button" type="button" aria-label="Verifica notifiche push" title="Notifiche push attive" onClick={() => { if(access?.userId) void pushIsReady().then((ready)=>setPushState({userId:access.userId,ready})); }}><Megaphone size={18}/></button>
           {pushStatus && <p role="status" style={{fontSize:12}}>{pushStatus}</p>}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
