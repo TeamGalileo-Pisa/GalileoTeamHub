@@ -71,6 +71,8 @@ const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(
 const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
 const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
+const PublicMerchPage = lazy(() => import('./pages/PublicMerchPage').then(m=>({default:m.PublicMerchPage})));
+const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage').then(m=>({default:m.ApplicationsReviewPage})));
 export default function App() {
   return (
     <>
@@ -81,6 +83,7 @@ export default function App() {
           <Route path="/privacy" element={<PublicLegalPage documentKey="privacy" />} />
           <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
           <Route path="/candidature" element={<ApplicationPage />} />
+          <Route path="/merchandising/ordine" element={<PublicMerchPage />} />
           <Route path="/adesione/:token" element={<MembershipPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:token" element={<PublicBookingPage />} />
@@ -103,6 +106,7 @@ export default function App() {
                 <Route path="/area/votazioni" element={<RatingsPage />} />
                 <Route path="/area/bacheca" element={<AnnouncementsPage />} />
                 <Route path="/area/assistenza" element={<HelpPage />} />
+                <Route path="/area/candidature" element={<ApplicationsReviewPage />} />
 
                 </Route>
                 <Route element={<ProtectedRoute adminOnly />}>
@@ -129,3 +133,4 @@ export default function App() {
     </>
   );
 }
+

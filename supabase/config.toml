@@ -32,5 +32,11 @@ verify_jwt = false
 [functions.community]
 verify_jwt = false
 
+[functions.merch-paypal]
+# Public catalog and checkout actions are validated inside the handler; all
+# authenticated actions still call requireActor before accessing user data.
+verify_jwt = false
+
 [functions.push-device]
 verify_jwt = false
+

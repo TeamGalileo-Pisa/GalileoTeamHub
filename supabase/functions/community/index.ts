@@ -244,6 +244,38 @@ Deno.serve(async (request) => {
         "X-Content-Type-Options": "nosniff",
       }});
     }
+    if (body.action === "list_applications") {
+      const { user } = await requireActor(request, false);
+      const [{ data: roles, error: rolesError }, { data: memberships, error: membershipsError }] = await Promise.all([
+        client.from("system_roles").select("role").eq("user_id", user.id)
+          .in("role", ["admin", "team_leader"]),
+        client.from("area_memberships").select("area_id").eq("user_id", user.id)
+          .eq("role", "area_lead").is("ended_at", null),
+      ]);
+      if (rolesError || membershipsError) throw new Error("SAVE_FAILED");
+      const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
+      const [{ data: leadAreas, error: leadAreaError }, { data: allAreas, error: allAreaError }] = await Promise.all([
+        leadAreaIds.length
+          ? client.from("areas").select("id,slug").in("id", leadAreaIds)
+          : Promise.resolve({ data: [], error: null }),
+        client.from("areas").select("id,name"),
+      ]);
+      if (leadAreaError || allAreaError) throw new Error("SAVE_FAILED");
+      const isAdmin = (roles ?? []).length > 0;
+      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
+      if (!isAdmin && !isLogistics && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
+      let applicationQuery = client.from("applications")
+        .select("id,area_id,email,first_name,last_name,answers,created_at")
+        .order("created_at", { ascending: false }).limit(500);
+      if (!isAdmin && !isLogistics) applicationQuery = applicationQuery.in("area_id", leadAreaIds);
+      const { data: applications, error: applicationError } = await applicationQuery;
+      if (applicationError) throw new Error("SAVE_FAILED");
+      const names = new Map((allAreas ?? []).map((area) => [area.id, area.name]));
+      return jsonResponse(request, (applications ?? []).map((application) => ({
+        ...application,
+        area_name: names.get(application.area_id) ?? "Area",
+      })));
+    }
     if (body.action === "apply") {
       const a = body.answers;
       if (

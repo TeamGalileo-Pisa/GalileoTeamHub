@@ -8,6 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
+import { isMobileNotificationDevice } from "../lib/push";
 import { formatDateTime } from "../lib/dates";
 import {
   createAnnouncement,
@@ -62,13 +63,14 @@ const emptyForm = {
 export function AnnouncementsPage() {
   const { access } = useAuth();
   const isAdmin = Boolean(access?.isAdmin);
+  const showMobileNotifications = isMobileNotificationDevice();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const notificationsQuery = useQuery({
     queryKey: ["system-notifications", access?.userId],
     queryFn: listNotifications,
-    enabled: Boolean(access),
+    enabled: Boolean(access && showMobileNotifications),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
@@ -168,7 +170,7 @@ export function AnnouncementsPage() {
 
       {feedback && <div className="form-success page-feedback" role="status">{feedback}</div>}
 
-      {announcementNotifications.length > 0 && (
+      {showMobileNotifications && announcementNotifications.length > 0 && (
         <section className="panel notifications-panel" aria-labelledby="system-notifications-title">
           <div className="panel__header">
             <div>
@@ -313,3 +315,4 @@ export function AnnouncementsPage() {
     </div>
   );
 }
+

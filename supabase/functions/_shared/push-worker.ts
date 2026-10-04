@@ -100,6 +100,7 @@ export async function processPush(client: SupabaseClient) {
       ).eq("id", device?.user_id).single();
       if (
         !device || !notice || notice.recipient_user_id !== device.user_id ||
+        device.device_class !== "mobile" ||
         profile?.status !== "active" || profile.must_change_password
       ) {
         await client.from("push_jobs").delete().eq("id", job.id);
@@ -109,7 +110,9 @@ export async function processPush(client: SupabaseClient) {
         title: notice.title,
         body: "Apri GalileoHub per leggere la comunicazione.",
         id: notice.id,
-        url: notice.type === "merch.order_paid" ? "/merchandising" : "/",
+        url: typeof notice.data?.route === "string" && notice.data.route.startsWith("/") && !notice.data.route.startsWith("//")
+          ? notice.data.route
+          : notice.type === "merch.order_paid" ? "/merchandising" : "/",
       };
       if (device.platform === "web") {
         const { publicKey, privateKey } = await webPushConfig(client);

@@ -14,6 +14,13 @@ async function invoke(body: Record<string, unknown>) {
 }
 const key = "galileo-push-address";
 
+export function isMobileNotificationDevice() {
+  if (typeof navigator === "undefined") return false;
+  return Capacitor.isNativePlatform() ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 export async function pushIsReady() {
   const address = localStorage.getItem(key);
   if (!address) return false;
@@ -30,10 +37,23 @@ export async function pushIsReady() {
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return false;
   const subscription = await registration.pushManager.getSubscription();
-  return Boolean(subscription && subscription.endpoint === address);
+  const ready = Boolean(subscription && subscription.endpoint === address);
+  if (ready && subscription) {
+    // Refresh old mobile web registrations so the server marks them as mobile.
+    await invoke({
+      platform: "web",
+      deviceClass: "mobile",
+      address: subscription.endpoint,
+      subscription: subscription.toJSON(),
+    });
+  }
+  return ready;
 }
 
 export async function enablePush() {
+  if (!isMobileNotificationDevice()) {
+    throw new Error("Le notifiche push sono riservate ai dispositivi mobili.");
+  }
   if (Capacitor.isNativePlatform()) {
     const permission = await PushNotifications.requestPermissions();
     if (permission.receive !== "granted") {
@@ -98,6 +118,7 @@ export async function enablePush() {
     });
   await invoke({
     platform: "web",
+    deviceClass: "mobile",
     address: subscription.endpoint,
     subscription: subscription.toJSON(),
   });
@@ -105,13 +126,17 @@ export async function enablePush() {
 }
 export async function disablePush() {
   const address = localStorage.getItem(key);
-  if (!address) return;
-  await invoke({ action: "remove", address });
+  if (address) await invoke({ action: "remove", address });
   localStorage.removeItem(key);
-  if (Capacitor.isNativePlatform()) await PushNotifications.unregister();
-  else if ("serviceWorker" in navigator) {
+  if (Capacitor.isNativePlatform()) {
+    if (address) await PushNotifications.unregister();
+  } else if ("serviceWorker" in navigator) {
     const registration = await navigator.serviceWorker.getRegistration();
-    await (await registration?.pushManager.getSubscription())?.unsubscribe();
+    const subscription = await registration?.pushManager.getSubscription();
+    if (subscription) {
+      if (!address) await invoke({ action: "remove", address: subscription.endpoint });
+      await subscription.unsubscribe();
+    }
   }
 }
 

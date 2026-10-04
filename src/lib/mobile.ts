@@ -3,7 +3,10 @@ import { PushNotifications } from "@capacitor/push-notifications";
 export function registerMobileEvents() {
   if (!Capacitor.isNativePlatform()) return;
   void PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
-    const route = event.notification.data?.url === "/merchandising" ? "/merchandising" : "/";
+    const requestedRoute = event.notification.data?.url;
+    const route = typeof requestedRoute === "string" && requestedRoute.startsWith("/") && !requestedRoute.startsWith("//")
+      ? requestedRoute
+      : "/";
     window.location.assign(route);
   });
   void PushNotifications.addListener(

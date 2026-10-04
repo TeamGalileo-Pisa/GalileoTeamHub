@@ -60,12 +60,13 @@ export function MerchandisingPage() {
     queryKey: ["merch-orders", access?.userId],
     enabled: canManage,
     queryFn: async () => {
-      const { data, error } = await supabase.from("merch_orders").select("id,status,total_cents,created_at,items:merch_order_items(product_name,variant_label,quantity,line_total_cents)").order("created_at", { ascending: false }).limit(100);
+      const { data, error } = await supabase.from("merch_orders").select("id,status,total_cents,created_at,buyer_first_name,buyer_last_name,items:merch_order_items(product_name,variant_label,quantity,line_total_cents)").order("created_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data ?? [];
     },
   });
   const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
+  const publicOrderUrl = `${window.location.origin}/merchandising/ordine`;
   const cartTotal = useMemo(() => cart.reduce((sum, item) => {
     const variant = products.flatMap((p) => p.variants).find((v) => v.id === item.variantId);
     const product = products.find((p) => p.id === variant?.product_id);
@@ -166,6 +167,8 @@ export function MerchandisingPage() {
     <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci prodotti, varianti, immagini, prezzi e disponibilità. Gli ordini si pagano in euro con PayPal." : "Scegli il prodotto e la taglia. Il totale del carrello viene calcolato prima del pagamento PayPal."} />
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}{payBusy && <p role="status">Verifica o avvio del pagamento in corso…</p>}
     {canManage && <section className="panel panel__body merch-admin">
+      <p>Link pubblico per gli ordini: <a href={publicOrderUrl} target="_blank" rel="noreferrer">{publicOrderUrl}</a></p>
+      <button className="button button--secondary" type="button" onClick={() => void navigator.clipboard?.writeText(publicOrderUrl)}>Copia link pubblico</button>
       <h2>{editing ? "Modifica prodotto" : "Aggiungi un prodotto"}</h2>
       <form className="form-grid" onSubmit={(event) => { event.preventDefault(); void saveProduct(new FormData(event.currentTarget)); }} key={editing?.id ?? "new-product"}>
         <label className="form-field">Nome<input className="input" name="name" required maxLength={120} defaultValue={editing?.name ?? ""} /></label>
@@ -200,7 +203,7 @@ export function MerchandisingPage() {
       <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || payBusy} onClick={() => void checkout()}>{payBusy ? "Attendi…" : `Paga ${euro(cartTotal)} con PayPal`}</button>
     </section>}
 
-    {canManage && <section className="panel panel__body"><h2>Ordini ricevuti</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>{order.status === "paid" ? "Pagato" : order.status === "pending" ? "In attesa di pagamento" : order.status}</strong><span>{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine registrato.</p>}</section>}
+    {canManage && <section className="panel panel__body"><h2>Ordini ricevuti</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>{order.status === "paid" ? "Pagato" : order.status === "pending" ? "In attesa di pagamento" : order.status}</strong><span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name} · ` : ""}{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine registrato.</p>}</section>}
   </div>;
 }
 
