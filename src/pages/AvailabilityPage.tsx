@@ -227,11 +227,11 @@ export function AvailabilityPage() {
     <div className="page-container">
       <PageHeader
         eyebrow={isAdmin ? "Amministrazione" : "Area"}
-        title="Disponibilità aule"
+        title={isAdmin ? "Aule e disponibilità" : "Prenota una fascia aula"}
         description={
           isAdmin
-            ? "Definisci finestre, capacità simultanea e indicazioni operative. Per annullare una disponibilità puoi scegliere se conservarla nello storico o eliminarla definitivamente."
-            : "Riserva una sottofascia dalle disponibilità aperte: il database impedisce automaticamente di superare la capacità dell’aula."
+            ? "Gestisci le aule e apri le fasce orarie disponibili. Le prenotazioni dei Capi Area possono occupare solo una parte della fascia: il resto rimane prenotabile."
+            : "Scegli aula, area e orario. Puoi riservare solo le ore che ti servono; le ore rimanenti restano disponibili agli altri Capi Area."
         }
       />
 
@@ -260,7 +260,7 @@ export function AvailabilityPage() {
         <div className="form-panels">
           <section className="panel">
             <div className="panel__header">
-              <div><h2>Nuova aula</h2><p>Configura l’eventuale limite fisico</p></div>
+              <div><h2>Crea aula</h2><p>Aggiungi lo spazio prima di aprire le disponibilità</p></div>
               <Warehouse size={20} />
             </div>
             <form className="panel__body form-grid" onSubmit={roomForm.handleSubmit((values) => roomMutation.mutate(values))}>
@@ -294,7 +294,7 @@ export function AvailabilityPage() {
         <section className="panel allocation-form-panel">
           <div className="panel__header">
             <div>
-              <h2>Prendi una fascia</h2>
+              <h2>Seleziona l’orario da prenotare</h2>
               <p>
                 Imposta l’intervallo che vuoi usare: un rilascio parziale libera solo quell’orario. Il riepilogo sotto mostra la capienza precisa dell’intervallo selezionato e si aggiorna automaticamente.
               </p>
