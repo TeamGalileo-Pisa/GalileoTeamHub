@@ -4,9 +4,10 @@ import { supabase } from "../lib/supabase";
 import { community } from "../lib/community";
 import { listAreas } from "../lib/data";
 import { downloadMembershipExport } from "../lib/membership-export";
+import { downloadApplicationsExport } from "../lib/application-export";
 import { PageHeader } from "../components/PageHeader";
 import { ApplicationAnswerList } from "../components/ApplicationAnswerList";
-import { Trash2 } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 export function CommunityAdminPage() {
   const cache = useQueryClient();
   const [credentials, setCredentials] = useState<
@@ -96,6 +97,7 @@ export function CommunityAdminPage() {
   const exportMembership = useMutation({
     mutationFn: downloadMembershipExport,
   });
+  const exportApplications = useMutation({ mutationFn: downloadApplicationsExport });
   const deleteApplication = useMutation({
     mutationFn: (id: string) => community({ action: "delete_application", applicationId: id }),
     onSuccess: () => cache.invalidateQueries({ queryKey: ["applications"] }),
@@ -251,6 +253,12 @@ export function CommunityAdminPage() {
       </section>
       <section className="panel panel__body">
         <h2>Candidature ricevute</h2>
+        <p>Scarica le candidature accessibili in Excel: una persona per riga e una domanda per colonna.</p>
+        <button className="button button--secondary" type="button" disabled={exportApplications.isPending} onClick={() => exportApplications.mutate()}>
+          <Download size={16} /> {exportApplications.isPending ? "Preparo l’Excel…" : "Scarica candidature Excel"}
+        </button>
+        {exportApplications.error && <p className="form-error" role="alert">{exportApplications.error.message}</p>}
+        {exportApplications.isSuccess && <p className="form-success" role="status">Excel candidature scaricato.</p>}
         {applications.data?.map((a) => (
           <article className="application-review-card" key={a.id}>
             <header className="application-review-card__header">

@@ -2,6 +2,7 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 import { createSharedAccount } from "../_shared/shared-accounts.ts";
 import { membershipExcel, type MembershipExportRow } from "../_shared/membership-excel.ts";
+import { applicationExcel, type ApplicationExportRow } from "../_shared/application-excel.ts";
 import { requireActor } from "../_shared/actor.ts";
 import {
   applicationChoices,
@@ -276,6 +277,62 @@ Deno.serve(async (request) => {
         area_name: names.get(application.area_id) ?? "Area",
         area_slug: (allAreas ?? []).find((area) => area.id === application.area_id)?.slug ?? "",
       })));
+    }
+    if (body.action === "export_applications_excel") {
+      const { user } = await requireActor(request, false);
+      const [{ data: roles, error: rolesError }, { data: memberships, error: membershipsError }] = await Promise.all([
+        client.from("system_roles").select("role").eq("user_id", user.id)
+          .in("role", ["admin", "team_leader"]),
+        client.from("area_memberships").select("area_id").eq("user_id", user.id)
+          .eq("role", "area_lead").is("ended_at", null),
+      ]);
+      if (rolesError || membershipsError) throw new Error("SAVE_FAILED");
+      const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
+      const [{ data: leadAreas, error: leadAreaError }, { data: allAreas, error: allAreaError }] = await Promise.all([
+        leadAreaIds.length
+          ? client.from("areas").select("id,slug,name").in("id", leadAreaIds)
+          : Promise.resolve({ data: [], error: null }),
+        client.from("areas").select("id,name,slug"),
+      ]);
+      if (leadAreaError || allAreaError) throw new Error("SAVE_FAILED");
+      const isAdmin = (roles ?? []).length > 0;
+      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
+      if (!isAdmin && !isLogistics && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
+      const areaById = new Map((allAreas ?? []).map((area) => [area.id, area]));
+      const rows: ApplicationExportRow[] = [];
+      const pageSize = 1000;
+      for (let offset = 0; offset < 50000; offset += pageSize) {
+        let query = client.from("applications")
+          .select("id,area_id,email,first_name,last_name,answers,created_at")
+          .order("created_at", { ascending: true }).range(offset, offset + pageSize - 1);
+        if (!isAdmin && !isLogistics) query = query.in("area_id", leadAreaIds);
+        const { data: applications, error: applicationError } = await query;
+        if (applicationError) throw new Error("SAVE_FAILED");
+        for (const application of applications ?? []) {
+          const area = areaById.get(application.area_id);
+          rows.push({
+            firstName: application.first_name,
+            lastName: application.last_name,
+            email: application.email,
+            areaName: area?.name ?? "Area",
+            areaSlug: area?.slug ?? "",
+            answers: (application.answers && typeof application.answers === "object" && !Array.isArray(application.answers)
+              ? application.answers
+              : {}) as Record<string, unknown>,
+            createdAt: application.created_at,
+          });
+        }
+        if (!applications || applications.length < pageSize) break;
+        if (offset + pageSize >= 50000) throw new Error("SAVE_FAILED");
+      }
+      const bytes = applicationExcel(rows);
+      return new Response(bytes, { status: 200, headers: {
+        ...corsHeaders(request),
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="candidature-team-galileo.xlsx"',
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      }});
     }
     if (body.action === "delete_application") {
       const { user } = await requireActor(request, false);
