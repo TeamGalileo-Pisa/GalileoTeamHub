@@ -20,6 +20,12 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   }).join("");
   const drawText = (value: string, x: number, baseline: number, size: number, font = regular) =>
     page.drawText(safe(value), { x, y: baseline, size, font, color: black });
+  const drawFitText = (value: string, x: number, baseline: number, maxWidth: number, initialSize = 8.1) => {
+    const v = safe(value);
+    let size = initialSize;
+    while (size > 5.4 && regular.widthOfTextAtSize(v, size) > maxWidth) size -= 0.2;
+    page.drawText(v, { x, y: baseline, size: Math.max(5.4, size), font: regular, color: black });
+  };
   const centered = (value: string, baseline: number, size: number, font = regular) => {
     const v = safe(value);
     drawText(v, (595.28 - font.widthOfTextAtSize(v, size)) / 2, baseline, size, font);
@@ -75,7 +81,7 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   for (const [label, value] of personalRows) {
     drawText(label, left + 9, rowY, 8.1, bold); rowY -= 9;
     rule(left + 9, right - 9, rowY, 0.55);
-    if (value) drawText(value, left + 9, rowY + 2, 8.1);
+    if (value) drawFitText(value, left + 9, rowY + 2, width - 18);
     rowY -= 16;
   }
   y = personalTop - personalHeight - 7;
