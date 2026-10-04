@@ -49,6 +49,44 @@ for (
     "20261003240000_delivery_visibility.sql",
   ]
 ) await db.exec(await readFile("supabase/migrations/" + file, "utf8"));
+await db.exec(`
+create table public.merch_products(
+  id uuid primary key default gen_random_uuid(),name text not null,description text not null default '',
+  image_url text,price_cents integer not null,active boolean not null default true,
+  sort_order integer not null default 0,created_by uuid,created_at timestamptz not null default now()
+);
+create table public.merch_variants(
+  id uuid primary key default gen_random_uuid(),product_id uuid not null references public.merch_products(id),
+  label text not null default 'Unica',stock integer,active boolean not null default true
+);
+create table public.merch_orders(
+  id uuid primary key default gen_random_uuid(),buyer_user_id uuid not null references public.profiles(id),
+  status text not null default 'pending',total_cents integer not null,expires_at timestamptz not null default now()+interval '20 minutes'
+);
+create table public.merch_order_items(
+  id uuid primary key default gen_random_uuid(),order_id uuid not null references public.merch_orders(id),
+  product_id uuid references public.merch_products(id),variant_id uuid references public.merch_variants(id),
+  product_name text not null,variant_label text not null,unit_price_cents integer not null,
+  quantity integer not null,line_total_cents integer not null
+);
+create or replace function private.can_manage_merchandising()
+returns boolean language sql stable security definer set search_path=''
+as $$ select private.is_admin() or exists(
+  select 1 from public.area_memberships m join public.areas a on a.id=m.area_id
+  where m.user_id=auth.uid() and m.role='area_lead' and m.ended_at is null and a.slug='logistica' and a.active
+) $$;
+alter table public.merch_products enable row level security;
+alter table public.merch_variants enable row level security;
+grant select on public.merch_products,public.merch_variants to authenticated;
+create policy merch_products_visible on public.merch_products for select to authenticated
+  using(active or private.can_manage_merchandising());
+create policy merch_variants_visible on public.merch_variants for select to authenticated
+  using(active or private.can_manage_merchandising());
+`);
+await db.exec(await readFile(
+  "supabase/migrations/20261004075202_merch_product_visibility_and_order_notifications.sql",
+  "utf8",
+));
 await db.exec(
   `create trigger protect_profiles before update or delete on profiles for each row execute function private.protect_last_admin();create trigger protect_roles before update or delete on system_roles for each row execute function private.protect_last_admin();`,
 );
@@ -211,7 +249,80 @@ assert.equal(
   await scalar("select role from system_roles where user_id=$1", [a]),
   "admin",
 );
+const leaderId = "44444444-4444-4444-8444-444444444444";
+const logisticsId = "55555555-5555-4555-8555-555555555555";
+const areaLeadId = "66666666-6666-4666-8666-666666666666";
+const memberId = "77777777-7777-4777-8777-777777777777";
+await db.query(
+  `insert into profiles(id,username,display_name) values
+   ($1,'merch-leader','Merch Leader'),($2,'merch-logistics','Merch Logistics'),
+   ($3,'merch-area-lead','Merch Area Lead'),($4,'merch-member','Merch Member')`,
+  [leaderId, logisticsId, areaLeadId, memberId],
+);
+await db.query("insert into system_roles(user_id,role) values($1,'team_leader')", [leaderId]);
+await db.query(
+  `insert into areas(name,slug) values('Logistica','logistica')
+   on conflict(slug) do update set active=true`,
+);
+const logisticsAreaId = await scalar("select id from areas where slug='logistica'");
+await db.query(
+  `insert into area_memberships(user_id,area_id,role)
+   values($1,$3,'area_lead'),($2,$4,'area_lead')`,
+  [logisticsId, areaLeadId, logisticsAreaId, area],
+);
+await db.query(
+  `insert into merch_products(id,name,price_cents,visibility) values
+   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Solo leader',1000,'team_leader'),
+   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Staff',2000,'team_leader_and_area_leads'),
+   ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','Tutti',3000,'everyone')`,
+);
+await db.query(
+  `insert into merch_variants(id,product_id,label,stock) values
+   ('aaaaaaaa-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Unica',5),
+   ('bbbbbbbb-0000-4000-8000-000000000002','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Unica',5),
+   ('cccccccc-0000-4000-8000-000000000003','cccccccc-cccc-4ccc-8ccc-cccccccccccc','Unica',5)`,
+);
+const visibleAs = async (userId) => {
+  await db.query("select set_config('test.uid',$1,false)", [userId]);
+  return (await db.query("select name from merch_products order by name")).rows.map((row) => row.name);
+};
+await db.exec("set role authenticated");
+assert.deepEqual(await visibleAs(leaderId), ["Solo leader", "Staff", "Tutti"]);
+assert.deepEqual(await visibleAs(areaLeadId), ["Staff", "Tutti"]);
+assert.deepEqual(await visibleAs(memberId), ["Tutti"]);
+await db.exec("reset role");
+assert.equal(await scalar("select private.can_view_merch_product('team_leader',$1)", [logisticsId]), false);
+assert.equal(await scalar("select private.can_view_merch_product('team_leader_and_area_leads',$1)", [areaLeadId]), true);
+await assert.rejects(
+  db.query(
+    `select * from create_merch_order($1,jsonb_build_array(jsonb_build_object('variantId',$2::uuid,'quantity',1)))`,
+    [memberId, "aaaaaaaa-0000-4000-8000-000000000001"],
+  ),
+  /UNAVAILABLE/,
+  "a hidden product must not be orderable through the service-only RPC",
+);
+const order = await db.query(
+  `select * from create_merch_order($1,jsonb_build_array(jsonb_build_object('variantId',$2::uuid,'quantity',1)))`,
+  [areaLeadId, "bbbbbbbb-0000-4000-8000-000000000002"],
+);
+assert.equal(order.rows[0].total_cents, 2000);
+await db.query(
+  `insert into push_devices(user_id,platform,address) values
+   ($1,'web','https://fcm.googleapis.com/merch-leader'),
+   ($2,'web','https://fcm.googleapis.com/merch-logistics'),
+   ($3,'web','https://fcm.googleapis.com/merch-area-lead')`,
+  [leaderId, logisticsId, areaLeadId],
+);
+const newOrderId = order.rows[0].order_id;
+assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 0);
+await db.query("update merch_orders set status='paid' where id=$1", [newOrderId]);
+assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 2);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='merch.order_paid'"), 2);
+assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid' and data->>'route'='/merchandising'"), 2);
+await db.query("update merch_orders set status='paid' where id=$1", [newOrderId]);
+assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 2);
 console.log(
-  "PASS: roles, demotion, last-admin protection, disable, safe deletion, email fencing, closed forms, duplicate submissions, invitations, outbox and push claims.",
+  "PASS: roles, account guards, mail and membership queues, push jobs, merch visibility, protected checkout and paid-order notifications.",
 );
 await db.close();
+

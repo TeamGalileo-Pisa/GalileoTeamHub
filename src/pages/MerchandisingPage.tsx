@@ -5,10 +5,16 @@ import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
 
 type Variant = { id: string; product_id: string; label: string; stock: number | null; active: boolean };
-type Product = { id: string; name: string; description: string; image_url: string | null; price_cents: number; active: boolean; variants: Variant[] };
+type ProductVisibility = "team_leader" | "team_leader_and_area_leads" | "everyone";
+type Product = { id: string; name: string; description: string; image_url: string | null; price_cents: number; active: boolean; visibility: ProductVisibility; variants: Variant[] };
 type CartItem = { variantId: string; quantity: number };
 type PayResult = { configured?: boolean; approvalUrl?: string; paypalOrderId?: string; paid?: boolean };
 const euro = (cents: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
+const visibilityLabels: Record<ProductVisibility, string> = {
+  team_leader: "Solo Team Leader",
+  team_leader_and_area_leads: "Team Leader e capi area",
+  everyone: "Tutti",
+};
 const parseStock = (value: string) => value.split("\n").map((line) => line.trim()).filter(Boolean).map((line) => {
   const [labelRaw, stockRaw] = line.split(":");
   const label = labelRaw.trim();
@@ -45,7 +51,7 @@ export function MerchandisingPage() {
   const productsQuery = useQuery({
     queryKey: ["merch-products", access?.userId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("merch_products").select("id,name,description,image_url,price_cents,active,variants:merch_variants(id,product_id,label,stock,active)").order("sort_order").order("created_at");
+      const { data, error } = await supabase.from("merch_products").select("id,name,description,image_url,price_cents,active,visibility,variants:merch_variants(id,product_id,label,stock,active)").order("sort_order").order("created_at");
       if (error) throw error;
       return (data ?? []) as Product[];
     },
@@ -89,7 +95,9 @@ export function MerchandisingPage() {
       const name = String(form.get("name") ?? "").trim();
       const description = String(form.get("description") ?? "").trim();
       const price = Number(String(form.get("price") ?? "").replace(",", "."));
+      const visibility = String(form.get("visibility") ?? "everyone") as ProductVisibility;
       if (!name || !Number.isFinite(price) || price <= 0) throw new Error("Inserisci nome e prezzo validi.");
+      if (!(visibility in visibilityLabels)) throw new Error("Scegli chi può vedere il prodotto.");
       const variants = parseStock(String(form.get("variants") ?? "Unica:"));
       if (!variants.length) throw new Error("Aggiungi almeno una taglia o variante.");
       let imageUrl = editing?.image_url ?? null;
@@ -103,10 +111,10 @@ export function MerchandisingPage() {
       }
       let productId = editing?.id;
       if (productId) {
-        const { error: updateError } = await supabase.from("merch_products").update({ name, description, image_url: imageUrl, price_cents: Math.round(price * 100) }).eq("id", productId);
+        const { error: updateError } = await supabase.from("merch_products").update({ name, description, image_url: imageUrl, price_cents: Math.round(price * 100), visibility }).eq("id", productId);
         if (updateError) throw updateError;
       } else {
-        const { data, error: insertError } = await supabase.from("merch_products").insert({ name, description, image_url: imageUrl, price_cents: Math.round(price * 100), created_by: access!.userId }).select("id").single();
+        const { data, error: insertError } = await supabase.from("merch_products").insert({ name, description, image_url: imageUrl, price_cents: Math.round(price * 100), visibility, created_by: access!.userId }).select("id").single();
         if (insertError) throw insertError;
         productId = data.id;
       }
@@ -162,6 +170,7 @@ export function MerchandisingPage() {
       <form className="form-grid" onSubmit={(event) => { event.preventDefault(); void saveProduct(new FormData(event.currentTarget)); }} key={editing?.id ?? "new-product"}>
         <label className="form-field">Nome<input className="input" name="name" required maxLength={120} defaultValue={editing?.name ?? ""} /></label>
         <label className="form-field">Prezzo (€)<input className="input" name="price" type="number" min="0.01" step="0.01" required defaultValue={editing ? (editing.price_cents / 100).toFixed(2) : ""} /></label>
+        <label className="form-field">Visibile a<select className="input" name="visibility" defaultValue={editing?.visibility ?? "everyone"}><option value="team_leader">Solo Team Leader</option><option value="team_leader_and_area_leads">Team Leader e capi area</option><option value="everyone">Tutti</option></select></label>
         <label className="form-field--full">Descrizione<textarea className="input" name="description" rows={3} maxLength={3000} defaultValue={editing?.description ?? ""} /></label>
         <label className="form-field--full">Taglie/varianti e scorte (una per riga, formato <code>taglia:quantità</code>; lascia vuoto dopo i due punti per disponibilità illimitata)<textarea className="input" name="variants" rows={4} defaultValue={editing ? editing.variants.filter((v) => v.active).map((v) => `${v.label}:${v.stock ?? ""}`).join("\n") : "Unica:"} /></label>
         <label className="form-field--full">Foto prodotto (JPG, PNG o WebP; massimo 5 MB)<input className="input" name="image" type="file" accept="image/jpeg,image/png,image/webp" /></label>
@@ -175,6 +184,7 @@ export function MerchandisingPage() {
         <div className="panel__body"><div className="merch-card__heading"><h2>{product.name}</h2><strong>{euro(product.price_cents)}</strong></div>
           <p>{product.description || ""}</p>
           {!product.active && <p className="muted">Non visibile ai membri</p>}
+          {canManage && <p className="muted">Visibilità catalogo: {visibilityLabels[product.visibility]}</p>}
           <div className="merch-variants">{product.variants.filter((v) => v.active).map((variant) => <div className="merch-variant" key={variant.id}><span>{variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</span>{!canManage && <button className="button button--secondary" type="button" disabled={variant.stock === 0} onClick={() => add(variant)}>Aggiungi</button>}</div>)}</div>
           {canManage && <div className="merch-admin-actions"><button className="button button--secondary" type="button" onClick={() => setEditing(product)}>Modifica</button><button className="button button--secondary" type="button" onClick={() => void toggleProduct(product)}>{product.active ? "Nascondi" : "Riattiva"}</button></div>}
         </div>

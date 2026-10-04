@@ -2,8 +2,9 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 export function registerMobileEvents() {
   if (!Capacitor.isNativePlatform()) return;
-  void PushNotifications.addListener("pushNotificationActionPerformed", () => {
-    window.location.assign("/");
+  void PushNotifications.addListener("pushNotificationActionPerformed", (event) => {
+    const route = event.notification.data?.url === "/merchandising" ? "/merchandising" : "/";
+    window.location.assign(route);
   });
   void PushNotifications.addListener(
     "pushNotificationReceived",
@@ -18,3 +19,4 @@ export function registerMobileEvents() {
     },
   );
 }
+

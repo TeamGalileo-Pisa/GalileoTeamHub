@@ -5,7 +5,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
 async function nativeSend(
   platform: string,
   address: string,
-  payload: { title: string; body: string; id: string },
+  payload: { title: string; body: string; id: string; url: string },
 ) {
   if (platform === "android") {
     const raw = Deno.env.get("FIREBASE_SERVICE_ACCOUNT");
@@ -40,7 +40,7 @@ async function nativeSend(
           message: {
             token: address,
             notification: { title: payload.title, body: payload.body },
-            data: { url: "/", notificationId: payload.id },
+            data: { url: payload.url, notificationId: payload.id },
             android: { notification: { tag: payload.id } },
           },
         }),
@@ -79,7 +79,7 @@ async function nativeSend(
         alert: { title: payload.title, body: payload.body },
         sound: "default",
       },
-      url: "/",
+      url: payload.url,
     }),
     signal: AbortSignal.timeout(8000),
   });
@@ -109,7 +109,7 @@ export async function processPush(client: SupabaseClient) {
         title: notice.title,
         body: "Apri GalileoHub per leggere la comunicazione.",
         id: notice.id,
-        url: "/",
+        url: notice.type === "merch.order_paid" ? "/merchandising" : "/",
       };
       if (device.platform === "web") {
         const { publicKey, privateKey } = await webPushConfig(client);
@@ -157,3 +157,4 @@ export async function processPush(client: SupabaseClient) {
     }
   }
 }
+
