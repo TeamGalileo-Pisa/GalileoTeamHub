@@ -1,7 +1,18 @@
 import { ArrowRight, Mail, ShieldCheck } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
+import { useAuth } from "../hooks/useAuth";
 
 export function PublicHomePage() {
+  const { access, loading } = useAuth();
+  const installedApp = Capacitor.isNativePlatform() ||
+    (typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches) ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  if (installedApp) {
+    if (loading) return <main className="page-container">Caricamento GalileoHub…</main>;
+    const destination = access?.isAdmin ? "/admin" : access?.isMember ? "/membri" : access ? "/area" : "/login";
+    return <Navigate to={destination} replace />;
+  }
   return (
     <main className="public-info-page">
       <header className="public-info-header">
@@ -38,11 +49,11 @@ export function PublicHomePage() {
       <section className="public-info-links" aria-label="Installazione privata di GalileoHub">
         <article>
           <h2>Windows</h2>
-          <p>Apri GalileoHub in Edge o Chrome e scegli Installa app dal menu del browser o dall’icona nella barra degli indirizzi.</p>
+          <p>Apri GalileoHub in Edge o Chrome e scegli Installa app dal menu del browser o dall’icona nella barra degli indirizzi. Le notifiche push non vengono usate sui computer.</p>
         </article>
         <article>
           <h2>Linux</h2>
-          <p>Apri GalileoHub in Chrome o Chromium e scegli Installa pagina come app dal menu del browser. Le notifiche dipendono anche dal servizio notifiche desktop della distribuzione Linux.</p>
+          <p>Apri GalileoHub in Chrome o Chromium e scegli Installa pagina come app dal menu del browser. Le notifiche push non vengono usate sui computer Linux.</p>
         </article>
         <article>
           <h2>Android</h2>
@@ -50,15 +61,15 @@ export function PublicHomePage() {
         </article>
         <article>
           <h2>iPhone e iPad</h2>
-          <p>Apri il link in Safari, tocca Condividi e scegli Aggiungi alla schermata Home. Le notifiche push web richiedono iOS/iPadOS 16.4 o successivo.</p>
+          <p>Apri il link in Safari, tocca Condividi e scegli Aggiungi alla schermata Home. Le notifiche push mobili richiedono iOS/iPadOS 16.4 o successivo.</p>
         </article>
         <article>
           <h2>Mac</h2>
-          <p>In Safari scegli File → Aggiungi al Dock; in Chrome o Edge usa Installa GalileoHub dal menu del browser.</p>
+          <p>In Safari scegli File → Aggiungi al Dock; in Chrome o Edge usa Installa GalileoHub dal menu del browser. Le notifiche push non vengono usate sui computer Mac.</p>
         </article>
         <article>
-          <h2>Notifiche obbligatorie</h2>
-          <p>Dopo l’accesso, abilita le notifiche quando richiesto. GalileoHub blocca l’uso finché questo dispositivo non risulta registrato per le push.</p>
+          <h2>Notifiche sui dispositivi mobili</h2>
+          <p>Le notifiche push sono attive solo su Android, iPhone e iPad. Su computer puoi accedere e usare tutte le funzioni senza autorizzare notifiche.</p>
         </article>
         <article>
           <h2>Distribuzione privata</h2>
