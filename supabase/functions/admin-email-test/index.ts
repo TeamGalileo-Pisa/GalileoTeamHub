@@ -1,9 +1,10 @@
 import { requireActor } from "../_shared/actor.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { sendGmailMessage } from "../_shared/email.ts";
+import { checkGmailConfiguration, sendGmailMessage } from "../_shared/email.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 
 interface TestEmailRequest {
+  action?: "check" | "send";
   toEmail?: string;
 }
 
@@ -28,16 +29,31 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "INVALID_JSON" }, 400);
   }
 
+  const action = body?.action === "check" ? "check" : "send";
+
+  if ((Deno.env.get("EMAIL_PROVIDER") ?? "development") !== "gmail") {
+    return jsonResponse(request, { error: "EMAIL_NOT_CONFIGURED" }, 503);
+  }
+
+  if (action === "check") {
+    try {
+      const diagnostic = await checkGmailConfiguration();
+      return jsonResponse(request, diagnostic);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "TEST_EMAIL_FAILED";
+      const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_SCOPE_REQUIRED|GMAIL_LOOKUP_FAILED)$/.test(message)
+        ? message
+        : "TEST_EMAIL_FAILED";
+      return jsonResponse(request, { error: safe }, 502);
+    }
+  }
+
   const toEmail =
     typeof body?.toEmail === "string" ? body.toEmail.trim().toLowerCase() : "";
   if (toEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
     return jsonResponse(request, { error: "INVALID_EMAIL" }, 400);
   }
-  if ((Deno.env.get("EMAIL_PROVIDER") ?? "development") !== "gmail") {
-    return jsonResponse(request, { error: "EMAIL_NOT_CONFIGURED" }, 503);
-  }
 
-  try {
     const client = createServiceClient();
     const { error: setupError } = await client.rpc("configure_email_worker", {
       p_url: url.replace(/\/$/, ""),
