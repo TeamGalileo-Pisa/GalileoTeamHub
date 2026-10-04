@@ -295,7 +295,9 @@ export function AvailabilityPage() {
           <div className="panel__header">
             <div>
               <h2>Prendi una fascia</h2>
-              <p>Gli intervalli consecutivi non si sovrappongono: 09:00–10:00 e 10:00–11:00 sono compatibili.</p>
+              <p>
+                Imposta l’intervallo che vuoi usare: un rilascio parziale libera solo quell’orario. Il riepilogo sotto mostra la capienza precisa dell’intervallo selezionato e si aggiorna automaticamente.
+              </p>
             </div>
           </div>
           <form className="panel__body form-grid" onSubmit={allocationForm.handleSubmit((values) => allocationMutation.mutate(values))}>
@@ -442,7 +444,7 @@ export function AvailabilityPage() {
                         </td>
                         <td>
                           <strong>{availability.simultaneousUsage} / {availability.maxSimultaneousInterviews}</strong>
-                          <span className="table-secondary">colloqui simultanei</span>
+                          <span className="table-secondary">picco sull’intera finestra</span>
                         </td>
                         <td>{availability.areaNote || <span className="table-secondary">Nessuna nota</span>}</td>
                         <td>
