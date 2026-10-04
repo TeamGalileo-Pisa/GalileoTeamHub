@@ -22,12 +22,43 @@ export function isMobileNotificationDevice() {
 }
 
 export async function pushIsReady() {
-  const address = localStorage.getItem(key);
-  if (!address) return false;
-
   if (Capacitor.isNativePlatform()) {
     const permission = await PushNotifications.checkPermissions();
-    return permission.receive === "granted";
+    if (permission.receive !== "granted") return false;
+    // Re-register silently after login so this device follows the current
+    // account. The OS permission remains granted across sign-outs.
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      const timeout = window.setTimeout(() => finish(new Error("Registrazione push scaduta.")), 20_000);
+      let registrationListener: Awaited<ReturnType<typeof PushNotifications.addListener>> | undefined;
+      let errorListener: Awaited<ReturnType<typeof PushNotifications.addListener>> | undefined;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        void registrationListener?.remove();
+        void errorListener?.remove();
+      };
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve();
+      };
+      void (async () => {
+        registrationListener = await PushNotifications.addListener("registration", async (token) => {
+          try {
+            await invoke({ platform: Capacitor.getPlatform(), address: token.value });
+            localStorage.setItem(key, token.value);
+            finish();
+          } catch (error) {
+            finish(error instanceof Error ? error : new Error("Registrazione push non riuscita."));
+          }
+        });
+        errorListener = await PushNotifications.addListener("registrationError", () => finish(new Error("Registrazione push non riuscita.")));
+        await PushNotifications.register();
+      })().catch((error: unknown) => finish(error instanceof Error ? error : new Error("Registrazione push non riuscita.")));
+    });
+    return true;
   }
 
   if (!("Notification" in window) || Notification.permission !== "granted" ||
@@ -37,17 +68,24 @@ export async function pushIsReady() {
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return false;
   const subscription = await registration.pushManager.getSubscription();
-  const ready = Boolean(subscription && subscription.endpoint === address);
-  if (ready && subscription) {
-    // Refresh old mobile web registrations so the server marks them as mobile.
-    await invoke({
-      platform: "web",
-      deviceClass: "mobile",
-      address: subscription.endpoint,
-      subscription: subscription.toJSON(),
-    });
+  if (!subscription) {
+    try {
+      await enablePush();
+      return true;
+    } catch {
+      return false;
+    }
   }
-  return ready;
+  // Re-register after login to associate the existing subscription with the
+  // active account. This does not show the permission prompt again.
+  await invoke({
+    platform: "web",
+    deviceClass: "mobile",
+    address: subscription.endpoint,
+    subscription: subscription.toJSON(),
+  });
+  localStorage.setItem(key, subscription.endpoint);
+  return true;
 }
 
 export async function enablePush() {
@@ -139,4 +177,3 @@ export async function disablePush() {
     }
   }
 }
-

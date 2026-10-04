@@ -21,7 +21,7 @@ create table public.audit_logs(actor_user_id uuid,actor_type text,action text,en
 create table public.email_deliveries(id uuid primary key,booking_id uuid,kind text default 'booking_confirmation',status text default 'pending',attempt_count int default 0,last_error text,send_uncertain boolean default false,next_attempt_at timestamptz default now(),updated_at timestamptz default now(),payload jsonb,metadata jsonb default '{}');
 create function private.booking_email_payload(uuid) returns jsonb language sql as $$select '{}'::jsonb$$;
 create function private.staff_ready() returns boolean language sql as $$select exists(select 1 from public.profiles where id=auth.uid() and status='active' and not must_change_password)$$;
-create table public.announcements(id uuid primary key,title text,body text,all_areas boolean,published_at timestamptz default now(),expires_at timestamptz);
+create table public.announcements(id uuid primary key,title text,body text,all_areas boolean,created_by uuid references public.profiles,published_at timestamptz default now(),expires_at timestamptz);
 create table public.announcement_targets(announcement_id uuid references public.announcements,area_id uuid references public.areas);
 create function public.list_room_availabilities() returns integer language sql as $$select 42$$;
 create table public.notifications(id uuid primary key default gen_random_uuid(),recipient_user_id uuid references public.profiles on delete cascade,type text,title text,body text,data jsonb);
@@ -120,6 +120,10 @@ await db.exec(await readFile(
 ));
 await db.exec(await readFile(
   "supabase/migrations/20261004180000_mobile_only_push.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004190000_recipient_notifications_and_push_reuse.sql",
   "utf8",
 ));
 await db.exec(
@@ -387,6 +391,29 @@ await db.query(
    values($1,$3,'area_lead'),($2,$4,'area_lead')`,
   [logisticsId, areaLeadId, logisticsAreaId, area],
 );
+const allAreasAnnouncement = "88888888-8888-4888-8888-888888888888";
+await db.query(
+  "insert into announcements(id,title,body,all_areas,created_by) values($1,'Avviso generale','Test avviso',true,$2)",
+  [allAreasAnnouncement, memberId],
+);
+for (const recipient of [a, leaderId, logisticsId, areaLeadId]) {
+  assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [recipient, allAreasAnnouncement]), true,
+    "all-area announcements notify administration, Team Leader and area leads regardless of who posted them");
+}
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [memberId, allAreasAnnouncement]), false,
+  "announcement authors do not receive a self-notification");
+const targetedAnnouncement = "99999999-9999-4999-8999-999999999999";
+await db.query(
+  "insert into announcements(id,title,body,all_areas,created_by) values($1,'Avviso area','Test avviso',false,$2)",
+  [targetedAnnouncement, memberId],
+);
+await db.query("insert into announcement_targets(announcement_id,area_id) values($1,$2)", [targetedAnnouncement, area]);
+for (const recipient of [a, leaderId, areaLeadId]) {
+  assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [recipient, targetedAnnouncement]), true,
+    "targeted announcements notify administrators, Team Leader and the relevant area lead");
+}
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [logisticsId, targetedAnnouncement]), false,
+  "targeted announcements do not notify unrelated area leads");
 await db.query(
   `insert into merch_products(id,name,price_cents,visibility) values
    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Solo leader',1000,'team_leader'),
@@ -472,4 +499,3 @@ console.log(
   "PASS: roles, account guards, mail and membership queues, push jobs, merch visibility, public checkout, scoped application notices and paid-order notifications.",
 );
 await db.close();
-
