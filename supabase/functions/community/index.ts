@@ -77,6 +77,100 @@ Deno.serve(async (request) => {
       p_url: Deno.env.get("SUPABASE_URL"),
     });
     if (workerError) throw new Error("SERVER_NOT_CONFIGURED");
+    if (body.action === "get_membership_form_link") {
+      const { user } = await requireActor(request);
+      const origin = Deno.env.get("PUBLIC_APP_URL") ??
+        "https://galileohub.info-teamgalileo.workers.dev";
+      if (!origin.startsWith("https://")) {
+        throw new Error("SERVER_NOT_CONFIGURED");
+      }
+      const { data: token, error } = await client.rpc(
+        "get_or_create_membership_form_link",
+        { p_actor: user.id },
+      );
+      if (error || typeof token !== "string") throw new Error("SAVE_FAILED");
+      return jsonResponse(request, {
+        url: origin.replace(/\/$/, "") + "/adesione/" + token,
+      });
+    }
+    if (body.action === "get_membership_public_link") {
+      const { client: actorClient, user } = await requireActor(request, false);
+      const [{ data: roles }, { data: memberAccount }] = await Promise.all([
+        actorClient.from("system_roles").select("role").eq("user_id", user.id)
+          .in("role", ["admin", "team_leader"]),
+        actorClient.from("area_shared_accounts").select("area_id")
+          .eq("user_id", user.id).maybeSingle(),
+      ]);
+      if (!roles?.length && !memberAccount) throw new Error("FORBIDDEN");
+      const { data: link, error } = await client.from("membership_form_links")
+        .select("public_token").is("revoked_at", null).maybeSingle();
+      if (error) throw new Error("SAVE_FAILED");
+      if (!link?.public_token) throw new Error("FORM_NOT_READY");
+      const origin = Deno.env.get("PUBLIC_APP_URL") ??
+        "https://galileohub.info-teamgalileo.workers.dev";
+      if (!origin.startsWith("https://")) {
+        throw new Error("SERVER_NOT_CONFIGURED");
+      }
+      return jsonResponse(request, {
+        url: origin.replace(/\/$/, "") + "/adesione/" + link.public_token,
+      });
+    }
+    if (
+      body.action === "get_membership_shared_draft" ||
+      body.action === "save_membership_shared_draft" ||
+      body.action === "submit_membership_shared_form"
+    ) {
+      if (
+        typeof body.token !== "string" || !/^[a-f0-9]{64}$/.test(body.token) ||
+        typeof body.draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.draftId)
+      ) throw new Error("INVALID_INVITATION");
+      const args = { p_token: body.token, p_draft_id: body.draftId };
+      if (body.action === "get_membership_shared_draft") {
+        const { data, error } = await client.rpc(
+          "get_membership_shared_draft",
+          args,
+        );
+        if (error) throw new Error("SAVE_FAILED");
+        if (data !== null) return jsonResponse(request, data);
+        const { data: legacyData, error: legacyError } = await client.rpc(
+          "get_membership_draft",
+          { p_token: body.token },
+        );
+        if (legacyError) throw new Error("INVALID_INVITATION");
+        return jsonResponse(request, legacyData);
+      }
+      const data = membershipAnswers(body.data);
+      const rpc = body.action === "submit_membership_shared_form"
+        ? "submit_membership_shared_form"
+        : "save_membership_shared_draft";
+      const { data: saved, error } = await client.rpc(rpc, {
+        ...args,
+        p_data: data,
+      });
+      if (error) throw new Error(error.message.includes("INVALID_DATA")
+        ? "INVALID_DATA"
+        : error.message.includes("DUPLICATE_MEMBERSHIP")
+        ? "DUPLICATE_MEMBERSHIP"
+        : "SAVE_FAILED");
+      if (saved === true) return jsonResponse(request, { ok: true });
+      const legacyRpc = body.action === "submit_membership_shared_form"
+        ? "submit_membership"
+        : "save_membership_draft";
+      const { error: legacyError } = await client.rpc(legacyRpc, {
+        p_token: body.token,
+        p_data: data,
+      });
+      if (legacyError) {
+        throw new Error(legacyError.message.includes("ALREADY_SUBMITTED")
+          ? "ALREADY_SUBMITTED"
+          : legacyError.message.includes("INVALID_INVITATION")
+          ? "INVALID_INVITATION"
+          : legacyError.message.includes("INVALID_DATA")
+          ? "INVALID_DATA"
+          : "SAVE_FAILED");
+      }
+      return jsonResponse(request, { ok: true });
+    }
     if (body.action === "get_membership_draft" || body.action === "save_membership_draft" || body.action === "submit_membership") {
       if (typeof body.token !== "string" || !/^[a-f0-9]{64}$/.test(body.token)) throw new Error("INVALID_INVITATION");
       if (body.action === "get_membership_draft") {
@@ -111,6 +205,19 @@ Deno.serve(async (request) => {
       if (areaError) throw new Error("SAVE_FAILED");
       for (const area of areaRows ?? []) areaMap.set(area.id, area.name);
       const rows: MembershipExportRow[] = [];
+      const { data: sharedRows, error: sharedError } = await adminClient
+        .from("membership_form_responses")
+        .select("status,data,created_at,updated_at,submitted_at")
+        .order("created_at", { ascending: true });
+      if (sharedError) throw new Error("SAVE_FAILED");
+      for (const row of sharedRows ?? []) rows.push({
+        status: row.status,
+        assignedArea: typeof row.data?.area === "string" ? row.data.area : "",
+        answers: (row.data && typeof row.data === "object" ? row.data : {}) as Record<string, unknown>,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        submittedAt: row.submitted_at,
+      });
       const pageSize = 1000;
       for (let offset = 0; offset < 100000; offset += pageSize) {
         const { data, error } = await adminClient.from("member_adhesions")
@@ -232,6 +339,8 @@ Deno.serve(async (request) => {
         "DUPLICATE_APPLICATION",
         "INVALID_INVITATION",
         "ALREADY_SUBMITTED",
+        "DUPLICATE_MEMBERSHIP",
+        "FORM_NOT_READY",
         "ACCOUNT_EXISTS",
         "SAVE_FAILED",
         "SERVER_NOT_CONFIGURED",
@@ -245,3 +354,4 @@ Deno.serve(async (request) => {
     );
   }
 });
+
