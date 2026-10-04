@@ -15,7 +15,7 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   const left = 28.35;
   const right = 566.93;
   const width = right - left;
-  let y = 821.5;
+  let y = 813;
   const safe = (s: unknown) => Array.from(String(s ?? "").normalize("NFC")).map((c) => {
     try { regular.encodeText(c); return c; } catch { return "?"; }
   }).join("");
@@ -61,14 +61,14 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   const drawBox = (top: number, height: number) => page.drawRectangle({ x: left, y: top - height, width, height, borderColor: black, borderWidth: 0.8 });
 
   const logo = await doc.embedPng(membershipLogoBytes());
-  const logoSize = 40;
+  const logoSize = 56;
   page.drawImage(logo, {
     x: (595.28 - logoSize) / 2,
-    y: 798,
+    y: 773,
     width: logoSize,
     height: logoSize,
   });
-  y -= 44;
+  y -= 56;
   centered("MODULO DI INGRESSO NEL TEAM", y, 12, bold); y -= 14;
   centered("Anno Accademico 2026/2027", y, 9, italic); y -= 11;
   centered("teamleader.teamgalileo@gmail.com", y, 7.8, bold); y -= 6;
@@ -137,3 +137,4 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   rule(left + 9, right - 9, top - 29, 0.55);
   return doc.save();
 }
+
