@@ -114,6 +114,10 @@ await db.exec(await readFile(
   "supabase/migrations/20261004150000_shared_public_membership_link.sql",
   "utf8",
 ));
+await db.exec(await readFile(
+  "supabase/migrations/20261004170000_public_merch_and_application_review.sql",
+  "utf8",
+));
 await db.exec(
   `create trigger protect_profiles before update or delete on profiles for each row execute function private.protect_last_admin();create trigger protect_roles before update or delete on system_roles for each row execute function private.protect_last_admin();`,
 );
@@ -434,8 +438,31 @@ assert.equal(await scalar("select count(*)::int from push_jobs j join notificati
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid' and data->>'route'='/merchandising'"), 2);
 await db.query("update merch_orders set status='paid' where id=$1", [newOrderId]);
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 2);
+const publicOrder = await db.query(
+  `select * from create_public_merch_order('Ada','Rover',$1,jsonb_build_array(jsonb_build_object('variantId',$2::uuid,'quantity',2)))`,
+  ["a".repeat(64), "cccccccc-0000-4000-8000-000000000003"],
+);
+assert.equal(publicOrder.rows[0].total_cents, 6000, "public price is calculated from saved catalog prices");
+assert.equal(await scalar("select buyer_user_id is null and buyer_first_name='Ada' and buyer_last_name='Rover' from merch_orders where id=$1", [publicOrder.rows[0].order_id]), true);
+assert.equal(await scalar("select stock from merch_variants where id='cccccccc-0000-4000-8000-000000000003'"), 3, "public order reserves stock atomically");
+await assert.rejects(
+  db.query(`select * from create_public_merch_order('Ada','Rover',$1,jsonb_build_array(jsonb_build_object('variantId',$2::uuid,'quantity',1)))`,
+    ["b".repeat(64), "aaaaaaaa-0000-4000-8000-000000000001"]),
+  /UNAVAILABLE/,
+  "public checkout rejects restricted merchandise",
+);
+await db.query("update application_settings set is_open=true");
+await db.query("update application_areas set is_open=true where area_id=$1", [area]);
+await db.query(
+  "insert into applications(area_id,email,first_name,last_name,answers) values($1,'candidate@studenti.unipi.it','Candidate','Example','{\"motivation\":\"test\"}')",
+  [area],
+);
+assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 3, "Team Leader, logistics and the candidate's area lead are notified");
+assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 5);
+await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
+assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
 console.log(
-  "PASS: roles, account guards, mail and membership queues, push jobs, merch visibility, protected checkout and paid-order notifications.",
+  "PASS: roles, account guards, mail and membership queues, push jobs, merch visibility, public checkout, scoped application notices and paid-order notifications.",
 );
 await db.close();
 
