@@ -965,3 +965,144 @@ textarea::placeholder {
   }
 }
 
+.merch-size-picker {
+  min-width: 0;
+  margin: 18px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.merch-size-picker legend {
+  margin-bottom: 10px;
+  color: var(--muted-strong);
+  font-weight: 700;
+}
+
+.merch-size-list {
+  display: grid;
+  gap: 8px;
+}
+
+.merch-size-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.merch-size-option--selected {
+  border-color: #4d8588;
+  background: #f1f7f7;
+  box-shadow: inset 3px 0 #4d8588;
+}
+
+.merch-size-option__label,
+.merch-size-option__quantity {
+  display: grid;
+  gap: 3px;
+}
+
+.merch-size-option__label small,
+.merch-size-option__quantity > span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.merch-size-option__quantity {
+  width: 112px;
+  flex: 0 0 auto;
+}
+
+.merch-size-option__quantity .input {
+  min-height: 42px;
+  padding: 7px 10px;
+}
+
+.room-editor-fields {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 16px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.room-editor-fields__intro {
+  display: grid;
+  gap: 3px;
+}
+
+.room-editor-fields__intro span {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.calendar-area-filter {
+  display: grid;
+  min-width: min(100%, 300px);
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.calendar-area-filter legend {
+  padding-inline: 5px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.calendar-area-filter__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  max-height: 128px;
+  overflow: auto;
+}
+
+.calendar-area-filter__option {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-strong);
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.calendar-area-filter__option:has(input:checked) {
+  border-color: #9cbac0;
+  color: #1c4d5d;
+  background: #edf4f4;
+}
+
+.calendar-area-filter__option input {
+  width: 16px;
+  height: 16px;
+  accent-color: #286b7c;
+}
+
+@media (max-width: 620px) {
+  .merch-size-option {
+    align-items: flex-start;
+  }
+
+  .merch-size-option__quantity {
+    width: 94px;
+  }
+
+  .calendar-area-filter {
+    width: 100%;
+  }
+}
+

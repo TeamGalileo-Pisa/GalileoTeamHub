@@ -10,6 +10,7 @@ import { formatBookingDay, formatTimeRange } from "../lib/dates";
 export function ManageBookingPage() {
   const { token = "" } = useParams();
   const [cancelled, setCancelled] = useState(false);
+  const [changeNotice, setChangeNotice] = useState("");
   const query = useQuery({
     queryKey: ["managed-booking", token],
     queryFn: () => getManagedBooking(token),
@@ -18,7 +19,10 @@ export function ManageBookingPage() {
   });
   const change = useMutation({
     mutationFn: (slotId: string) => changeManagedBooking(token, slotId),
-    onSuccess: () => query.refetch(),
+    onSuccess: async () => {
+      setChangeNotice("Prenotazione aggiornata. Il Capo Area riceverà una notifica di sistema.");
+      await query.refetch();
+    },
   });
   const cancel = useMutation({
     mutationFn: () => cancelManagedBooking(token),
@@ -31,7 +35,7 @@ export function ManageBookingPage() {
       <section className="booking-hero">
         <p className="eyebrow">Gestione prenotazione</p>
         <h1>Modifica o annulla il tuo colloquio</h1>
-        <p>Puoi cambiare orario scegliendo uno slot libero oppure annullare la prenotazione.</p>
+        <p>Puoi cambiare orario scegliendo uno slot libero disponibile con almeno 24 ore di anticipo, oppure annullare la prenotazione. In entrambi i casi il Capo Area riceverà una notifica.</p>
       </section>
 
       {cancelled ? (
@@ -62,6 +66,7 @@ export function ManageBookingPage() {
               </span>
             </div>
             <h3>Orari alternativi</h3>
+            {changeNotice && <p className="form-success" role="status">{changeNotice}</p>}
             <div className="slot-grid">
               {query.data.slots.map((slot) => (
                 <button
@@ -99,3 +104,4 @@ export function ManageBookingPage() {
     </main>
   );
 }
+

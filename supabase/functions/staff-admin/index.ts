@@ -78,8 +78,8 @@ Deno.serve(async (request) => {
         const initialPassword = Deno.env.get("DEFAULT_INITIAL_PASSWORD");
         const suffix = Deno.env.get("DEFAULT_PASSWORD_SUFFIX");
         const resetPassword = body.temporaryPassword || initialPassword || (suffix ? old.username + suffix : "");
-        if (resetPassword.length < 12 || !/[A-Z]/.test(resetPassword) || !/[a-z]/.test(resetPassword) || !/[0-9]/.test(resetPassword) || !/[^A-Za-z0-9]/.test(resetPassword)) throw new Error("INVALID_STAFF_PASSWORD");
         if (!resetPassword) throw new Error("DEFAULT_PASSWORD_NOT_CONFIGURED");
+        if (resetPassword.length < 12 || !/[A-Z]/.test(resetPassword) || !/[a-z]/.test(resetPassword) || !/[0-9]/.test(resetPassword) || !/[^A-Za-z0-9]/.test(resetPassword)) throw new Error("INVALID_STAFF_PASSWORD");
         // Only server memory: never return or log the derived password.
         const { error } = await serviceClient.auth.admin.updateUserById(
           body.id,
@@ -277,3 +277,4 @@ Deno.serve(async (request) => {
     201,
   );
 });
+

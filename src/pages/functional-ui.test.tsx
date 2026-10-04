@@ -29,8 +29,8 @@ vi.mock("../hooks/useAuth", () => ({
 vi.mock("../lib/data", () => ({
   getPublicBookingAvailability: mocks.availability,
   listAreas: async () => [
-    { id: "software", name: "Software" },
-    { id: "rover", name: "Rover" },
+    { id: "software", name: "Software", active: true },
+    { id: "rover", name: "Rover", active: true },
   ],
 }));
 vi.mock("../lib/hub-enhancements", () => ({
@@ -164,8 +164,8 @@ describe("daily availability and calendar UI", () => {
     mount(<CalendarPage />);
     fireEvent.click(screen.getByRole("button", { name: "Calendario" }));
     expect(screen.getByText("Ora")).toBeInTheDocument();
-    await screen.findByRole("option", { name: "Software" });
-    fireEvent.change(screen.getByLabelText("Area"), { target: { value: "software" } });
+    await screen.findByRole("checkbox", { name: "Software" });
+    fireEvent.click(screen.getByRole("checkbox", { name: "Software" }));
     await waitFor(() =>
       expect(mocks.rpc).toHaveBeenCalledWith(
         "list_calendar_bookings",
@@ -183,3 +183,4 @@ describe("daily availability and calendar UI", () => {
     expect(screen.queryByLabelText("Area")).not.toBeInTheDocument();
   });
 });
+
