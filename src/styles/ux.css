@@ -1054,9 +1054,97 @@ textarea::placeholder {
   font-size: 13px;
 }
 
+.application-choice-list {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+}
+
+.application-choice-list legend {
+  padding-inline: 6px;
+  color: var(--muted-strong);
+  font-weight: 700;
+}
+
+.application-choice-list .application-choice-option {
+  width: 100%;
+  margin: 0;
+}
+
+.application-disclosure {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.application-disclosure summary {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
+  padding: 4px 22px 4px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.application-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.application-disclosure summary::after {
+  position: absolute;
+  top: 12px;
+  right: 3px;
+  width: 0;
+  height: 0;
+  border: 5px solid transparent;
+  border-top-color: #62727d;
+  content: "";
+}
+
+.application-disclosure[open] summary::after {
+  top: 7px;
+  border-top-color: transparent;
+  border-bottom-color: #62727d;
+}
+
+.application-disclosure__name {
+  color: var(--white);
+  font-size: 18px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.application-disclosure summary:hover .application-disclosure__name {
+  color: #245b72;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.application-disclosure__hint,
+.application-disclosure__meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.application-disclosure__meta {
+  margin: 8px 0 14px;
+}
+
 @media (max-width: 540px) {
   .merch-product-options {
     grid-template-columns: 1fr;
+  }
+
+  .application-review-card__header {
+    align-items: flex-start;
   }
 }
 

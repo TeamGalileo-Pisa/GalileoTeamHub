@@ -4,10 +4,10 @@ import { supabase } from "../lib/supabase";
 import { community } from "../lib/community";
 import { listAreas } from "../lib/data";
 import { downloadMembershipExport } from "../lib/membership-export";
-import { downloadApplicationsExport } from "../lib/application-export";
 import { PageHeader } from "../components/PageHeader";
 import { ApplicationAnswerList } from "../components/ApplicationAnswerList";
 import { Download, Trash2 } from "lucide-react";
+import { downloadApplicationsExport } from "../lib/application-export";
 export function CommunityAdminPage() {
   const cache = useQueryClient();
   const [credentials, setCredentials] = useState<
@@ -253,7 +253,7 @@ export function CommunityAdminPage() {
       </section>
       <section className="panel panel__body">
         <h2>Candidature ricevute</h2>
-        <p>Scarica le candidature accessibili in Excel: una persona per riga e una domanda per colonna.</p>
+        <p>Scarica tutte le candidature accessibili in un file Excel: una persona per riga e una domanda per colonna.</p>
         <button className="button button--secondary" type="button" disabled={exportApplications.isPending} onClick={() => exportApplications.mutate()}>
           <Download size={16} /> {exportApplications.isPending ? "Preparo l’Excel…" : "Scarica candidature Excel"}
         </button>
@@ -262,28 +262,31 @@ export function CommunityAdminPage() {
         {applications.data?.map((a) => (
           <article className="application-review-card" key={a.id}>
             <header className="application-review-card__header">
-              <div>
-                <p className="eyebrow">{areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area"}</p>
-                <h3>{a.first_name} {a.last_name}</h3>
-                <p><a href={`mailto:${encodeURIComponent(a.email)}`}>{a.email}</a> · Ricevuta il {new Date(a.created_at).toLocaleString("it-IT")}</p>
-              </div>
+              <details className="application-disclosure">
+                <summary>
+                  <span className="application-disclosure__name">{a.first_name} {a.last_name}</span>
+                  <span className="application-disclosure__hint">{areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area"} · Apri le risposte</span>
+                </summary>
+                <p className="application-disclosure__meta"><a href={`mailto:${encodeURIComponent(a.email)}`}>{a.email}</a> · Ricevuta il {new Date(a.created_at).toLocaleString("it-IT")}</p>
+                <ApplicationAnswerList application={{
+                  first_name: a.first_name,
+                  last_name: a.last_name,
+                  email: a.email,
+                  area_name: areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area",
+                  area_slug: areas.data?.find((x) => x.id === a.area_id)?.slug ?? "",
+                  answers: a.answers,
+                }} />
+              </details>
               <button className="button button--danger button--small" type="button" disabled={deleteApplication.isPending} onClick={() => {
                 if (window.confirm(`Eliminare definitivamente la candidatura di ${a.first_name} ${a.last_name}? Questa operazione non può essere annullata.`)) {
                   deleteApplication.mutate(a.id);
                 }
               }}><Trash2 size={15} /> Elimina candidatura</button>
             </header>
-            <ApplicationAnswerList application={{
-              first_name: a.first_name,
-              last_name: a.last_name,
-              email: a.email,
-              area_name: areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area",
-              area_slug: areas.data?.find((x) => x.id === a.area_id)?.slug ?? "",
-              answers: a.answers,
-            }} />
           </article>
         ))}
       </section>
     </div>
   );
 }
+

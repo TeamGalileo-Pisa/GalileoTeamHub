@@ -42,11 +42,14 @@ export function ApplicationsReviewPage() {
     {applications.data?.map((application) => {
       return <section className="panel application-review-card" key={application.id}>
         <header className="application-review-card__header">
-          <div>
-            <p className="eyebrow">{application.area_name}</p>
-            <h2>{application.first_name} {application.last_name}</h2>
-            <p>Ricevuta il {new Date(application.created_at).toLocaleString("it-IT")}</p>
-          </div>
+          <details className="application-disclosure">
+            <summary>
+              <span className="application-disclosure__name">{application.first_name} {application.last_name}</span>
+              <span className="application-disclosure__hint">{application.area_name} · Apri le risposte</span>
+            </summary>
+            <p className="application-disclosure__meta">{application.email} · Ricevuta il {new Date(application.created_at).toLocaleString("it-IT")}</p>
+            <ApplicationAnswerList application={application} />
+          </details>
           <button
             className="button button--danger button--small"
             type="button"
@@ -58,8 +61,8 @@ export function ApplicationsReviewPage() {
             }}
           ><Trash2 size={15} /> Elimina candidatura</button>
         </header>
-        <ApplicationAnswerList application={application} />
       </section>;
     })}
   </div>;
 }
+
