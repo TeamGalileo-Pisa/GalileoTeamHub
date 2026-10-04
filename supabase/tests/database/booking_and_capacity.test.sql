@@ -1,6 +1,6 @@
 begin;
 
-select plan(38);
+select plan(40);
 
 insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
@@ -277,6 +277,33 @@ select ok(
     public.get_public_booking_availability((select token from test_tokens where name = 'first')) -> 'slots'
   ) = 4,
   'public availability is accessible through the token'
+);
+
+insert into public.area_booking_links (area_id, public_id, token, secret_hash, created_by)
+select id, '50000000-0000-0000-0000-000000000001', 'area-software',
+  extensions.digest('area-software', 'sha256'),
+  '10000000-0000-0000-0000-000000000001'
+from public.areas where slug = 'software'
+on conflict (area_id) do update set
+  public_id = excluded.public_id,
+  token = excluded.token,
+  secret_hash = excluded.secret_hash,
+  status = 'active',
+  revoked_at = null;
+
+select is(
+  pg_catalog.jsonb_array_length(public.get_public_booking_availability('area-software')->'slots'),
+  4,
+  'canonical area booking links return the area slots'
+);
+select ok(
+  not exists (
+    select 1 from pg_catalog.jsonb_array_elements(
+      public.get_public_booking_availability('area-software')->'slots'
+    ) slot
+    where (slot->>'starts_at')::timestamptz < pg_catalog.now() + interval '24 hours'
+  ),
+  'area availability excludes slots within the 24-hour booking window'
 );
 
 insert into test_tokens
