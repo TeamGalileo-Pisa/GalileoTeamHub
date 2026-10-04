@@ -101,6 +101,10 @@ await db.exec(await readFile(
   "supabase/migrations/20261004113000_membership_questionnaire_drafts_and_export.sql",
   "utf8",
 ));
+await db.exec(await readFile(
+  "supabase/migrations/20261004123000_membership_adhesion_indexes.sql",
+  "utf8",
+));
 await db.exec(
   `create trigger protect_profiles before update or delete on profiles for each row execute function private.protect_last_admin();create trigger protect_roles before update or delete on system_roles for each row execute function private.protect_last_admin();`,
 );
