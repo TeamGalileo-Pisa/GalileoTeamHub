@@ -258,7 +258,7 @@ Deno.serve(async (request) => {
         leadAreaIds.length
           ? client.from("areas").select("id,slug").in("id", leadAreaIds)
           : Promise.resolve({ data: [], error: null }),
-        client.from("areas").select("id,name"),
+        client.from("areas").select("id,name,slug"),
       ]);
       if (leadAreaError || allAreaError) throw new Error("SAVE_FAILED");
       const isAdmin = (roles ?? []).length > 0;
@@ -274,7 +274,38 @@ Deno.serve(async (request) => {
       return jsonResponse(request, (applications ?? []).map((application) => ({
         ...application,
         area_name: names.get(application.area_id) ?? "Area",
+        area_slug: (allAreas ?? []).find((area) => area.id === application.area_id)?.slug ?? "",
       })));
+    }
+    if (body.action === "delete_application") {
+      const { user } = await requireActor(request, false);
+      if (typeof body.applicationId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.applicationId)) {
+        throw new Error("INVALID_DATA");
+      }
+      const [{ data: roles, error: rolesError }, { data: memberships, error: membershipsError }, { data: application, error: applicationError }] = await Promise.all([
+        client.from("system_roles").select("role").eq("user_id", user.id)
+          .in("role", ["admin", "team_leader"]),
+        client.from("area_memberships").select("area_id").eq("user_id", user.id)
+          .eq("role", "area_lead").is("ended_at", null),
+        client.from("applications").select("area_id").eq("id", body.applicationId).maybeSingle(),
+      ]);
+      if (rolesError || membershipsError || applicationError) throw new Error("SAVE_FAILED");
+      if (!application) throw new Error("NOT_FOUND");
+      const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
+      const isAdminOrTeamLeader = (roles ?? []).length > 0;
+      const [{ data: leadAreas, error: leadAreaError }] = await Promise.all([
+        leadAreaIds.length
+          ? client.from("areas").select("id,slug").in("id", leadAreaIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (leadAreaError) throw new Error("SAVE_FAILED");
+      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
+      if (!isAdminOrTeamLeader && !isLogistics && !leadAreaIds.includes(application.area_id)) {
+        throw new Error("FORBIDDEN");
+      }
+      const { error } = await client.from("applications").delete().eq("id", body.applicationId);
+      if (error) throw new Error("SAVE_FAILED");
+      return jsonResponse(request, { ok: true });
     }
     if (body.action === "apply") {
       const a = body.answers;
@@ -386,4 +417,3 @@ Deno.serve(async (request) => {
     );
   }
 });
-
