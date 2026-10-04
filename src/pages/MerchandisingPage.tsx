@@ -40,6 +40,9 @@ export function MerchandisingPage() {
   const { access } = useAuth();
   const queryClient = useQueryClient();
   const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica"));
+  const canPurchase = (product: Product) => product.visibility === "everyone" ||
+    Boolean(access?.isTeamLeader) ||
+    (product.visibility === "team_leader_and_area_leads" && Boolean(access?.areas.length && !access.isMember));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [notice, setNotice] = useState(() => new URLSearchParams(window.location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Il carrello è ancora disponibile." : "");
   const [error, setError] = useState("");
@@ -99,7 +102,7 @@ export function MerchandisingPage() {
       const visibility = String(form.get("visibility") ?? "everyone") as ProductVisibility;
       if (!name || !Number.isFinite(price) || price <= 0) throw new Error("Inserisci nome e prezzo validi.");
       if (!(visibility in visibilityLabels)) throw new Error("Scegli chi può vedere il prodotto.");
-      const variants = parseStock(String(form.get("variants") ?? "Unica:"));
+      const variants = parseStock(String(form.get("variants") ?? "S:\nM:\nL:\nXL:\n2XL:\n3XL:"));
       if (!variants.length) throw new Error("Aggiungi almeno una taglia o variante.");
       let imageUrl = editing?.image_url ?? null;
       const image = form.get("image");
@@ -153,6 +156,25 @@ export function MerchandisingPage() {
     const { error } = await supabase.from("merch_products").update({ active: !product.active }).eq("id", product.id);
     if (error) setError(error.message); else await queryClient.invalidateQueries({ queryKey: ["merch-products"] });
   }
+  async function deleteProduct(product: Product) {
+    if (!window.confirm(`Eliminare definitivamente “${product.name}” dal catalogo? Gli ordini già registrati conservano i dati storici.`)) return;
+    setError(""); setNotice("");
+    const { error } = await supabase.from("merch_products").delete().eq("id", product.id);
+    if (error) {
+      setError("Eliminazione non riuscita. Aggiorna la pagina e riprova.");
+      return;
+    }
+    if (product.image_url) {
+      try {
+        const url = new URL(product.image_url);
+        const prefix = "/storage/v1/object/public/galileo-merch/";
+        const index = url.pathname.indexOf(prefix);
+        if (index >= 0) await supabase.storage.from("galileo-merch").remove([decodeURIComponent(url.pathname.slice(index + prefix.length))]);
+      } catch { /* The database deletion has succeeded; a stale image can be cleaned up separately. */ }
+    }
+    setNotice("Prodotto eliminato dal catalogo.");
+    await queryClient.invalidateQueries({ queryKey: ["merch-products"] });
+  }
   function add(variant: Variant) {
     setCart((old) => {
       const found = old.find((item) => item.variantId === variant.id);
@@ -175,7 +197,7 @@ export function MerchandisingPage() {
         <label className="form-field">Prezzo (€)<input className="input" name="price" type="number" min="0.01" step="0.01" required defaultValue={editing ? (editing.price_cents / 100).toFixed(2) : ""} /></label>
         <label className="form-field">Visibile a<select className="input" name="visibility" defaultValue={editing?.visibility ?? "everyone"}><option value="team_leader">Solo Team Leader</option><option value="team_leader_and_area_leads">Team Leader e capi area</option><option value="everyone">Tutti</option></select></label>
         <label className="form-field--full">Descrizione<textarea className="input" name="description" rows={3} maxLength={3000} defaultValue={editing?.description ?? ""} /></label>
-        <label className="form-field--full">Taglie/varianti e scorte (una per riga, formato <code>taglia:quantità</code>; lascia vuoto dopo i due punti per disponibilità illimitata)<textarea className="input" name="variants" rows={4} defaultValue={editing ? editing.variants.filter((v) => v.active).map((v) => `${v.label}:${v.stock ?? ""}`).join("\n") : "Unica:"} /></label>
+        <label className="form-field--full">Taglie/varianti e scorte (una per riga, formato <code>taglia:quantità</code>; lascia vuoto dopo i due punti per disponibilità illimitata). Per l’abbigliamento usa S, M, L, XL, 2XL e 3XL.<textarea className="input" name="variants" rows={6} defaultValue={editing ? editing.variants.filter((v) => v.active).map((v) => `${v.label}:${v.stock ?? ""}`).join("\n") : "S:\nM:\nL:\nXL:\n2XL:\n3XL:"} /></label>
         <label className="form-field--full">Foto prodotto (JPG, PNG o WebP; massimo 5 MB)<input className="input" name="image" type="file" accept="image/jpeg,image/png,image/webp" /></label>
         <div className="form-field--full"><button className="button button--primary">{editing ? "Salva modifiche" : "Aggiungi prodotto"}</button> {editing && <button className="button button--secondary" type="button" onClick={() => setEditing(null)}>Annulla</button>}</div>
       </form>
@@ -188,22 +210,21 @@ export function MerchandisingPage() {
           <p>{product.description || ""}</p>
           {!product.active && <p className="muted">Non visibile ai membri</p>}
           {canManage && <p className="muted">Visibilità catalogo: {visibilityLabels[product.visibility]}</p>}
-          <div className="merch-variants">{product.variants.filter((v) => v.active).map((variant) => <div className="merch-variant" key={variant.id}><span>{variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</span>{!canManage && <button className="button button--secondary" type="button" disabled={variant.stock === 0} onClick={() => add(variant)}>Aggiungi</button>}</div>)}</div>
-          {canManage && <div className="merch-admin-actions"><button className="button button--secondary" type="button" onClick={() => setEditing(product)}>Modifica</button><button className="button button--secondary" type="button" onClick={() => void toggleProduct(product)}>{product.active ? "Nascondi" : "Riattiva"}</button></div>}
+          <div className="merch-variants">{product.variants.filter((v) => v.active).map((variant) => <div className="merch-variant" key={variant.id}><span>{variant.label === "Unica" ? "Taglia unica" : `Taglia ${variant.label}`}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</span>{canPurchase(product) && <button className="button button--secondary" type="button" disabled={variant.stock === 0} onClick={() => add(variant)}>Aggiungi</button>}</div>)}</div>
+          {canManage && <div className="merch-admin-actions"><button className="button button--secondary" type="button" onClick={() => setEditing(product)}>Modifica</button><button className="button button--secondary" type="button" onClick={() => void toggleProduct(product)}>{product.active ? "Nascondi" : "Riattiva"}</button><button className="button button--secondary" type="button" onClick={() => void deleteProduct(product)}>Elimina</button></div>}
         </div>
       </article>)}
       {products.filter((p) => canManage || p.active).length === 0 && <p>Nessun prodotto disponibile.</p>}
     </div>}
 
-    {!canManage && <section className="panel panel__body merch-checkout"><h2>Il tuo ordine</h2>{cart.length ? cart.map((item) => {
+    <section className="panel panel__body merch-checkout"><h2>Il tuo ordine</h2>{cart.length ? cart.map((item) => {
       const variant = products.flatMap((p) => p.variants).find((v) => v.id === item.variantId)!;
       const product = products.find((p) => p.id === variant.product_id)!;
       return <div className="merch-variant" key={item.variantId}><span>{product.name} · {variant.label} × {item.quantity}</span><strong>{euro(product.price_cents * item.quantity)}</strong><button className="button button--secondary" type="button" onClick={() => setCart((old) => old.filter((i) => i.variantId !== item.variantId))}>Rimuovi</button></div>;
     }) : <p>Seleziona un prodotto per iniziare.</p>}
       <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || payBusy} onClick={() => void checkout()}>{payBusy ? "Attendi…" : `Paga ${euro(cartTotal)} con PayPal`}</button>
-    </section>}
+    </section>
 
     {canManage && <section className="panel panel__body"><h2>Ordini ricevuti</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>{order.status === "paid" ? "Pagato" : order.status === "pending" ? "In attesa di pagamento" : order.status}</strong><span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name} · ` : ""}{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine registrato.</p>}</section>}
   </div>;
 }
-

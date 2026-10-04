@@ -48,12 +48,6 @@ Deno.serve(async (request) => {
     } else if (
       body.platform === "ios" && !/^[a-f0-9]{64}$/i.test(body.address)
     ) throw new Error("INVALID_DATA");
-    const { data: existing } = await client.from("push_devices").select(
-      "user_id",
-    ).eq("address", body.address).maybeSingle();
-    if (existing && existing.user_id !== user.id) {
-      throw new Error("DEVICE_ALREADY_REGISTERED");
-    }
     const { error: workerError } = await client.rpc("configure_email_worker", {
       p_url: Deno.env.get("SUPABASE_URL"),
     });
@@ -71,4 +65,3 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "PUSH_REGISTRATION_FAILED" }, 400);
   }
 });
-

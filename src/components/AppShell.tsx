@@ -21,7 +21,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
-import { enablePush, disablePush, isMobileNotificationDevice, pushIsReady } from "../lib/push";
+import { enablePush, isMobileNotificationDevice, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
 import { Capacitor } from "@capacitor/core";
 
@@ -94,7 +94,6 @@ export function AppShell() {
     let active = true;
     if (!access?.userId) return () => { active = false; };
     if (!mobileNotificationsEnabled) {
-      void disablePush().catch(() => undefined);
       queueMicrotask(() => {
         if (active) setPushState({ userId: access.userId, ready: true });
       });
@@ -167,7 +166,6 @@ export function AppShell() {
 
   const handleSignOut = async () => {
     try {
-      await disablePush();
       await supabase.rpc("mark_user_offline");
     } finally {
       await signOut();
@@ -289,4 +287,3 @@ export function AppShell() {
     </div>
   );
 }
-
