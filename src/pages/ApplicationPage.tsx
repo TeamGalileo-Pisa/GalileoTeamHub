@@ -11,6 +11,7 @@ import {
 import { Brand } from "../components/Brand";
 export function ApplicationPage() {
   const [areaId, setAreaId] = useState("");
+  const [localError, setLocalError] = useState("");
   const areas = useQuery({
     queryKey: ["public-application-areas"],
     queryFn: async () => {
@@ -94,7 +95,22 @@ export function ApplicationPage() {
             className="panel panel__body form-grid"
             onSubmit={(e) => {
               e.preventDefault();
-              mutation.mutate(new FormData(e.currentTarget));
+              const form = e.currentTarget;
+              const data = new FormData(form);
+              if (!data.getAll("skills").length) {
+                setLocalError("Seleziona almeno una competenza per l’area scelta.");
+                mutation.reset();
+                form.querySelector<HTMLInputElement>("input[name=skills]")?.focus();
+                return;
+              }
+              if (!data.getAll("certifications").length) {
+                setLocalError("Seleziona almeno una certificazione o l’opzione “Nessuna”.");
+                mutation.reset();
+                form.querySelector<HTMLInputElement>("input[name=certifications]")?.focus();
+                return;
+              }
+              setLocalError("");
+              mutation.mutate(data);
             }}
           >
             <h2 className="form-field--full">Chi sei</h2>
@@ -132,7 +148,7 @@ export function ApplicationPage() {
               <fieldset className="form-field--full" key={areaId}>
                 <legend>{division.question} *</legend>
                 {division.skills.map((s) => (
-                  <label key={s} style={{ display: "block", margin: 10 }}>
+                  <label key={s} className="application-choice-option">
                     <input type="checkbox" name="skills" value={s} /> {s}
                   </label>
                 ))}
@@ -170,7 +186,7 @@ export function ApplicationPage() {
             <fieldset className="form-field--full">
               <legend>Certificazioni extra o competenze linguistiche *</legend>
               {certifications.map((s) => (
-                <label key={s} style={{ display: "block", margin: 10 }}>
+                <label key={s} className="application-choice-option">
                   <input type="checkbox" name="certifications" value={s} /> {s}
                 </label>
               ))}
@@ -186,11 +202,12 @@ export function ApplicationPage() {
               parte dei promotori del Team Galileo Pisa ai fini della selezione
               e dell'organizzazione delle attività del team.
             </label>
-            {mutation.error && (
+            {(localError || mutation.error) && (
               <p role="alert" className="form-error">
-                {mutation.error.message}
+                {localError || mutation.error?.message}
               </p>
             )}
+            {mutation.isIdle && <p className="form-hint form-field--full">Per i gruppi con l’asterisco, seleziona almeno una risposta.</p>}
             <button
               className="button button--primary"
               disabled={mutation.isPending}
@@ -202,3 +219,4 @@ export function ApplicationPage() {
     </main>
   );
 }
+
