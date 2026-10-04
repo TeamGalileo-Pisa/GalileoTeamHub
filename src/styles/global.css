@@ -2399,4 +2399,51 @@ p {
 .calendar-day {
   display: block;
 }
+/* Candidate application choice lists: keep the source order explicit and readable. */
+.application-choice-list {
+  min-width: 0;
+  padding: 16px 18px 18px;
+}
 
+.application-choice-list__items {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding-left: 28px;
+}
+
+.application-choice-list__items li {
+  padding-left: 4px;
+}
+
+.application-choice-option {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--muted-strong);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.application-choice-option input {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: var(--azure-light);
+}
+
+.application-choice-list > .input {
+  margin-top: 12px;
+}
+
+@media (max-width: 620px) {
+  .application-choice-list {
+    padding: 14px;
+  }
+
+  .application-choice-list__items {
+    padding-left: 24px;
+  }
+}
