@@ -62,6 +62,143 @@
   line-height: 1.55;
 }
 
+.public-info-page {
+  width: min(100% - 32px, 1040px);
+  min-height: 100vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+  padding: 24px 0;
+}
+
+.public-info-header,
+.public-info-footer,
+.public-info-brand,
+.public-info-footer nav {
+  display: flex;
+  align-items: center;
+}
+
+.public-info-header,
+.public-info-footer {
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.public-info-brand {
+  gap: 12px;
+  color: var(--white);
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.public-info-brand img {
+  border-radius: 10px;
+}
+
+.public-info-hero,
+.public-legal-card {
+  padding: clamp(24px, 5vw, 56px);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, var(--navy-soft), rgba(2, 13, 34, 0.9));
+  box-shadow: var(--shadow);
+}
+
+.public-info-hero h1,
+.public-legal-card h1 {
+  max-width: 780px;
+  margin: 8px 0 20px;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  line-height: 1.12;
+}
+
+.public-info-hero > p:not(.eyebrow) {
+  max-width: 760px;
+  color: var(--muted-strong);
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.public-info-hero .button {
+  margin-top: 12px;
+}
+
+.public-info-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.public-info-links article {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--navy-soft);
+}
+
+.public-info-links h2 {
+  margin: 12px 0 8px;
+}
+
+.public-info-links p,
+.public-legal-body {
+  color: var(--muted-strong);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.public-info-links a,
+.public-legal-card a,
+.public-info-footer a {
+  color: #79c5ff;
+}
+
+.public-legal-page {
+  width: min(100% - 32px, 920px);
+}
+
+.public-legal-card {
+  flex: 1;
+}
+
+.public-legal-card small {
+  display: block;
+  margin-top: 24px;
+  color: var(--muted);
+}
+
+.public-info-footer {
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.public-info-footer nav {
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+@media (max-width: 640px) {
+  .public-info-header {
+    align-items: flex-start;
+  }
+
+  .public-info-header > .button {
+    padding: 9px 12px;
+  }
+
+  .public-info-links {
+    grid-template-columns: 1fr;
+  }
+
+  .public-info-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .online-leads-list {
   display: grid;
   gap: 10px;
@@ -280,4 +417,3 @@
   }
 }
 .merch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:18px;margin:20px 0}.merch-card{overflow:hidden}.merch-card__image{width:100%;height:220px;object-fit:cover;background:var(--navy)}.merch-card__heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.merch-card__heading h2{margin:0}.merch-card__heading strong{white-space:nowrap;color:var(--azure-light)}.merch-variants{display:grid;gap:9px;margin:16px 0}.merch-variant{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}.merch-admin-actions{display:flex;gap:8px;flex-wrap:wrap}.merch-admin,.merch-checkout{margin:20px 0}.merch-total{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid var(--border);font-size:1.1rem}.merch-order{padding:14px 0;border-top:1px solid var(--border);display:grid;gap:5px}.merch-order ul{margin:5px 0;padding-left:22px;color:var(--muted)}
-

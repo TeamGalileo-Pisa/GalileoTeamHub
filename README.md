@@ -107,6 +107,8 @@ Il file locale è escluso da Git. Lo script crea o riconcilia in modo idempotent
 https://galileohub.info-teamgalileo.workers.dev
 ```
 
+Per Google Auth Platform, la homepage pubblica è `https://galileohub.info-teamgalileo.workers.dev/`; i documenti legali sono disponibili senza login agli URL `/privacy` e `/terms`. La homepage descrive lo scopo del gestionale e l'uso dell'account Gmail per le comunicazioni. Prima della pubblicazione OAuth, mantenere aggiornati i testi dalla sezione amministrativa Termini e Privacy e verificare i requisiti di dominio di Google.
+
 Configurazione CI/CD Cloudflare:
 
 - branch di produzione: `main`;

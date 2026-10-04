@@ -1,11 +1,17 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PasswordGate } from "./components/PasswordGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PwaControls } from "./components/PwaControls";
-import { useAuth } from "./hooks/useAuth";
+
+const PublicHomePage = lazy(() =>
+  import("./pages/PublicHomePage").then((module) => ({ default: module.PublicHomePage })),
+);
+const PublicLegalPage = lazy(() =>
+  import("./pages/PublicLegalPage").then((module) => ({ default: module.PublicLegalPage })),
+);
 
 const AreasPage = lazy(() =>
   import("./pages/AreasPage").then((module) => ({ default: module.AreasPage })),
@@ -65,17 +71,15 @@ const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(
 const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
 const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
-function HomeRedirect() {
-  const { access } = useAuth();
-  return <Navigate to={access?.isAdmin ? "/admin" : access?.isMember ? "/membri" : "/area"} replace />;
-}
-
 export default function App() {
   return (
     <>
       <PwaControls />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          <Route path="/" element={<PublicHomePage />} />
+          <Route path="/privacy" element={<PublicLegalPage documentKey="privacy" />} />
+          <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
           <Route path="/candidature" element={<ApplicationPage />} />
           <Route path="/adesione/:token" element={<MembershipPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -86,8 +90,6 @@ export default function App() {
             <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route element={<PasswordGate />}>
               <Route element={<AppShell />}>
-                <Route index element={<HomeRedirect />} />
-
                 <Route path="/membri" element={<MemberPage />} />
                 <Route element={<ProtectedRoute memberOnly />}>
                   <Route path="/membri/adesione" element={<MemberAdhesionPage />} />
@@ -127,4 +129,3 @@ export default function App() {
     </>
   );
 }
-

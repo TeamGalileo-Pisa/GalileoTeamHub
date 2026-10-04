@@ -45,6 +45,24 @@ export function getPublicPrivacyDocument(): Promise<LegalDocument> {
   return rpc<LegalDocument>("get_public_privacy_document");
 }
 
+export async function getPublicLegalDocument(
+  key: LegalDocument["key"],
+): Promise<LegalDocument> {
+  const { data, error } = await supabase
+    .from("legal_documents")
+    .select("document_key,title,body,version,updated_at")
+    .eq("document_key", key)
+    .single();
+  if (error) throw friendlyError(error);
+  return {
+    key: data.document_key as LegalDocument["key"],
+    title: data.title,
+    body: data.body,
+    version: data.version,
+    updatedAt: data.updated_at,
+  };
+}
+
 export function listLegalDocuments(): Promise<LegalDocument[]> {
   return rpc<LegalDocument[]>("list_legal_documents");
 }
