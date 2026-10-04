@@ -96,12 +96,12 @@ export async function processPush(client: SupabaseClient) {
       const { data: notice } = await client.from("notifications").select("*")
         .eq("id", job.notification_id).single();
       const { data: profile } = await client.from("profiles").select(
-        "status,must_change_password",
+        "status",
       ).eq("id", device?.user_id).single();
       if (
         !device || !notice || notice.recipient_user_id !== device.user_id ||
         device.device_class !== "mobile" ||
-        profile?.status !== "active" || profile.must_change_password
+        profile?.status !== "active"
       ) {
         await client.from("push_jobs").delete().eq("id", job.id);
         continue;
@@ -160,4 +160,3 @@ export async function processPush(client: SupabaseClient) {
     }
   }
 }
-

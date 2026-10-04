@@ -2,6 +2,7 @@ import { supabase } from "./supabase";
 import type {
   Announcement,
   AnnouncementInput,
+  AnnouncementLeadOption,
   AreaRecord,
   AllocationOption,
   BookingConfirmation,
@@ -523,6 +524,15 @@ export async function listAnnouncements(): Promise<Announcement[]> {
     targetAreaNames: Array.isArray(row.target_area_names)
       ? row.target_area_names.map(asString)
       : [],
+    targetLeadIds: Array.isArray(row.target_lead_ids)
+      ? row.target_lead_ids.map(asString)
+      : [],
+    targetLeadNames: Array.isArray(row.target_lead_names)
+      ? row.target_lead_names.map(asString)
+      : [],
+    targetMembers: asBoolean(row.target_members),
+    targetAreaLeads: asBoolean(row.target_area_leads),
+    allAreaLeads: asBoolean(row.all_area_leads),
     publishedAt: asString(row.published_at),
     expiresAt: typeof row.expires_at === "string" ? row.expires_at : null,
     important: asBoolean(row.important),
@@ -534,12 +544,25 @@ export async function listAnnouncements(): Promise<Announcement[]> {
   }));
 }
 
+export async function listAnnouncementLeads(): Promise<AnnouncementLeadOption[]> {
+  const { data, error } = await supabase.rpc("list_announcement_leads");
+  throwIfError(error);
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    userId: asString(row.user_id),
+    displayName: asString(row.display_name),
+    areaName: asString(row.area_name),
+  }));
+}
+
 function announcementRpcInput(input: AnnouncementInput) {
   return {
     p_title: input.title.trim(),
     p_body: input.body.trim(),
     p_all_areas: input.allAreas,
     p_target_area_ids: input.allAreas ? [] : input.targetAreaIds,
+    p_target_lead_ids: input.allAreas ? [] : input.targetLeadIds,
+    p_all_area_leads: input.allAreas ? false : input.allAreaLeads,
+    p_target_members: input.allAreas ? false : input.targetMembers,
     p_published_at: new Date(input.publishedAt).toISOString(),
     p_expires_at: input.expiresAt
       ? new Date(input.expiresAt).toISOString()

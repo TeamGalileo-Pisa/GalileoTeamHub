@@ -244,8 +244,6 @@ export function AppShell() {
         />
       )}
 
-      <a className="skip-to-content" href="#main-content">Salta al contenuto</a>
-
       <aside className={`sidebar ${mobileOpen ? "sidebar--open" : ""}`}>
         <div className="sidebar__brand"><Brand /></div>
 
@@ -292,4 +290,3 @@ export function AppShell() {
     </div>
   );
 }
-

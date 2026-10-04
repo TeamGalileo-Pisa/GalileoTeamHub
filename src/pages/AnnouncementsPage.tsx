@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Check, Megaphone, Pencil, Pin, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "../components/EmptyState";
@@ -14,6 +15,7 @@ import {
   createAnnouncement,
   deleteAnnouncement,
   listAnnouncements,
+  listAnnouncementLeads,
   listAreas,
   listNotifications,
   markNotificationRead,
@@ -27,15 +29,14 @@ const schema = z
     title: z.string().trim().min(3, "Inserisci un titolo").max(160),
     body: z.string().trim().min(3, "Inserisci il testo").max(10000),
     allAreas: z.boolean(),
+    allAreaLeads: z.boolean(),
+    targetMembers: z.boolean(),
     targetAreaIds: z.array(z.string().uuid()),
+    targetLeadIds: z.array(z.string().uuid()),
     publishedAt: z.string().min(1, "Inserisci la data di pubblicazione"),
     expiresAt: z.string().optional(),
     important: z.boolean(),
     pinned: z.boolean(),
-  })
-  .refine((value) => value.allAreas || value.targetAreaIds.length > 0, {
-    message: "Seleziona almeno un'area",
-    path: ["targetAreaIds"],
   })
   .refine(
     (value) =>
@@ -52,8 +53,11 @@ function localDateTime(value = new Date().toISOString()): string {
 const emptyForm = {
   title: "",
   body: "",
-  allAreas: true,
+  allAreas: false,
+  allAreaLeads: false,
+  targetMembers: false,
   targetAreaIds: [] as string[],
+  targetLeadIds: [] as string[],
   publishedAt: localDateTime(),
   expiresAt: "",
   important: false,
@@ -63,6 +67,8 @@ const emptyForm = {
 export function AnnouncementsPage() {
   const { access } = useAuth();
   const isAdmin = Boolean(access?.isAdmin);
+  const isTeamLeader = Boolean(access?.isTeamLeader);
+  const isAreaLead = Boolean(access && !access.isAdmin && !access.isMember);
   const showMobileNotifications = isMobileNotificationDevice();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Announcement | null>(null);
@@ -85,11 +91,18 @@ export function AnnouncementsPage() {
     queryFn: listAreas,
     enabled: isAdmin,
   });
+  const leadsQuery = useQuery({
+    queryKey: ["announcement-leads"],
+    queryFn: listAnnouncementLeads,
+    enabled: isAdmin,
+  });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: emptyForm,
   });
   const allAreas = useWatch({ control: form.control, name: "allAreas" });
+  const allAreaLeads = useWatch({ control: form.control, name: "allAreaLeads" });
+  const targetMembers = useWatch({ control: form.control, name: "targetMembers" });
 
   useEffect(() => {
     if (!editing) return;
@@ -97,7 +110,10 @@ export function AnnouncementsPage() {
       title: editing.title,
       body: editing.body,
       allAreas: editing.allAreas,
+      allAreaLeads: editing.allAreaLeads,
+      targetMembers: editing.targetMembers || editing.targetAreaIds.length > 0,
       targetAreaIds: editing.targetAreaIds,
+      targetLeadIds: editing.targetLeadIds,
       publishedAt: localDateTime(editing.publishedAt),
       expiresAt: editing.expiresAt ? localDateTime(editing.expiresAt) : "",
       important: editing.important,
@@ -156,15 +172,41 @@ export function AnnouncementsPage() {
     form.reset({ ...emptyForm, publishedAt: localDateTime() });
   }
 
+  function submitAnnouncement(values: z.infer<typeof schema>) {
+    const ownAreaIds = access?.areas.map((area) => area.id) ?? [];
+    const preserveHistoricBroadcast = Boolean(editing?.allAreas && isAdmin && !isTeamLeader);
+    const normalized = {
+      ...values,
+      allAreas: isTeamLeader ? values.allAreas : preserveHistoricBroadcast,
+      allAreaLeads: isAreaLead || values.allAreas ? false : values.allAreaLeads,
+      targetMembers: values.allAreas ? false : isAreaLead || (isTeamLeader && values.targetMembers),
+      targetAreaIds: values.allAreas ? [] : isAreaLead ? ownAreaIds : isTeamLeader && values.targetMembers ? values.targetAreaIds : [],
+      targetLeadIds: isAreaLead || values.allAreas || values.allAreaLeads ? [] : values.targetLeadIds,
+    };
+    const hasRecipients = normalized.allAreas || normalized.allAreaLeads ||
+      normalized.targetLeadIds.length > 0 ||
+      (normalized.targetMembers && normalized.targetAreaIds.length > 0);
+    if (!hasRecipients) {
+      form.setError("root", { message: "Scegli almeno un destinatario prima di pubblicare." });
+      return;
+    }
+    form.clearErrors("root");
+    saveMutation.mutate(normalized);
+  }
+
   return (
     <div className="page-container">
       <PageHeader
         eyebrow="Comunicazioni interne"
         title="Bacheca"
         description={
-          isAdmin
-            ? "Pubblica aggiornamenti per tutte le aree o per destinatari selezionati."
-            : "Qui trovi solo le comunicazioni generali o destinate alla tua area."
+          isTeamLeader
+            ? "Scegli i Capi Area, i membri per area o entrambi. Puoi anche inviare una comunicazione a tutto il team."
+            : isAdmin
+              ? "Invia comunicazioni ai Capi Area selezionati oppure a tutti."
+              : isAreaLead
+                ? "Puoi scrivere ai membri delle tue aree. Gli altri destinatari non sono accessibili."
+                : "Qui trovi le comunicazioni destinate alla tua area."
         }
       />
 
@@ -175,7 +217,7 @@ export function AnnouncementsPage() {
           <div className="panel__header">
             <div>
               <h2 id="system-notifications-title">Notifiche di sistema</h2>
-              <p>Nuove prenotazioni, modifiche, annullamenti e comunicazioni importanti.</p>
+              <p>Nuove candidature, prenotazioni, modifiche e comunicazioni importanti.</p>
             </div>
             <BellRing size={20} />
           </div>
@@ -188,6 +230,11 @@ export function AnnouncementsPage() {
                   <p>{notification.body}</p>
                   <time>{formatDateTime(notification.createdAt)}</time>
                 </div>
+                {typeof notification.data.route === "string" && notification.data.route.startsWith("/") && !notification.data.route.startsWith("//") && (
+                  <Link className="button button--secondary button--small" to={notification.data.route}>
+                    {notification.type === "application.received" ? "Apri candidatura" : "Apri"}
+                  </Link>
+                )}
                 {!notification.readAt && (
                   <button
                     className="button button--secondary button--small"
@@ -206,13 +253,13 @@ export function AnnouncementsPage() {
 
 
 
-      {isAdmin && (
+      {(isAdmin || isAreaLead) && (
         <section className="panel announcement-form-panel">
           <div className="panel__header">
-            <div><h2>{editing ? "Modifica comunicazione" : "Nuova comunicazione"}</h2><p>I messaggi restano interni al gestionale e non generano email.</p></div>
+            <div><h2>{editing ? "Modifica comunicazione" : "Nuova comunicazione"}</h2><p>Comunicazione interna: riceveranno una notifica gli account selezionati.</p></div>
             <Megaphone size={20} />
           </div>
-          <form className="panel__body form-grid" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+          <form className="panel__body form-grid" onSubmit={form.handleSubmit(submitAnnouncement)}>
             <div className="form-field form-field--full">
               <label htmlFor="announcement-title">Titolo</label>
               <input id="announcement-title" className="input" {...form.register("title")} />
@@ -224,17 +271,68 @@ export function AnnouncementsPage() {
               {form.formState.errors.body && <span className="field-error">{form.formState.errors.body.message}</span>}
             </div>
             <div className="form-field form-field--full">
-              <label className="check-row"><input type="checkbox" {...form.register("allAreas")} /> Tutte le aree</label>
-              {!allAreas && (
-                <div className="area-checkbox-grid">
-                  {areasQuery.data?.filter((area) => area.active).map((area) => (
-                    <label className="check-row" key={area.id}>
-                      <input type="checkbox" value={area.id} {...form.register("targetAreaIds")} /> {area.name}
-                    </label>
-                  ))}
-                </div>
-              )}
-              {form.formState.errors.targetAreaIds && <span className="field-error">{form.formState.errors.targetAreaIds.message}</span>}
+              <fieldset className="audience-picker">
+                <legend>Destinatari</legend>
+                {isAreaLead ? (
+                  <div className="info-callout">Questo messaggio sarà inviato solo ai membri di: {access?.areas.map((area) => area.name).join(", ") || "nessuna area attiva"}.</div>
+                ) : (
+                  <>
+                    {isTeamLeader && (
+                      <label className="check-row audience-option">
+                        <input type="checkbox" {...form.register("allAreas")} />
+                        <span><strong>Tutti i membri e tutti i Capi Area</strong><small>Invia a tutto il team.</small></span>
+                      </label>
+                    )}
+                    {!allAreas && (
+                      <>
+                        {isAdmin && (
+                          <>
+                            <label className="check-row audience-option">
+                              <input type="checkbox" {...form.register("allAreaLeads")} />
+                              <span><strong>Tutti i Capi Area</strong><small>Se non selezioni questa opzione, puoi scegliere i destinatari uno per uno.</small></span>
+                            </label>
+                            {!allAreaLeads && (
+                              <div className="audience-checklist" aria-label="Seleziona i Capi Area">
+                                {leadsQuery.data?.map((lead) => (
+                                  <label className="check-row" key={lead.userId}>
+                                    <input type="checkbox" value={lead.userId} {...form.register("targetLeadIds")} />
+                                    <span>{lead.displayName}<small>{lead.areaName}</small></span>
+                                  </label>
+                                ))}
+                                {leadsQuery.isLoading && <p role="status">Caricamento Capi Area…</p>}
+                                {leadsQuery.error && <p className="field-error" role="alert">Non riesco a caricare i Capi Area. Riprova tra poco.</p>}
+                                {!leadsQuery.isLoading && !leadsQuery.error && !leadsQuery.data?.length && <p>Nessun Capo Area attivo disponibile.</p>}
+                              </div>
+                            )}
+                          </>
+                        )}
+                        {isTeamLeader && (
+                          <>
+                            <label className="check-row audience-option audience-option--spaced">
+                              <input type="checkbox" {...form.register("targetMembers")} />
+                              <span><strong>Includi i membri</strong><small>Scegli una o più aree; puoi combinarle con i Capi Area selezionati sopra.</small></span>
+                            </label>
+                            {targetMembers && (
+                              <div className="audience-checklist" aria-label="Seleziona le aree dei membri">
+                                <button className="button button--secondary button--small" type="button" onClick={() => form.setValue("targetAreaIds", areasQuery.data?.filter((area) => area.active).map((area) => area.id) ?? [], { shouldDirty: true })}>Seleziona tutte le aree</button>
+                                {areasQuery.data?.filter((area) => area.active).map((area) => (
+                                  <label className="check-row" key={area.id}>
+                                    <input type="checkbox" value={area.id} {...form.register("targetAreaIds")} />
+                                    <span>{area.name}</span>
+                                  </label>
+                                ))}
+                                {areasQuery.isLoading && <p role="status">Caricamento aree…</p>}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </>
+                    )}
+                    {editing?.allAreas && !isTeamLeader && <div className="info-callout">Questa comunicazione storica raggiungeva tutti i destinatari. Puoi aggiornarne il testo mantenendo lo stesso pubblico.</div>}
+                  </>
+                )}
+              </fieldset>
+              {form.formState.errors.root && <span className="field-error">{form.formState.errors.root.message}</span>}
             </div>
             <div className="form-field">
               <label htmlFor="announcement-published">Pubblicazione</label>
@@ -269,9 +367,25 @@ export function AnnouncementsPage() {
           announcementsQuery.data.map((announcement) => {
             const adminState = announcement.isActive
               ? "Attiva"
-              : new Date(announcement.publishedAt) > new Date()
-                ? "Programmata"
-                : "Scaduta";
+                : new Date(announcement.publishedAt) > new Date()
+                  ? "Programmata"
+                  : "Scaduta";
+            const audience = announcement.allAreas
+              ? "Tutti i membri e tutti i Capi Area"
+              : [
+                  announcement.targetMembers && announcement.targetAreaNames.length
+                    ? `Membri: ${announcement.targetAreaNames.join(", ")}`
+                    : "",
+                  announcement.allAreaLeads
+                    ? "Tutti i Capi Area"
+                    : announcement.targetLeadNames.length
+                      ? `Capi Area: ${announcement.targetLeadNames.join(", ")}`
+                      : announcement.targetAreaLeads && announcement.targetAreaNames.length
+                        ? `Capi Area: ${announcement.targetAreaNames.join(", ")}`
+                        : announcement.targetLeadIds.length
+                          ? "Capi Area selezionati"
+                          : "",
+                ].filter(Boolean).join(" · ") || "Destinatari selezionati";
             return (
             <article className={`panel announcement-card ${!announcement.isRead && !isAdmin ? "announcement-card--new" : ""}`} key={announcement.id}>
               <div className="announcement-card__meta">
@@ -289,7 +403,7 @@ export function AnnouncementsPage() {
               </div>
               <p className="announcement-card__body">{announcement.body}</p>
               <div className="announcement-card__details">
-                <span>Destinatari: {announcement.allAreas ? "Tutte le aree" : announcement.targetAreaNames.join(", ")}</span>
+                <span>Destinatari: {audience}</span>
                 {announcement.expiresAt && <span>Scadenza: {formatDateTime(announcement.expiresAt)}</span>}
                 {isAdmin && <span>Letture area: {announcement.readCount}</span>}
               </div>
@@ -315,4 +429,3 @@ export function AnnouncementsPage() {
     </div>
   );
 }
-
