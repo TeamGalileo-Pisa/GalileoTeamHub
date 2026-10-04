@@ -63,6 +63,15 @@ describe("Gmail transport and queue", () => {
       "Message-ID: <unit-delivery@colloqui.teamgalileo.local>",
     );
   });
+  it("includes merchandising logistics in the Gmail carbon-copy header", async () => {
+    const fetchMock = setup();
+    fetchMock.mockResolvedValueOnce(Response.json({ id: "sent-id" }));
+    await sendGmailMessage({ ...message, cc: "logistica.teamgalileo@gmail.com" });
+    const raw = JSON.parse(fetchMock.mock.calls[3][1].body).raw;
+    const mime = atob(raw.replaceAll("-", "+").replaceAll("_", "/"));
+    expect(mime).toContain("To: recipient@example.test");
+    expect(mime).toContain("Cc: logistica.teamgalileo@gmail.com");
+  });
   it("attaches the generated PDF as a MIME attachment", async () => {
     const f=setup();f.mockResolvedValueOnce(Response.json({id:"sent-id"}));
     await sendGmailMessage({...message,html:"<p>Adesione</p>",attachments:[{name:"Adesione.pdf",content:new TextEncoder().encode("%PDF-test")}]});
@@ -170,3 +179,4 @@ describe("Gmail transport and queue", () => {
     });
   });
 });
+

@@ -9,6 +9,7 @@ export { OFFICIAL_EMAIL_FROM } from "./email-copy.ts";
 
 interface GmailMessage {
   attachments?: {name:string;content:Uint8Array}[];
+  cc?: string;
   reconcileOnly?: boolean;
   to: string;
   subject: string;
@@ -58,6 +59,7 @@ function buildRawMessage(message: GmailMessage): string {
   const headers = [
     `From: ${OFFICIAL_EMAIL_FROM}`,
     `To: ${safeHeader(message.to)}`,
+    ...(message.cc ? [`Cc: ${safeHeader(message.cc)}`] : []),
     `Subject: =?UTF-8?B?${utf8Base64(message.subject)}?=`,
     `Message-ID: ${messageId(message.idempotencyId)}`,
     "MIME-Version: 1.0",
@@ -264,3 +266,4 @@ export async function sendQueuedEmail(
     await markFailed(client, deliveryId, sendError, payload.attempt_count);
   }
 }
+

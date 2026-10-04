@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { PageHeader } from "../components/PageHeader";
@@ -22,8 +22,10 @@ async function request<T>(body: Record<string, unknown>): Promise<T> {
       PAYPAL_AUTH_FAILED: "PayPal Live ha rifiutato le credenziali. Verifica che modalità e coppia Client ID/Secret siano entrambe Live (non Sandbox).",
       PAYPAL_ORDER_FAILED: "PayPal non è riuscito a creare il pagamento. Verifica le credenziali Live e riprova.",
       ORDER_EXPIRED: "La prenotazione è scaduta. Ripeti l’ordine.",
+      INVALID_STUDENT_EMAIL: "Inserisci un indirizzo istituzionale @studenti.unipi.it.",
+      EMAIL_QUEUE_FAILED: "Non siamo riusciti a inviare la richiesta. Riprova tra poco.",
     };
-    throw new Error(messages[result.error] ?? "Operazione non riuscita. Riprova.");
+    throw new Error(messages[result.error] ?? "Invio non riuscito. Riprova.");
   }
   return data as T;
 }
@@ -35,10 +37,11 @@ export function PublicMerchPage() {
   });
   const [selections, setSelections] = useState<Record<string, ProductSelection[]>>({});
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState(() => new URLSearchParams(location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Puoi riprovare." : "");
+  const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const products = useMemo(() => catalog.data ?? [], [catalog.data]);
   const selected = useMemo(() => products.flatMap((product) => {
     return (selections[product.id] ?? []).flatMap((selection) => {
@@ -51,45 +54,19 @@ export function PublicMerchPage() {
   }), [products, selections]);
   const total = selected.reduce((sum, line) => sum + line.product.price_cents * line.quantity, 0);
 
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const paypalOrderId = params.get("token");
-    const orderId = params.get("order");
-    if (params.get("paypal") === "cancelled") {
-      history.replaceState(null, "", location.pathname);
-      return;
-    }
-    if (params.get("paypal") !== "approved" || !paypalOrderId || !orderId) return;
-    const checkoutToken = sessionStorage.getItem(`public-merch:${orderId}`);
-    if (!checkoutToken) {
-      queueMicrotask(() => setError("Non trovo i dati temporanei dell’ordine su questo browser. Contatta la logistica con il numero d’ordine."));
-      history.replaceState(null, "", location.pathname);
-      return;
-    }
-    queueMicrotask(() => setBusy(true));
-    void request<{ paid: boolean }>({ action: "public-capture", orderId, paypalOrderId, checkoutToken })
-      .then((result) => {
-        if (result.paid) setNotice("Pagamento PayPal completato. L’ordine è confermato.");
-        sessionStorage.removeItem(`public-merch:${orderId}`);
-      })
-      .catch((cause) => setError(cause instanceof Error ? cause.message : "Pagamento non verificato."))
-      .finally(() => {
-        setBusy(false);
-        history.replaceState(null, "", location.pathname);
-      });
-  }, []);
-
   async function checkout(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true); setError(""); setNotice("");
     try {
       if (!selected.length) throw new Error("Scegli almeno un prodotto.");
-      const response = await request<{ orderId: string; checkoutToken: string; approvalUrl: string }>({
-        action: "public-create", firstName, lastName,
+      if (!/^[^@\s]+@studenti\.unipi\.it$/i.test(email.trim())) throw new Error("Inserisci un indirizzo istituzionale @studenti.unipi.it.");
+      await request<{ submitted: boolean }>({
+        action: "public-order-email", firstName, lastName, email: email.trim().toLowerCase(),
         items: selected.map((line) => ({ variantId: line.variant.id, quantity: line.quantity } satisfies Line)),
       });
-      sessionStorage.setItem(`public-merch:${response.orderId}`, response.checkoutToken);
-      location.assign(response.approvalUrl);
+      setNotice("Richiesta inviata. Ti arriverà una conferma all’indirizzo indicato; la logistica è in copia e ti confermerà disponibilità e ritiro.");
+      setSelections({});
+      setFirstName(""); setLastName(""); setEmail("");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Impossibile avviare il pagamento.");
       setBusy(false);
@@ -97,11 +74,11 @@ export function PublicMerchPage() {
   }
 
   return <div className="page-container">
-    <PageHeader title="Ordina il merchandising" eyebrow="Team Galileo · Link pubblico" description="Scegli prodotti, taglie e quantità, poi inserisci il nome per il ritiro. Il prezzo viene verificato dal server prima di aprire PayPal." />
+    <PageHeader title="Ordina il merchandising" eyebrow="Team Galileo · Link pubblico" description="Scegli prodotti, taglie e quantità, poi inserisci i tuoi dati. Riceverai via email la richiesta d’ordine con la logistica in copia." />
     <p><Link to="/">Torna a GalileoHub</Link></p>
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="form-success" role="status">{notice}</p>}
-    {busy && <p role="status">Verifica dell’ordine o pagamento in corso…</p>}
+    {busy && <p role="status">Invio della richiesta in corso…</p>}
     {catalog.isLoading ? <p>Caricamento catalogo…</p> : catalog.error ? <p role="alert">Catalogo non disponibile. Riprova più tardi.</p> : <form onSubmit={(event) => void checkout(event)}>
       <div className="merch-grid">
         {products.map((product) => <article className="panel merch-card" key={product.id}>
@@ -181,10 +158,13 @@ export function PublicMerchPage() {
         <div className="form-grid">
           <label className="form-field">Nome<input className="input" autoComplete="given-name" required maxLength={100} value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
           <label className="form-field">Cognome<input className="input" autoComplete="family-name" required maxLength={100} value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
+          <label className="form-field form-field--full">Email istituzionale
+            <input className="input" type="email" autoComplete="email" inputMode="email" required maxLength={254} pattern="[^@\\s]+@studenti\\.unipi\\.it" title="Usa un indirizzo @studenti.unipi.it" placeholder="nome@studenti.unipi.it" value={email} onChange={(event) => setEmail(event.target.value)} />
+          </label>
         </div>
         {selected.length ? selected.map((line) => <div className="merch-variant" key={line.variant.id}><span>{line.product.name} · {line.variant.label} × {line.quantity}</span><strong>{euro(line.product.price_cents * line.quantity)}</strong></div>) : <p>Seleziona articoli e quantità.</p>}
         <div className="merch-total"><strong>Totale</strong><strong>{euro(total)}</strong></div>
-        <button className="button button--primary" type="submit" disabled={!selected.length || busy || !products.length}>{busy ? "Attendi…" : `Paga ${euro(total)} con PayPal`}</button>
+        <button className="button button--primary" type="submit" disabled={!selected.length || busy || !products.length}>{busy ? "Invio…" : "Invia richiesta d’ordine"}</button>
       </section>
     </form>}
   </div>;
