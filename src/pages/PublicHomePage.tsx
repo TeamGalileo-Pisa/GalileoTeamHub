@@ -41,6 +41,10 @@ export function PublicHomePage() {
           <p>Apri GalileoHub in Edge o Chrome e scegli Installa app dal menu del browser o dall’icona nella barra degli indirizzi.</p>
         </article>
         <article>
+          <h2>Linux</h2>
+          <p>Apri GalileoHub in Chrome o Chromium e scegli Installa pagina come app dal menu del browser. Le notifiche dipendono anche dal servizio notifiche desktop della distribuzione Linux.</p>
+        </article>
+        <article>
           <h2>Android</h2>
           <p>Apri il link in Chrome e scegli Installa app o Aggiungi a schermata Home. Non serve passare dal Play Store.</p>
         </article>
