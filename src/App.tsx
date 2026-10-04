@@ -63,6 +63,8 @@ const ApplicationPage = lazy(() => import('./pages/ApplicationPage').then(m=>({d
 const MembershipPage = lazy(() => import('./pages/MembershipPage').then(m=>({default:m.MembershipPage})));
 const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(m=>({default:m.CommunityAdminPage})));
 const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
+const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
+const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
 function HomeRedirect() {
   const { access } = useAuth();
   return <Navigate to={access?.isAdmin ? "/admin" : access?.isMember ? "/membri" : "/area"} replace />;
@@ -87,6 +89,10 @@ export default function App() {
                 <Route index element={<HomeRedirect />} />
 
                 <Route path="/membri" element={<MemberPage />} />
+                <Route element={<ProtectedRoute memberOnly />}>
+                  <Route path="/membri/adesione" element={<MemberAdhesionPage />} />
+                </Route>
+                <Route path="/merchandising" element={<MerchandisingPage />} />
                 <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/area" element={<DashboardPage />} />
                 <Route path="/area/disponibilita" element={<AvailabilityPage />} />
@@ -121,3 +127,4 @@ export default function App() {
     </>
   );
 }
+

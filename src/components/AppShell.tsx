@@ -5,6 +5,7 @@ import {
   ClipboardList,
   FileText,
   LayoutDashboard,
+  ShoppingBag,
   HelpCircle,
   LogOut,
   Menu,
@@ -33,6 +34,7 @@ const adminNavigation = [
   { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
   { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
   { to: "/admin/candidature", label: "Candidature e adesioni", icon: FileText },
+  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
   { to: "/admin/account", label: "Account", icon: UsersRound },
   { to: "/admin/legal", label: "Termini e Privacy", icon: FileText },
   { to: "/admin/assistenza", label: "Assistenza", icon: HelpCircle },
@@ -46,6 +48,7 @@ const areaNavigation = [
   { to: "/area/votazioni", label: "Votazioni", icon: ClipboardList },
   { to: "/area/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
+  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
 ];
 
 export function AppShell() {
@@ -98,7 +101,12 @@ export function AppShell() {
     };
   }, [access?.userId, reportPresence]);
 
-  const navigation = access?.isAdmin ? adminNavigation : access?.isMember ? [{to:"/membri",label:"Bacheca",icon:Megaphone,end:true}] : areaNavigation;
+  const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
+  const navigation = access?.isAdmin ? adminNavigation : access?.isMember ? [
+    {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
+    {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
+    {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
+  ] : isLogisticsLead ? areaNavigation : areaNavigation.filter((item) => item.to !== "/merchandising");
   const notificationCount = (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0);
   const areaLabel = access?.isAdmin
     ? access.isTeamLeader ? "Team Leader" : "Amministrazione"
@@ -179,3 +187,4 @@ export function AppShell() {
     </div>
   );
 }
+

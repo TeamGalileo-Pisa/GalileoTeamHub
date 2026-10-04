@@ -7,7 +7,7 @@ import {
   certifications,
   divisions,
   genericDivision,
-} from "../../../src/lib/application-fields.ts";
+} from "../_shared/application-fields.ts";
 
 const validEmail = (s: unknown): s is string =>
   typeof s === "string" && s.length <= 254 &&
@@ -113,6 +113,30 @@ Deno.serve(async (request) => {
       }
       return jsonResponse(request, { ok: true });
     }
+    if (body.action === "submit_member_adhesion") {
+      const { user } = await requireActor(request, false);
+      const data = body.data;
+      if (!data || data.confirmed !== "yes" || !validEmail(data.email)) {
+        throw new Error("INVALID_DATA");
+      }
+      for (const key of ["firstName", "lastName", "studentNumber", "degree", "department"]) {
+        if (!validText(data[key], key === "studentNumber" ? 30 : 180)) throw new Error("INVALID_DATA");
+      }
+      const { error } = await client.rpc("submit_member_adhesion", {
+        p_actor: user.id,
+        p_data: {
+          firstName: data.firstName.trim(),
+          lastName: data.lastName.trim(),
+          studentNumber: data.studentNumber.trim(),
+          degree: data.degree.trim(),
+          department: data.department.trim(),
+          email: data.email.trim().toLowerCase(),
+          confirmed: "yes",
+        },
+      });
+      if (error) throw new Error(error.message.includes("INVALID_DATA") ? "INVALID_DATA" : error.message.includes("FORBIDDEN") ? "FORBIDDEN" : error.code === "23505" ? "ALREADY_SUBMITTED" : "SAVE_FAILED");
+      return jsonResponse(request, { ok: true });
+    }
     const { user } = await requireActor(request);
     if (body.action === "invite") {
       if (!validEmail(body.email)) throw new Error("INVALID_DATA");
@@ -180,3 +204,4 @@ Deno.serve(async (request) => {
     );
   }
 });
+

@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, StandardFonts, type PDFFont } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts, type PDFFont } from "npm:pdf-lib@1.17.1";
 import { membershipTerms } from "./membership-terms.ts";
 
 // Layout follows the supplied A4 HTML template: centered identity block, one

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
 import { sendGmailMessage } from "./email.ts";
-import { membershipPdf } from "../../../src/lib/membership-pdf.ts";
+import { membershipPdf } from "./membership-pdf.ts";
 const escape = (s: string) =>
   s.replace(
     /[&<>"']/g,
@@ -70,3 +70,4 @@ export async function processCommunityMail(client: SupabaseClient) {
     }
   }
 }
+
