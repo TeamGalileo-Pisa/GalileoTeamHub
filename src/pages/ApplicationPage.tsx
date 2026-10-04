@@ -147,11 +147,15 @@ export function ApplicationPage() {
             {division && (
               <fieldset className="application-choice-list form-field--full" key={areaId}>
                 <legend>{division.question} *</legend>
-                {division.skills.map((s) => (
-                  <label key={s} className="application-choice-option">
-                    <input type="checkbox" name="skills" value={s} /> {s}
-                  </label>
-                ))}
+                <ol className="application-choice-list__items">
+                  {division.skills.map((s) => (
+                    <li key={s}>
+                      <label className="application-choice-option">
+                        <input type="checkbox" name="skills" value={s} /> {s}
+                      </label>
+                    </li>
+                  ))}
+                </ol>
                 <input
                   className="input"
                   name="otherSkills"
@@ -185,11 +189,15 @@ export function ApplicationPage() {
             )}
             <fieldset className="application-choice-list form-field--full">
               <legend>Certificazioni extra o competenze linguistiche *</legend>
-              {certifications.map((s) => (
-                <label key={s} className="application-choice-option">
-                  <input type="checkbox" name="certifications" value={s} /> {s}
-                </label>
-              ))}
+              <ol className="application-choice-list__items">
+                {certifications.map((s) => (
+                  <li key={s}>
+                    <label className="application-choice-option">
+                      <input type="checkbox" name="certifications" value={s} /> {s}
+                    </label>
+                  </li>
+                ))}
+              </ol>
             </fieldset>
             {choice(
               "problemSolving",

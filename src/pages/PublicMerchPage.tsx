@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 type Variant = { id: string; label: string; stock: number | null };
 type Product = { id: string; name: string; description: string; image_url: string | null; price_cents: number; variants: Variant[] };
 type Line = { variantId: string; quantity: number };
-type ProductSelection = { variantId: string; quantity: string };
+type ProductSelection = { key: string; variantId: string; quantity: string };
 const euro = (cents: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
 
 async function request<T>(body: Record<string, unknown>): Promise<T> {
@@ -18,6 +18,9 @@ async function request<T>(body: Record<string, unknown>): Promise<T> {
       OUT_OF_STOCK: "La quantità richiesta non è più disponibile.",
       UNAVAILABLE: "Uno dei prodotti scelti non è più disponibile.",
       PAYPAL_NOT_CONFIGURED: "PayPal non è ancora configurato sul server.",
+      PAYPAL_MODE_INVALID: "La modalità PayPal sul server deve essere sandbox o live.",
+      PAYPAL_AUTH_FAILED: "PayPal Live ha rifiutato le credenziali. Verifica che modalità e coppia Client ID/Secret siano entrambe Live (non Sandbox).",
+      PAYPAL_ORDER_FAILED: "PayPal non è riuscito a creare il pagamento. Verifica le credenziali Live e riprova.",
       ORDER_EXPIRED: "La prenotazione è scaduta. Ripeti l’ordine.",
     };
     throw new Error(messages[result.error] ?? "Operazione non riuscita. Riprova.");
@@ -30,7 +33,7 @@ export function PublicMerchPage() {
     queryKey: ["public-merch-catalog"],
     queryFn: () => request<Product[]>({ action: "public-catalog" }),
   });
-  const [selections, setSelections] = useState<Record<string, ProductSelection>>({});
+  const [selections, setSelections] = useState<Record<string, ProductSelection[]>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(() => new URLSearchParams(location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Puoi riprovare." : "");
   const [busy, setBusy] = useState(false);
@@ -38,12 +41,13 @@ export function PublicMerchPage() {
   const [lastName, setLastName] = useState("");
   const products = useMemo(() => catalog.data ?? [], [catalog.data]);
   const selected = useMemo(() => products.flatMap((product) => {
-    const selection = selections[product.id];
-    const variant = product.variants.find((item) => item.id === selection?.variantId);
-    const quantity = Number(selection?.quantity);
-    return variant && Number.isInteger(quantity) && quantity > 0
-      ? [{ product, variant, quantity }]
-      : [];
+    return (selections[product.id] ?? []).flatMap((selection) => {
+      const variant = product.variants.find((item) => item.id === selection.variantId);
+      const quantity = Number(selection.quantity);
+      return variant && Number.isInteger(quantity) && quantity > 0
+        ? [{ product, variant, quantity }]
+        : [];
+    });
   }), [products, selections]);
   const total = selected.reduce((sum, line) => sum + line.product.price_cents * line.quantity, 0);
 
@@ -106,46 +110,67 @@ export function PublicMerchPage() {
             {product.description && <p>{product.description}</p>}
             <fieldset className="merch-size-picker">
               <legend>Personalizza il tuo articolo</legend>
-              {product.variants.length ? <div className="merch-product-options">
-                <label className="merch-option-field">
-                  <span>Taglia</span>
-                  <select
-                    className="select"
-                    aria-label={`${product.name}, taglia`}
-                    value={selections[product.id]?.variantId ?? ""}
-                    onChange={(event) => setSelections((old) => ({
-                      ...old,
-                      [product.id]: { variantId: event.target.value, quantity: "" },
-                    }))}
-                  >
-                    <option value="">Seleziona taglia</option>
-                    {product.variants.map((variant) => <option key={variant.id} value={variant.id} disabled={variant.stock === 0}>
-                      {variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock === 0 ? " · Esaurita" : ""}
-                    </option>)}
-                  </select>
-                </label>
-                <label className="merch-option-field">
-                  <span>Quantità</span>
-                  <input
-                    className="input"
-                    aria-label={`${product.name}, quantità`}
-                    type="number"
-                    inputMode="numeric"
-                    min="1"
-                    max={Math.min(20, selections[product.id]?.variantId ? (product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock ?? 20) : 20)}
-                    placeholder="1"
-                    value={selections[product.id]?.quantity ?? ""}
-                    disabled={!selections[product.id]?.variantId}
-                    onChange={(event) => setSelections((old) => ({
-                      ...old,
-                      [product.id]: { variantId: old[product.id]?.variantId ?? "", quantity: event.target.value === "0" ? "" : event.target.value },
-                    }))}
-                  />
-                </label>
-                {selections[product.id]?.variantId && product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock !== null && <small className="merch-stock-note">
-                  {product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock} disponibili
-                </small>}
-              </div> : <p className="field-help">Le taglie non sono ancora disponibili per questo prodotto.</p>}
+              {product.variants.length ? <>
+                <div className="merch-product-options">
+                  {(selections[product.id] ?? []).map((selection, index) => {
+                    const currentVariant = product.variants.find((variant) => variant.id === selection.variantId);
+                    const chosenElsewhere = new Set((selections[product.id] ?? []).filter((row) => row.key !== selection.key).map((row) => row.variantId));
+                    return <div className="merch-size-row" key={selection.key}>
+                      <label className="merch-option-field">
+                        <span>Taglia</span>
+                        <select
+                          className="select"
+                          aria-label={`${product.name}, taglia ${index + 1}`}
+                          value={selection.variantId}
+                          onChange={(event) => setSelections((old) => ({
+                            ...old,
+                            [product.id]: (old[product.id] ?? []).map((row) => row.key === selection.key ? { ...row, variantId: event.target.value, quantity: "" } : row),
+                          }))}
+                        >
+                          <option value="">Seleziona taglia</option>
+                          {product.variants.map((variant) => <option key={variant.id} value={variant.id} disabled={variant.stock === 0 || (chosenElsewhere.has(variant.id) && variant.id !== selection.variantId)}>
+                            {variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock === 0 ? " · Esaurita" : ""}
+                          </option>)}
+                        </select>
+                      </label>
+                      <label className="merch-option-field">
+                        <span>Quantità</span>
+                        <input
+                          className="input"
+                          aria-label={`${product.name}, quantità taglia ${index + 1}`}
+                          type="number"
+                          inputMode="numeric"
+                          min="1"
+                          max={Math.min(20, currentVariant?.stock ?? 20)}
+                          placeholder="1"
+                          value={selection.quantity}
+                          disabled={!selection.variantId}
+                          onChange={(event) => setSelections((old) => ({
+                            ...old,
+                            [product.id]: (old[product.id] ?? []).map((row) => row.key === selection.key ? { ...row, quantity: event.target.value === "0" ? "" : event.target.value } : row),
+                          }))}
+                        />
+                      </label>
+                      <button
+                        className="button button--secondary button--small merch-size-remove"
+                        type="button"
+                        aria-label={`Rimuovi taglia ${currentVariant?.label ?? index + 1} da ${product.name}`}
+                        onClick={() => setSelections((old) => ({ ...old, [product.id]: (old[product.id] ?? []).filter((row) => row.key !== selection.key) }))}
+                      >Rimuovi</button>
+                      {currentVariant && currentVariant.stock !== null && <small className="merch-stock-note">{currentVariant.stock} disponibili</small>}
+                    </div>;
+                  })}
+                </div>
+                <button
+                  className="button button--secondary button--small merch-add-size"
+                  type="button"
+                  disabled={product.variants.every((variant) => variant.stock === 0) || (selections[product.id]?.length ?? 0) >= product.variants.length}
+                  onClick={() => setSelections((old) => ({
+                    ...old,
+                    [product.id]: [...(old[product.id] ?? []), { key: crypto.randomUUID(), variantId: "", quantity: "" }],
+                  }))}
+                >+ Aggiungi un’altra taglia</button>
+              </> : <p className="field-help">Le taglie non sono ancora disponibili per questo prodotto.</p>}
             </fieldset>
           </div>
         </article>)}
