@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 type Variant = { id: string; label: string; stock: number | null };
 type Product = { id: string; name: string; description: string; image_url: string | null; price_cents: number; variants: Variant[] };
 type Line = { variantId: string; quantity: number };
+type ProductSelection = { variantId: string; quantity: string };
 const euro = (cents: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
 
 async function request<T>(body: Record<string, unknown>): Promise<T> {
@@ -29,14 +30,21 @@ export function PublicMerchPage() {
     queryKey: ["public-merch-catalog"],
     queryFn: () => request<Product[]>({ action: "public-catalog" }),
   });
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [selections, setSelections] = useState<Record<string, ProductSelection>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(() => new URLSearchParams(location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Puoi riprovare." : "");
   const [busy, setBusy] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const products = useMemo(() => catalog.data ?? [], [catalog.data]);
-  const selected = useMemo(() => products.flatMap((product) => product.variants.map((variant) => ({ product, variant, quantity: quantities[variant.id] ?? 0 })).filter((line) => line.quantity > 0)), [products, quantities]);
+  const selected = useMemo(() => products.flatMap((product) => {
+    const selection = selections[product.id];
+    const variant = product.variants.find((item) => item.id === selection?.variantId);
+    const quantity = Number(selection?.quantity);
+    return variant && Number.isInteger(quantity) && quantity > 0
+      ? [{ product, variant, quantity }]
+      : [];
+  }), [products, selections]);
   const total = selected.reduce((sum, line) => sum + line.product.price_cents * line.quantity, 0);
 
   useEffect(() => {
@@ -97,20 +105,47 @@ export function PublicMerchPage() {
           <div className="panel__body"><div className="merch-card__heading"><h2>{product.name}</h2><strong>{euro(product.price_cents)}</strong></div>
             {product.description && <p>{product.description}</p>}
             <fieldset className="merch-size-picker">
-              <legend>Seleziona taglia e quantità</legend>
-              <div className="merch-size-list">
-                {product.variants.map((variant) => <label className={`merch-size-option ${(quantities[variant.id] ?? 0) > 0 ? "merch-size-option--selected" : ""}`} key={variant.id}>
-                  <span className="merch-size-option__label">
-                    <strong>{variant.label === "Unica" ? "Taglia unica" : variant.label}</strong>
-                    {variant.stock !== null && <small>{variant.stock > 0 ? `${variant.stock} disponibili` : "Esaurita"}</small>}
-                  </span>
-                  <span className="merch-size-option__quantity">
-                    <span>Quantità</span>
-                    <input className="input" aria-label={`${product.name}, taglia ${variant.label}, quantità`} type="number" min="0" max={Math.min(20, variant.stock ?? 20)} value={quantities[variant.id] ?? 0} disabled={variant.stock === 0} onChange={(event) => setQuantities((old) => ({ ...old, [variant.id]: Number(event.target.value) }))} />
-                  </span>
-                </label>)}
-                {!product.variants.length && <p className="field-help">Le taglie non sono ancora disponibili per questo prodotto.</p>}
-              </div>
+              <legend>Personalizza il tuo articolo</legend>
+              {product.variants.length ? <div className="merch-product-options">
+                <label className="merch-option-field">
+                  <span>Taglia</span>
+                  <select
+                    className="select"
+                    aria-label={`${product.name}, taglia`}
+                    value={selections[product.id]?.variantId ?? ""}
+                    onChange={(event) => setSelections((old) => ({
+                      ...old,
+                      [product.id]: { variantId: event.target.value, quantity: "" },
+                    }))}
+                  >
+                    <option value="">Seleziona taglia</option>
+                    {product.variants.map((variant) => <option key={variant.id} value={variant.id} disabled={variant.stock === 0}>
+                      {variant.label === "Unica" ? "Taglia unica" : variant.label}{variant.stock === 0 ? " · Esaurita" : ""}
+                    </option>)}
+                  </select>
+                </label>
+                <label className="merch-option-field">
+                  <span>Quantità</span>
+                  <input
+                    className="input"
+                    aria-label={`${product.name}, quantità`}
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max={Math.min(20, selections[product.id]?.variantId ? (product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock ?? 20) : 20)}
+                    placeholder="1"
+                    value={selections[product.id]?.quantity ?? ""}
+                    disabled={!selections[product.id]?.variantId}
+                    onChange={(event) => setSelections((old) => ({
+                      ...old,
+                      [product.id]: { variantId: old[product.id]?.variantId ?? "", quantity: event.target.value === "0" ? "" : event.target.value },
+                    }))}
+                  />
+                </label>
+                {selections[product.id]?.variantId && product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock !== null && <small className="merch-stock-note">
+                  {product.variants.find((variant) => variant.id === selections[product.id].variantId)?.stock} disponibili
+                </small>}
+              </div> : <p className="field-help">Le taglie non sono ancora disponibili per questo prodotto.</p>}
             </fieldset>
           </div>
         </article>)}
