@@ -3,6 +3,7 @@ dist/
 coverage/
 .netlify/
 .supabase/
+.wrangler-local-config/
 
 .env
 .env.*

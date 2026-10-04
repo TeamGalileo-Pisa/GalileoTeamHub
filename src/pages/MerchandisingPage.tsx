@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
@@ -8,7 +8,6 @@ type Variant = { id: string; product_id: string; label: string; stock: number | 
 type ProductVisibility = "team_leader" | "team_leader_and_area_leads" | "everyone";
 type Product = { id: string; name: string; description: string; image_url: string | null; price_cents: number; active: boolean; visibility: ProductVisibility; variants: Variant[] };
 type CartItem = { variantId: string; quantity: number };
-type PayResult = { configured?: boolean; approvalUrl?: string; paypalOrderId?: string; paid?: boolean };
 const euro = (cents: number) => new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
 const visibilityLabels: Record<ProductVisibility, string> = {
   team_leader: "Solo Team Leader",
@@ -22,20 +21,18 @@ const parseStock = (value: string) => value.split("\n").map((line) => line.trim(
   if (!label || (stock !== null && (!Number.isInteger(stock) || stock < 0))) throw new Error(`Disponibilità non valida per ${label || "una variante"}.`);
   return { label, stock };
 });
-async function paypalRequest<T>(body: Record<string, unknown>): Promise<T> {
+async function orderRequest<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke("merch-paypal", { body });
   if (error) {
     const result = error.context instanceof Response ? await error.context.json().catch(() => ({})) : {};
     const messages: Record<string, string> = {
-      PAYPAL_NOT_CONFIGURED: "PayPal non è ancora configurato sul server.",
-      PAYPAL_MODE_INVALID: "La modalità PayPal sul server deve essere sandbox o live.",
-      PAYPAL_AUTH_FAILED: "PayPal Live ha rifiutato le credenziali. Verifica che modalità e coppia Client ID/Secret siano entrambe Live (non Sandbox).",
-      PAYPAL_ORDER_FAILED: "PayPal non è riuscito a creare il pagamento. Verifica le credenziali Live e riprova.",
       OUT_OF_STOCK: "La quantità richiesta non è più disponibile.",
-      UNAVAILABLE: "Uno dei prodotti scelti non è più disponibile.", PAYMENT_NOT_COMPLETED: "PayPal non ha completato il pagamento.",
-      FORBIDDEN: "Ordine non valido per questo account.", ORDER_EXPIRED: "La prenotazione è scaduta. Ripeti l’ordine.",
+      UNAVAILABLE: "Uno dei prodotti scelti non è più disponibile.",
+      FORBIDDEN: "Ordine non valido per questo account.",
+      INVALID_STUDENT_EMAIL: "Inserisci un indirizzo istituzionale @studenti.unipi.it.",
+      EMAIL_QUEUE_FAILED: "Non siamo riusciti a inviare la richiesta. Riprova tra poco.",
     };
-    throw new Error(messages[result.error] ?? "Operazione PayPal non riuscita. Riprova.");
+    throw new Error(messages[result.error] ?? "Invio non riuscito. Riprova.");
   }
   return data as T;
 }
@@ -48,13 +45,14 @@ export function MerchandisingPage() {
     Boolean(access?.isTeamLeader) ||
     (product.visibility === "team_leader_and_area_leads" && Boolean(access?.areas.length && !access.isMember));
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [notice, setNotice] = useState(() => new URLSearchParams(window.location.search).get("paypal") === "cancelled" ? "Pagamento annullato. Il carrello è ancora disponibile." : "");
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
-  const [payBusy, setPayBusy] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("paypal") === "approved" && Boolean(params.get("token") && params.get("order"));
-  });
+  const [busy, setBusy] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
   const productsQuery = useQuery({
     queryKey: ["merch-products", access?.userId],
     queryFn: async () => {
@@ -79,23 +77,6 @@ export function MerchandisingPage() {
     const product = products.find((p) => p.id === variant?.product_id);
     return sum + (product?.price_cents ?? 0) * item.quantity;
   }, 0), [cart, products]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const paypalId = params.get("token");
-    const localOrder = params.get("order");
-    if (params.get("paypal") === "cancelled") {
-      history.replaceState(null, "", location.pathname);
-      return;
-    }
-    if (params.get("paypal") !== "approved" || !paypalId || !localOrder) return;
-    let alive = true;
-    void paypalRequest<PayResult>({ action: "capture", orderId: localOrder, paypalOrderId: paypalId })
-      .then((result) => { if (alive && result.paid) { setNotice("Pagamento PayPal completato. L’ordine è confermato."); setCart([]); void queryClient.invalidateQueries({ queryKey: ["merch-orders"] }); } })
-      .catch((cause) => { if (alive) setError(cause instanceof Error ? cause.message : "Pagamento non verificato."); })
-      .finally(() => { if (alive) { setPayBusy(false); history.replaceState(null, "", location.pathname); } });
-    return () => { alive = false; };
-  }, [queryClient]);
 
   async function saveProduct(form: FormData) {
     setError(""); setNotice("");
@@ -147,13 +128,16 @@ export function MerchandisingPage() {
   }
 
   async function checkout() {
-    setPayBusy(true); setError(""); setNotice("");
+    setBusy(true); setError(""); setNotice("");
     try {
       if (!cart.length) throw new Error("Il carrello è vuoto.");
-      const result = await paypalRequest<PayResult>({ action: "create", items: cart });
-      if (!result.approvalUrl) throw new Error("PayPal non è ancora configurato. Riprova più tardi.");
-      location.assign(result.approvalUrl);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "Impossibile avviare il pagamento."); setPayBusy(false); }
+      if (!firstName.trim() || !lastName.trim()) throw new Error("Inserisci nome e cognome.");
+      if (!/^[^@\s]+@studenti\.unipi\.it$/i.test(email.trim())) throw new Error("Inserisci un indirizzo istituzionale @studenti.unipi.it.");
+      await orderRequest<{ submitted: boolean }>({ action: "member-order-email", firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim().toLowerCase(), items: cart });
+      setNotice("Richiesta inviata. Ti arriverà una conferma all’indirizzo indicato; la logistica è in copia e ti confermerà disponibilità e ritiro.");
+      setCart([]); setFirstName(""); setLastName(""); setEmail("");
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Impossibile inviare la richiesta."); }
+    finally { setBusy(false); }
   }
 
   async function toggleProduct(product: Product) {
@@ -190,8 +174,8 @@ export function MerchandisingPage() {
   }
 
   return <div className="page-container">
-    <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci prodotti, varianti, immagini, prezzi e disponibilità. Gli ordini si pagano in euro con PayPal." : "Scegli il prodotto e la taglia. Il totale del carrello viene calcolato prima del pagamento PayPal."} />
-    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}{payBusy && <p role="status">Verifica o avvio del pagamento in corso…</p>}
+    <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci prodotti, varianti, immagini, prezzi e disponibilità. Le richieste d’ordine arrivano via email alla logistica." : "Scegli prodotti, taglie e quantità; invia la richiesta alla logistica con il tuo indirizzo istituzionale."} />
+    {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}{busy && <p role="status">Invio della richiesta in corso…</p>}
     {canManage && <section className="panel panel__body merch-admin">
       <p>Link pubblico per gli ordini: <a href={publicOrderUrl} target="_blank" rel="noreferrer">{publicOrderUrl}</a></p>
       <button className="button button--secondary" type="button" onClick={() => void navigator.clipboard?.writeText(publicOrderUrl)}>Copia link pubblico</button>
@@ -214,7 +198,18 @@ export function MerchandisingPage() {
           <p>{product.description || ""}</p>
           {!product.active && <p className="muted">Non visibile ai membri</p>}
           {canManage && <p className="muted">Visibilità catalogo: {visibilityLabels[product.visibility]}</p>}
-          <div className="merch-variants">{product.variants.filter((v) => v.active).map((variant) => <div className="merch-variant" key={variant.id}><span>{variant.label === "Unica" ? "Taglia unica" : `Taglia ${variant.label}`}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</span>{canPurchase(product) && <button className="button button--secondary" type="button" disabled={variant.stock === 0} onClick={() => add(variant)}>Aggiungi</button>}</div>)}</div>
+          {canPurchase(product) && <div className="merch-variants">
+            <label className="form-field">Seleziona la taglia
+              <select className="input" aria-label={`${product.name}, taglia`} value={selectedVariants[product.id] ?? ""} onChange={(event) => setSelectedVariants((old) => ({ ...old, [product.id]: event.target.value }))}>
+                <option value="">Scegli una taglia</option>
+                {product.variants.filter((variant) => variant.active).map((variant) => <option key={variant.id} value={variant.id} disabled={variant.stock === 0}>{variant.label === "Unica" ? "Taglia unica" : `Taglia ${variant.label}`}{variant.stock !== null ? ` · ${variant.stock} disponibili` : ""}</option>)}
+              </select>
+            </label>
+            {(() => {
+              const variant = product.variants.find((item) => item.id === selectedVariants[product.id] && item.active);
+              return <button className="button button--secondary" type="button" disabled={!variant || variant.stock === 0} onClick={() => variant && add(variant)}>Aggiungi al carrello</button>;
+            })()}
+          </div>}
           {canManage && <div className="merch-admin-actions"><button className="button button--secondary" type="button" onClick={() => setEditing(product)}>Modifica</button><button className="button button--secondary" type="button" onClick={() => void toggleProduct(product)}>{product.active ? "Nascondi" : "Riattiva"}</button><button className="button button--secondary" type="button" onClick={() => void deleteProduct(product)}>Elimina</button></div>}
         </div>
       </article>)}
@@ -226,9 +221,17 @@ export function MerchandisingPage() {
       const product = products.find((p) => p.id === variant.product_id)!;
       return <div className="merch-variant" key={item.variantId}><span>{product.name} · {variant.label} × {item.quantity}</span><strong>{euro(product.price_cents * item.quantity)}</strong><button className="button button--secondary" type="button" onClick={() => setCart((old) => old.filter((i) => i.variantId !== item.variantId))}>Rimuovi</button></div>;
     }) : <p>Seleziona un prodotto per iniziare.</p>}
-      <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || payBusy} onClick={() => void checkout()}>{payBusy ? "Attendi…" : `Paga ${euro(cartTotal)} con PayPal`}</button>
+      {cart.length > 0 && <div className="form-grid">
+        <label className="form-field">Nome<input className="input" autoComplete="given-name" required maxLength={100} value={firstName} onChange={(event) => setFirstName(event.target.value)} /></label>
+        <label className="form-field">Cognome<input className="input" autoComplete="family-name" required maxLength={100} value={lastName} onChange={(event) => setLastName(event.target.value)} /></label>
+        <label className="form-field form-field--full">Email istituzionale
+          <input className="input" type="email" autoComplete="email" inputMode="email" required maxLength={254} pattern="[^@\\s]+@studenti\\.unipi\\.it" title="Usa un indirizzo @studenti.unipi.it" placeholder="nome@studenti.unipi.it" value={email} onChange={(event) => setEmail(event.target.value)} />
+        </label>
+      </div>}
+      <div className="merch-total"><strong>Totale</strong><strong>{euro(cartTotal)}</strong></div><button className="button button--primary" type="button" disabled={!cart.length || busy} onClick={() => void checkout()}>{busy ? "Invio…" : "Invia richiesta d’ordine"}</button>
     </section>
 
     {canManage && <section className="panel panel__body"><h2>Ordini pagati e confermati</h2>{ordersQuery.data?.length ? ordersQuery.data.map((order) => <article className="merch-order" key={order.id}><strong>Pagato e confermato</strong><span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name} · ` : ""}{new Date(order.created_at).toLocaleString("it-IT")} · {euro(order.total_cents)}</span><ul>{order.items.map((item, i) => <li key={i}>{item.product_name} · {item.variant_label} × {item.quantity}</li>)}</ul></article>) : <p>Nessun ordine pagato e confermato.</p>}</section>}
   </div>;
 }
+

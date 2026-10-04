@@ -12,6 +12,89 @@ const apiBase = () => mode() === "live" ? "https://api-m.paypal.com" : "https://
 const appBase = () => (Deno.env.get("PUBLIC_APP_URL") ?? "https://galileohub.info-teamgalileo.workers.dev").replace(/\/$/, "");
 const money = (cents: number) => (cents / 100).toFixed(2);
 const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+const logisticsEmail = "logistica.teamgalileo@gmail.com";
+function orderEmailDetails(body: Record<string, unknown>) {
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  if (email.length > 254 || !/^[^@\s]+@studenti\.unipi\.it$/.test(email)) throw new Error("INVALID_STUDENT_EMAIL");
+  const firstName = typeof body.firstName === "string" ? body.firstName.trim() : "";
+  const lastName = typeof body.lastName === "string" ? body.lastName.trim() : "";
+  if (firstName.length < 1 || firstName.length > 100 || lastName.length < 1 || lastName.length > 100) throw new Error("INVALID_ORDER");
+  const items = body.items;
+  if (!Array.isArray(items) || items.length === 0 || items.length > 30 ||
+    items.some((item: Record<string, unknown>) => typeof item.variantId !== "string" || !/^[0-9a-f-]{36}$/i.test(item.variantId) || !Number.isInteger(item.quantity) || Number(item.quantity) < 1 || Number(item.quantity) > 20) ||
+    new Set(items.map((item: Record<string, unknown>) => item.variantId)).size !== items.length) throw new Error("INVALID_ORDER");
+  return { email, firstName, lastName, items: items.map((item: Record<string, unknown>) => ({ variantId: item.variantId, quantity: item.quantity })) };
+}
+
+async function queueOrderEmail(service: ReturnType<typeof createServiceClient>, order: { order_id: string; total_cents: number }, buyer: { email: string; firstName: string; lastName: string }) {
+  const { data: lines, error: lineError } = await service.from("merch_order_items")
+    .select("product_name,variant_label,quantity,line_total_cents")
+    .eq("order_id", order.order_id);
+  if (lineError || !lines?.length) {
+    await service.rpc("cancel_merch_order", { p_order: order.order_id });
+    throw new Error("ORDER_FAILED");
+  }
+  const { error: queueError } = await service.from("community_outbox").insert({
+    kind: "merch_order",
+    recipient: buyer.email,
+    payload: {
+      ...buyer,
+      orderId: order.order_id,
+      totalCents: order.total_cents,
+      logisticsEmail,
+      items: lines.map((line: Record<string, unknown>) => ({
+        productName: line.product_name,
+        variantLabel: line.variant_label,
+        quantity: line.quantity,
+        lineTotalCents: line.line_total_cents,
+      })),
+    },
+  });
+  if (queueError) {
+    await service.rpc("cancel_merch_order", { p_order: order.order_id });
+    throw new Error("EMAIL_QUEUE_FAILED");
+  }
+  // The mail is the request. Do not leave an unpaid PayPal reservation holding stock.
+  const { error: cancelError } = await service.rpc("cancel_merch_order", { p_order: order.order_id });
+  if (cancelError) console.error("[Merch email request] reservation cleanup deferred", order.order_id);
+  return { submitted: true };
+}
+
+type PayPalPayload = {
+  access_token?: string;
+  id?: string;
+  links?: Array<{ rel?: string; href?: string }>;
+  status?: string;
+  name?: unknown;
+  error?: unknown;
+  debug_id?: unknown;
+  details?: Array<{ issue?: unknown }>;
+  purchase_units?: Array<{
+    custom_id?: string;
+    payments?: { captures?: Array<{ id?: string; amount?: { currency_code?: string; value?: string } }> };
+  }>;
+};
+
+function logPayPalFailure(phase: string, status: number, payload: PayPalPayload) {
+  const safeCode = (value: unknown) => typeof value === "string" && /^[A-Z0-9_]{1,80}$/i.test(value) ? value : undefined;
+  const details = Array.isArray(payload.details)
+    ? payload.details.slice(0, 10).map((detail: Record<string, unknown>) => safeCode(detail.issue)).filter(Boolean)
+    : [];
+  console.error("[PayPal API failure]", JSON.stringify({
+    phase,
+    status,
+    name: safeCode(payload.name),
+    error: safeCode(payload.error),
+    details,
+    debugId: safeCode(payload.debug_id),
+  }));
+}
+
+async function paypalJson(response: Response, phase: string) {
+  const payload = await response.json().catch(() => ({})) as PayPalPayload;
+  if (!response.ok) logPayPalFailure(phase, response.status, payload);
+  return payload;
+}
 
 async function paypalToken() {
   const clientId = Deno.env.get("PAYPAL_CLIENT_ID")?.trim();
@@ -25,8 +108,9 @@ async function paypalToken() {
     },
     body: "grant_type=client_credentials",
   });
-  if (!response.ok) throw new Error("PAYPAL_AUTH_FAILED");
-  return (await response.json()).access_token as string;
+  const result = await paypalJson(response, "oauth-token");
+  if (!response.ok || typeof result.access_token !== "string") throw new Error("PAYPAL_AUTH_FAILED");
+  return result.access_token;
 }
 
 Deno.serve(async (request) => {
@@ -44,6 +128,18 @@ Deno.serve(async (request) => {
         .eq("variants.active", true).order("sort_order").order("created_at");
       if (error) throw new Error("CATALOG_UNAVAILABLE");
       return jsonResponse(request, data ?? []);
+    }
+    if (body.action === "public-order-email") {
+      const buyer = orderEmailDetails(body);
+      const checkoutToken = Array.from(crypto.getRandomValues(new Uint8Array(32))).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      const { data, error } = await service.rpc("create_public_merch_order", {
+        p_first_name: buyer.firstName, p_last_name: buyer.lastName,
+        p_token_hash: await sha256(checkoutToken), p_items: buyer.items,
+      });
+      if (error) throw new Error(error.message.includes("OUT_OF_STOCK") ? "OUT_OF_STOCK" : error.message.includes("UNAVAILABLE") ? "UNAVAILABLE" : "INVALID_ORDER");
+      const order = data?.[0];
+      if (!order) throw new Error("ORDER_FAILED");
+      return jsonResponse(request, await queueOrderEmail(service, order, buyer));
     }
     if (body.action === "public-create") {
       if (typeof body.firstName !== "string" || body.firstName.trim().length < 1 || body.firstName.length > 100 ||
@@ -78,9 +174,9 @@ Deno.serve(async (request) => {
             application_context: { brand_name: "Team Galileo", user_action: "PAY_NOW", return_url: `${appBase()}/merchandising/ordine?paypal=approved&order=${order.order_id}`, cancel_url: `${appBase()}/merchandising/ordine?paypal=cancelled` },
           }),
         });
-        const result = await response.json();
+        const result = await paypalJson(response, "public-create-order");
         if (!response.ok || !result.id) throw new Error("PAYPAL_ORDER_FAILED");
-        const approvalUrl = result.links?.find((link: { rel: string; href: string }) => link.rel === "approve")?.href;
+        const approvalUrl = result.links?.find((link) => link.rel === "approve")?.href;
         if (!approvalUrl) throw new Error("PAYPAL_ORDER_FAILED");
         const { error: updateError } = await service.from("merch_orders").update({ paypal_order_id: result.id }).eq("id", order.order_id);
         if (updateError) throw new Error("ORDER_FAILED");
@@ -105,7 +201,7 @@ Deno.serve(async (request) => {
       }
       const token = await paypalToken();
       const response = await fetch(`${apiBase()}/v2/checkout/orders/${encodeURIComponent(body.paypalOrderId)}/capture`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "paypal-request-id": `capture-${body.orderId}` }, body: "{}" });
-      const result = await response.json();
+      const result = await paypalJson(response, "public-capture-order");
       if (!response.ok || result.status !== "COMPLETED") throw new Error("PAYMENT_NOT_COMPLETED");
       const capture = result.purchase_units?.[0]?.payments?.captures?.[0];
       if (!capture?.id || result.purchase_units?.[0]?.custom_id !== order.id || capture.amount?.currency_code !== "EUR" || Math.round(Number(capture.amount?.value) * 100) !== order.total_cents) throw new Error("PAYMENT_AMOUNT_MISMATCH");
@@ -114,6 +210,14 @@ Deno.serve(async (request) => {
       return jsonResponse(request, { paid: true });
     }
     const { client, user } = await requireActor(request, false);
+    if (body.action === "member-order-email") {
+      const buyer = orderEmailDetails(body);
+      const { data, error } = await client.rpc("create_merch_order", { p_buyer: user.id, p_items: buyer.items });
+      if (error) throw new Error(error.message.includes("OUT_OF_STOCK") ? "OUT_OF_STOCK" : error.message.includes("UNAVAILABLE") ? "UNAVAILABLE" : "INVALID_ORDER");
+      const order = data?.[0];
+      if (!order) throw new Error("ORDER_FAILED");
+      return jsonResponse(request, await queueOrderEmail(service, order, buyer));
+    }
     if (body.action === "config") {
       return jsonResponse(request, { configured: Boolean(Deno.env.get("PAYPAL_CLIENT_ID") && Deno.env.get("PAYPAL_CLIENT_SECRET")), clientId: Deno.env.get("PAYPAL_CLIENT_ID") ?? null, mode: mode() });
     }
@@ -143,9 +247,9 @@ Deno.serve(async (request) => {
             application_context: { brand_name: "Team Galileo", user_action: "PAY_NOW", return_url: `${appBase()}/merchandising?paypal=approved&order=${order.order_id}`, cancel_url: `${appBase()}/merchandising?paypal=cancelled` },
           }),
         });
-        const result = await response.json();
+        const result = await paypalJson(response, "member-create-order");
         if (!response.ok || !result.id) throw new Error("PAYPAL_ORDER_FAILED");
-        const approvalUrl = result.links?.find((link: { rel: string; href: string }) => link.rel === "approve")?.href;
+        const approvalUrl = result.links?.find((link) => link.rel === "approve")?.href;
         if (!approvalUrl) throw new Error("PAYPAL_ORDER_FAILED");
         const { error: updateError } = await client.from("merch_orders").update({ paypal_order_id: result.id }).eq("id", order.order_id).eq("buyer_user_id", user.id);
         if (updateError) throw new Error("ORDER_FAILED");
@@ -167,7 +271,7 @@ Deno.serve(async (request) => {
       }
       const token = await paypalToken();
       const response = await fetch(`${apiBase()}/v2/checkout/orders/${encodeURIComponent(body.paypalOrderId)}/capture`, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json", "paypal-request-id": `capture-${body.orderId}` }, body: "{}" });
-      const result = await response.json();
+      const result = await paypalJson(response, "member-capture-order");
       if (!response.ok || result.status !== "COMPLETED") throw new Error("PAYMENT_NOT_COMPLETED");
       const capture = result.purchase_units?.[0]?.payments?.captures?.[0];
       const customId = result.purchase_units?.[0]?.custom_id;
@@ -179,7 +283,7 @@ Deno.serve(async (request) => {
     throw new Error("INVALID_DATA");
   } catch (cause) {
     const raw = cause instanceof Error ? cause.message : "INVALID_DATA";
-    const allowed = ["UNAUTHORIZED","FORBIDDEN","INVALID_DATA","INVALID_ORDER","UNAVAILABLE","OUT_OF_STOCK","ORDER_FAILED","ORDER_EXPIRED","PAYPAL_NOT_CONFIGURED","PAYPAL_MODE_INVALID","PAYPAL_AUTH_FAILED","PAYPAL_ORDER_FAILED","PAYMENT_NOT_COMPLETED","PAYMENT_AMOUNT_MISMATCH","ORDER_UPDATE_FAILED","CATALOG_UNAVAILABLE"];
+    const allowed = ["UNAUTHORIZED","FORBIDDEN","INVALID_DATA","INVALID_ORDER","INVALID_STUDENT_EMAIL","EMAIL_QUEUE_FAILED","UNAVAILABLE","OUT_OF_STOCK","ORDER_FAILED","ORDER_EXPIRED","PAYPAL_NOT_CONFIGURED","PAYPAL_MODE_INVALID","PAYPAL_AUTH_FAILED","PAYPAL_ORDER_FAILED","PAYMENT_NOT_COMPLETED","PAYMENT_AMOUNT_MISMATCH","ORDER_UPDATE_FAILED","CATALOG_UNAVAILABLE"];
     const error = allowed.includes(raw) ? raw : "ORDER_FAILED";
     return jsonResponse(request, { error }, error === "UNAUTHORIZED" ? 401 : error === "FORBIDDEN" ? 403 : 400);
   }
