@@ -27,7 +27,11 @@ async function paypalRequest<T>(body: Record<string, unknown>): Promise<T> {
   if (error) {
     const result = error.context instanceof Response ? await error.context.json().catch(() => ({})) : {};
     const messages: Record<string, string> = {
-      PAYPAL_NOT_CONFIGURED: "PayPal non è ancora configurato sul server.", OUT_OF_STOCK: "La quantità richiesta non è più disponibile.",
+      PAYPAL_NOT_CONFIGURED: "PayPal non è ancora configurato sul server.",
+      PAYPAL_MODE_INVALID: "La modalità PayPal sul server deve essere sandbox o live.",
+      PAYPAL_AUTH_FAILED: "PayPal Live ha rifiutato le credenziali. Verifica che modalità e coppia Client ID/Secret siano entrambe Live (non Sandbox).",
+      PAYPAL_ORDER_FAILED: "PayPal non è riuscito a creare il pagamento. Verifica le credenziali Live e riprova.",
+      OUT_OF_STOCK: "La quantità richiesta non è più disponibile.",
       UNAVAILABLE: "Uno dei prodotti scelti non è più disponibile.", PAYMENT_NOT_COMPLETED: "PayPal non ha completato il pagamento.",
       FORBIDDEN: "Ordine non valido per questo account.", ORDER_EXPIRED: "La prenotazione è scaduta. Ripeti l’ordine.",
     };

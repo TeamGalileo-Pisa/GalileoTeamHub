@@ -2447,3 +2447,35 @@ p {
     padding-left: 24px;
   }
 }
+
+ 
+/* Multiple sizes per product in the public checkout. */
+.merch-size-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--page-raised);
+}
+
+.merch-add-size {
+  margin-top: 12px;
+}
+
+.merch-size-remove {
+  min-height: 42px;
+}
+
+@media (max-width: 620px) {
+  .merch-size-row {
+    grid-template-columns: minmax(0, 1fr) 92px;
+  }
+
+  .merch-size-remove {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

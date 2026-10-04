@@ -2,15 +2,20 @@ import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 import { requireActor } from "../_shared/actor.ts";
 
-const mode = () => Deno.env.get("PAYPAL_MODE") === "live" ? "live" : "sandbox";
+const mode = () => {
+  const value = (Deno.env.get("PAYPAL_MODE") ?? "sandbox").trim().toLowerCase();
+  if (value === "live" || value === "production") return "live";
+  if (value === "sandbox" || value === "test" || value === "") return "sandbox";
+  throw new Error("PAYPAL_MODE_INVALID");
+};
 const apiBase = () => mode() === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 const appBase = () => (Deno.env.get("PUBLIC_APP_URL") ?? "https://galileohub.info-teamgalileo.workers.dev").replace(/\/$/, "");
 const money = (cents: number) => (cents / 100).toFixed(2);
 const sha256 = async (value: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)))).map((byte) => byte.toString(16).padStart(2, "0")).join("");
 
 async function paypalToken() {
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const secret = Deno.env.get("PAYPAL_CLIENT_SECRET");
+  const clientId = Deno.env.get("PAYPAL_CLIENT_ID")?.trim();
+  const secret = Deno.env.get("PAYPAL_CLIENT_SECRET")?.trim();
   if (!clientId || !secret) throw new Error("PAYPAL_NOT_CONFIGURED");
   const response = await fetch(`${apiBase()}/v1/oauth2/token`, {
     method: "POST",
@@ -174,7 +179,7 @@ Deno.serve(async (request) => {
     throw new Error("INVALID_DATA");
   } catch (cause) {
     const raw = cause instanceof Error ? cause.message : "INVALID_DATA";
-    const allowed = ["UNAUTHORIZED","FORBIDDEN","INVALID_DATA","INVALID_ORDER","UNAVAILABLE","OUT_OF_STOCK","ORDER_FAILED","ORDER_EXPIRED","PAYPAL_NOT_CONFIGURED","PAYPAL_AUTH_FAILED","PAYPAL_ORDER_FAILED","PAYMENT_NOT_COMPLETED","PAYMENT_AMOUNT_MISMATCH","ORDER_UPDATE_FAILED","CATALOG_UNAVAILABLE"];
+    const allowed = ["UNAUTHORIZED","FORBIDDEN","INVALID_DATA","INVALID_ORDER","UNAVAILABLE","OUT_OF_STOCK","ORDER_FAILED","ORDER_EXPIRED","PAYPAL_NOT_CONFIGURED","PAYPAL_MODE_INVALID","PAYPAL_AUTH_FAILED","PAYPAL_ORDER_FAILED","PAYMENT_NOT_COMPLETED","PAYMENT_AMOUNT_MISMATCH","ORDER_UPDATE_FAILED","CATALOG_UNAVAILABLE"];
     const error = allowed.includes(raw) ? raw : "ORDER_FAILED";
     return jsonResponse(request, { error }, error === "UNAUTHORIZED" ? 401 : error === "FORBIDDEN" ? 403 : 400);
   }
