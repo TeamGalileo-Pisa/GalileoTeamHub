@@ -5,6 +5,8 @@ import { community } from "../lib/community";
 import { listAreas } from "../lib/data";
 import { downloadMembershipExport } from "../lib/membership-export";
 import { PageHeader } from "../components/PageHeader";
+import { ApplicationAnswerList } from "../components/ApplicationAnswerList";
+import { Trash2 } from "lucide-react";
 export function CommunityAdminPage() {
   const cache = useQueryClient();
   const [credentials, setCredentials] = useState<
@@ -42,6 +44,7 @@ export function CommunityAdminPage() {
         last_name: string;
         email: string;
         area_id: string;
+        created_at: string;
         answers: Record<string, unknown>;
       }[];
     },
@@ -93,9 +96,13 @@ export function CommunityAdminPage() {
   const exportMembership = useMutation({
     mutationFn: downloadMembershipExport,
   });
+  const deleteApplication = useMutation({
+    mutationFn: (id: string) => community({ action: "delete_application", applicationId: id }),
+    onSuccess: () => cache.invalidateQueries({ queryKey: ["applications"] }),
+  });
   const error = deliveries.error ?? settings.error ?? controls.error ??
     applications.error ?? toggle.error ?? sharedLink.error ??
-    member.error ?? exportMembership.error;
+    member.error ?? exportMembership.error ?? deleteApplication.error;
   return (
     <div className="page-container">
       <PageHeader
@@ -245,24 +252,30 @@ export function CommunityAdminPage() {
       <section className="panel panel__body">
         <h2>Candidature ricevute</h2>
         {applications.data?.map((a) => (
-          <details key={a.id}>
-            <summary>
-              {a.first_name} {a.last_name} ·{" "}
-              {areas.data?.find((x) => x.id === a.area_id)?.name}
-            </summary>
-            <p>{a.email}</p>
-            <dl>
-              {Object.entries(a.answers).map(([k, v]) => (
-                <div key={k}>
-                  <dt>{k}</dt>
-                  <dd>{Array.isArray(v) ? v.join(", ") : String(v)}</dd>
-                </div>
-              ))}
-            </dl>
-          </details>
+          <article className="application-review-card" key={a.id}>
+            <header className="application-review-card__header">
+              <div>
+                <p className="eyebrow">{areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area"}</p>
+                <h3>{a.first_name} {a.last_name}</h3>
+                <p><a href={`mailto:${encodeURIComponent(a.email)}`}>{a.email}</a> · Ricevuta il {new Date(a.created_at).toLocaleString("it-IT")}</p>
+              </div>
+              <button className="button button--danger button--small" type="button" disabled={deleteApplication.isPending} onClick={() => {
+                if (window.confirm(`Eliminare definitivamente la candidatura di ${a.first_name} ${a.last_name}? Questa operazione non può essere annullata.`)) {
+                  deleteApplication.mutate(a.id);
+                }
+              }}><Trash2 size={15} /> Elimina candidatura</button>
+            </header>
+            <ApplicationAnswerList application={{
+              first_name: a.first_name,
+              last_name: a.last_name,
+              email: a.email,
+              area_name: areas.data?.find((x) => x.id === a.area_id)?.name ?? "Area",
+              area_slug: areas.data?.find((x) => x.id === a.area_id)?.slug ?? "",
+              answers: a.answers,
+            }} />
+          </article>
         ))}
       </section>
     </div>
   );
 }
-
