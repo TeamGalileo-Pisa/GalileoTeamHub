@@ -21,7 +21,7 @@ interface MembershipRow {
 async function fetchAccessContext(session: Session): Promise<AccessContext> {
   const userId = session.user.id;
 
-  const [profileResult, roleResult, membershipsResult] = await Promise.all([
+  const [profileResult, roleResult, membershipsResult, sharedResult] = await Promise.all([
     supabase
       .from("profiles")
       .select("username, display_name, status, must_change_password")
@@ -31,7 +31,8 @@ async function fetchAccessContext(session: Session): Promise<AccessContext> {
       .from("system_roles")
       .select("role")
       .eq("user_id", userId)
-      .eq("role", "admin")
+       .in("role", ["admin", "team_leader"])
+      .limit(1)
       .maybeSingle(),
     supabase
       .from("area_memberships")
@@ -39,6 +40,7 @@ async function fetchAccessContext(session: Session): Promise<AccessContext> {
       .eq("user_id", userId)
       .eq("role", "area_lead")
       .is("ended_at", null),
+    supabase.from("area_shared_accounts").select("area:areas(id,name,slug)").eq("user_id", userId),
   ]);
 
   if (profileResult.error) throw profileResult.error;
@@ -51,7 +53,7 @@ async function fetchAccessContext(session: Session): Promise<AccessContext> {
     throw new Error("Questo account è stato disattivato.");
   }
 
-  const areas = (membershipsResult.data as unknown as MembershipRow[])
+  const areas = ([...membershipsResult.data, ...(sharedResult.data ?? [])] as unknown as MembershipRow[])
     .flatMap((membership) => {
       if (!membership.area) return [];
       return Array.isArray(membership.area)
@@ -65,6 +67,8 @@ async function fetchAccessContext(session: Session): Promise<AccessContext> {
     username: profile.username,
     displayName: profile.display_name,
     isAdmin: Boolean(roleResult.data),
+    isTeamLeader: roleResult.data?.role === "team_leader",
+    isMember: Boolean(sharedResult.data?.length),
     mustChangePassword: profile.must_change_password,
     areas,
   };

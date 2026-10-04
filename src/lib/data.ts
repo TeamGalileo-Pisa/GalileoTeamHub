@@ -14,6 +14,8 @@ import type {
   RoomAvailability,
   RoomAvailabilityUsage,
   StaffMember,
+  ManagedBooking,
+  ManagedBookingSlot,
   UpcomingInterview,
 } from "../types/domain";
 import { friendlyError } from "./errors";
@@ -307,6 +309,10 @@ export async function listStaff(): Promise<StaffMember[]> {
     displayName: asString(row.display_name),
     status: row.status === "disabled" ? "disabled" : "active",
     isAdmin: asBoolean(row.is_admin),
+    role:
+      row.role === "member" || row.role === "team_leader" || row.role === "admin"
+        ? row.role
+        : "area_lead",
     areas: Array.isArray(row.areas)
       ? (row.areas as JsonRecord[]).map((area) => ({
           id: asString(area.id),
@@ -322,6 +328,7 @@ export async function createStaffMember(input: {
   displayName: string;
   temporaryPassword: string;
   isAdmin: boolean;
+  role?: "admin" | "team_leader" | "area_lead";
   areaId?: string;
 }): Promise<void> {
   const { error } = await supabase.functions.invoke("staff-admin", {
@@ -419,6 +426,55 @@ export async function rotateBookingLink(sessionId: string): Promise<string> {
   });
   throwIfError(error);
   return asString(data);
+}
+
+export async function getManagedBooking(token: string): Promise<{ booking: ManagedBooking; slots: ManagedBookingSlot[] }> {
+  const { data, error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "manage", manageToken: token },
+  });
+  await throwIfFunctionError(error);
+  const raw = data as { booking: JsonRecord; slots: JsonRecord[] };
+  return {
+    booking: {
+      bookingId: asString(raw.booking.booking_id),
+      candidateName: asString(raw.booking.candidate_name),
+      candidateEmail: asString(raw.booking.candidate_email),
+      areaName: asString(raw.booking.area_name),
+      roomName: asString(raw.booking.room_name),
+      startsAt: asString(raw.booking.starts_at),
+      endsAt: asString(raw.booking.ends_at),
+    },
+    slots: (raw.slots ?? []).map((slot) => ({
+      id: asString(slot.id),
+      startsAt: asString(slot.starts_at),
+      endsAt: asString(slot.ends_at),
+      roomName: asString(slot.room_name),
+    })),
+  };
+}
+
+export async function changeManagedBooking(token: string, newSlotId: string): Promise<ManagedBooking> {
+  const { data, error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "change", manageToken: token, newSlotId },
+  });
+  await throwIfFunctionError(error);
+  const raw = (data as { booking: JsonRecord }).booking;
+  return {
+    bookingId: asString(raw.booking_id),
+    candidateName: asString(raw.candidate_name),
+    candidateEmail: asString(raw.candidate_email),
+    areaName: asString(raw.area_name),
+    roomName: asString(raw.room_name),
+    startsAt: asString(raw.starts_at),
+    endsAt: asString(raw.ends_at),
+  };
+}
+
+export async function cancelManagedBooking(token: string): Promise<void> {
+  const { error } = await supabase.functions.invoke("public-booking", {
+    body: { action: "cancel", manageToken: token },
+  });
+  await throwIfFunctionError(error);
 }
 
 export async function getPublicBookingAvailability(
@@ -531,6 +587,41 @@ export async function markAnnouncementRead(
   throwIfError(error);
 }
 
+export interface SystemNotification {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  readAt: string | null;
+}
+
+export async function listNotifications(): Promise<SystemNotification[]> {
+  const { data, error } = await supabase.rpc("list_notifications", { p_limit: 30 });
+  throwIfError(error);
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    id: asString(row.id),
+    type: asString(row.type),
+    title: asString(row.title),
+    body: asString(row.body),
+    data: (row.data && typeof row.data === "object" ? row.data : {}) as Record<string, unknown>,
+    createdAt: asString(row.created_at),
+    readAt: typeof row.read_at === "string" ? row.read_at : null,
+  }));
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const { data, error } = await supabase.rpc("get_unread_notification_count");
+  throwIfError(error);
+  return asNumber(data);
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_notification_read", { p_notification_id: id });
+  throwIfError(error);
+}
+
 export async function getUnreadAnnouncementCount(): Promise<number> {
   const { data, error } = await supabase.rpc("get_unread_announcement_count");
   throwIfError(error);
@@ -542,4 +633,45 @@ export async function sendAdminTestEmail(toEmail: string): Promise<void> {
     body: { toEmail: toEmail.trim() },
   });
   await throwIfFunctionError(error);
+}
+
+export async function checkAdminGmail(): Promise<{ oauth: string; sender: string; lookup: string; deliveryTested: boolean }> {
+  const { data, error } = await supabase.functions.invoke("admin-email-test", {
+    body: { action: "check" },
+  });
+  await throwIfFunctionError(error);
+  return data as { oauth: string; sender: string; lookup: string; deliveryTested: boolean };
+}
+
+export interface RecruitmentAreaControl {
+  areaId: string;
+  areaName: string;
+  areaSlug: string;
+  areaActive: boolean;
+  applicationOpen: boolean;
+  bookingLink: string | null;
+  activeCampaigns: number;
+}
+
+export async function listRecruitmentAreaControls(): Promise<RecruitmentAreaControl[]> {
+  const { data, error } = await supabase.rpc("list_recruitment_area_controls");
+  throwIfError(error);
+  return ((data ?? []) as JsonRecord[]).map((row) => ({
+    areaId: asString(row.area_id),
+    areaName: asString(row.area_name),
+    areaSlug: asString(row.area_slug),
+    areaActive: asBoolean(row.area_active),
+    applicationOpen: asBoolean(row.application_open),
+    bookingLink: typeof row.booking_link === "string" ? row.booking_link : null,
+    activeCampaigns: asNumber(row.active_campaigns),
+  }));
+}
+
+export async function setRecruitmentAreaOpen(areaId: string, open: boolean): Promise<string | null> {
+  const { data, error } = await supabase.rpc("set_recruitment_area_open", {
+    p_area_id: areaId,
+    p_open: open,
+  });
+  throwIfError(error);
+  return typeof data === "string" ? data : null;
 }

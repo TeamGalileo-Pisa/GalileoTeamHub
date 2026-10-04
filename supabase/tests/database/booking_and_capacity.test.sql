@@ -1,6 +1,6 @@
 begin;
 
-select plan(35);
+select plan(38);
 
 insert into auth.users (id, email, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
 values
@@ -328,5 +328,44 @@ select is(
   'one idempotent confirmation delivery is queued'
 );
 
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000001","role":"authenticated"}', true);
+insert into test_ids
+select 'release_regression', public.create_room_availability(
+  (select id from public.rooms where name = 'Riunioni 5067'),
+  '2099-09-16 09:00+02', '2099-09-16 12:00+02', 1, 'Fascia per verifica rilascio'
+);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000002","role":"authenticated"}', true);
+insert into test_ids
+select 'released_allocation', public.claim_room_allocation(
+  (select id from test_ids where name = 'release_regression'),
+  (select ca.id from public.campaign_areas ca join public.areas a on a.id = ca.area_id where a.name = 'Software'),
+  '2099-09-16 09:00+02', '2099-09-16 10:00+02'
+);
+select lives_ok(
+  $test$ select public.release_area_allocation_interval(
+    (select id from test_ids where name = 'released_allocation'),
+    '2099-09-16 09:00+02', '2099-09-16 10:00+02'
+  ) $test$,
+  'area lead can release its allocation'
+);
+select is(
+  private.max_allocation_concurrency(
+    (select id from test_ids where name = 'release_regression'),
+    '2099-09-16 09:00+02', '2099-09-16 10:00+02'
+  ),
+  0,
+  'released interval immediately returns to zero occupancy'
+);
+select set_config('request.jwt.claims', '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}', true);
+select lives_ok(
+  $test$ select public.claim_room_allocation(
+    (select id from test_ids where name = 'release_regression'),
+    (select ca.id from public.campaign_areas ca join public.areas a on a.id = ca.area_id where a.name = 'Rover'),
+    '2099-09-16 09:00+02', '2099-09-16 10:00+02'
+  ) $test$,
+  'another area can claim the released interval at the original capacity'
+);
+
 select * from finish();
 rollback;
+

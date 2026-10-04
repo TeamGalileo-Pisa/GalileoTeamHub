@@ -58,7 +58,7 @@ export function CalendarPage() {
   const { access } = useAuth();
   const [mode, setMode] = useState<"list" | "week">("list");
   const [date, setDate] = useState(today);
-  const [area, setArea] = useState("");
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [selected, setSelected] = useState<CalendarItem | null>(null);
   const first = weekStart(date);
   const last = dateShift(first, 7);
@@ -69,16 +69,16 @@ export function CalendarPage() {
     enabled: access?.isAdmin,
   });
   const query = useQuery({
-    queryKey: ["calendar", access?.userId, first, area],
+    queryKey: ["calendar", access?.userId, first, selectedAreas],
     queryFn: () =>
       rpc<CalendarItem[]>("list_calendar_bookings", {
         p_start: romeInputToIso(first + "T00:00"),
         p_end: romeInputToIso(last + "T00:00"),
-        p_area_id: area || null,
+        p_area_id: selectedAreas.length === 1 ? selectedAreas[0] : null,
       }),
   });
 
-  const items = query.data ?? [];
+  const items = (query.data ?? []).filter((item) => !access?.isAdmin || selectedAreas.length === 0 || selectedAreas.includes(item.areaId));
   const days = Array.from({ length: 7 }, (_, i) => dateShift(first, i));
   const bookedCount = items.filter(
     (item) => item.kind === "booking" && item.status === "confirmed",
@@ -142,10 +142,21 @@ export function CalendarPage() {
         {access?.isAdmin && (
           <label>
             Area
-            <select className="select" value={area} onChange={(e) => setArea(e.target.value)}>
-              <option value="">Tutte le aree</option>
-              {areas.data?.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <select
+              className="select calendar-area-select"
+              multiple
+              size={Math.min(4, Math.max(2, areas.data?.length ?? 2))}
+              value={selectedAreas}
+              onChange={(event) =>
+                setSelectedAreas(Array.from(event.target.selectedOptions, (option) => option.value))
+              }
+              aria-label="Area"
+            >
+              {areas.data?.map((area) => (
+                <option key={area.id} value={area.id}>{area.name}</option>
+              ))}
             </select>
+            <small className="field-help">Ctrl/Cmd + click per selezionare più aree. Nessuna selezione = tutte.</small>
           </label>
         )}
       </section>

@@ -1,11 +1,17 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PasswordGate } from "./components/PasswordGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PwaControls } from "./components/PwaControls";
-import { useAuth } from "./hooks/useAuth";
+
+const PublicHomePage = lazy(() =>
+  import("./pages/PublicHomePage").then((module) => ({ default: module.PublicHomePage })),
+);
+const PublicLegalPage = lazy(() =>
+  import("./pages/PublicLegalPage").then((module) => ({ default: module.PublicLegalPage })),
+);
 
 const AreasPage = lazy(() =>
   import("./pages/AreasPage").then((module) => ({ default: module.AreasPage })),
@@ -37,6 +43,9 @@ const HelpPage = lazy(() =>
 const LegalDocumentsPage = lazy(() =>
   import("./pages/LegalDocumentsPage").then((module) => ({ default: module.LegalDocumentsPage })),
 );
+const ManageBookingPage = lazy(() =>
+  import("./pages/ManageBookingPage").then((module) => ({ default: module.ManageBookingPage })),
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((module) => ({ default: module.NotFoundPage })),
 );
@@ -56,26 +65,37 @@ const StaffPage = lazy(() =>
   import("./pages/StaffPage").then((module) => ({ default: module.StaffPage })),
 );
 
-function HomeRedirect() {
-  const { access } = useAuth();
-  return <Navigate to={access?.isAdmin ? "/admin" : "/area"} replace />;
-}
-
+const ApplicationPage = lazy(() => import('./pages/ApplicationPage').then(m=>({default:m.ApplicationPage})));
+const MembershipPage = lazy(() => import('./pages/MembershipPage').then(m=>({default:m.MembershipPage})));
+const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(m=>({default:m.CommunityAdminPage})));
+const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
+const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
+const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
 export default function App() {
   return (
     <>
       <PwaControls />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          <Route path="/" element={<PublicHomePage />} />
+          <Route path="/privacy" element={<PublicLegalPage documentKey="privacy" />} />
+          <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
+          <Route path="/candidature" element={<ApplicationPage />} />
+          <Route path="/adesione/:token" element={<MembershipPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:token" element={<PublicBookingPage />} />
+          <Route path="/manage/:token" element={<ManageBookingPage />} />
 
           <Route element={<ProtectedRoute />}>
             <Route path="/change-password" element={<ChangePasswordPage />} />
             <Route element={<PasswordGate />}>
               <Route element={<AppShell />}>
-                <Route index element={<HomeRedirect />} />
-
+                <Route path="/membri" element={<MemberPage />} />
+                <Route element={<ProtectedRoute memberOnly />}>
+                  <Route path="/membri/adesione" element={<MemberAdhesionPage />} />
+                </Route>
+                <Route path="/merchandising" element={<MerchandisingPage />} />
+                <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/area" element={<DashboardPage />} />
                 <Route path="/area/disponibilita" element={<AvailabilityPage />} />
                 <Route path="/area/sessioni" element={<AreaSessionsPage />} />
@@ -84,7 +104,9 @@ export default function App() {
                 <Route path="/area/bacheca" element={<AnnouncementsPage />} />
                 <Route path="/area/assistenza" element={<HelpPage />} />
 
+                </Route>
                 <Route element={<ProtectedRoute adminOnly />}>
+                  <Route path="/admin/candidature" element={<CommunityAdminPage />} />
                   <Route path="/admin" element={<DashboardPage />} />
                   <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
                   <Route path="/admin/calendario" element={<CalendarPage />} />

@@ -1,9 +1,10 @@
-import { createClient } from "npm:@supabase/supabase-js@2.112.4";
+import { requireActor } from "../_shared/actor.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
-import { sendGmailMessage } from "../_shared/email.ts";
+import { checkGmailConfiguration, sendGmailMessage } from "../_shared/email.ts";
 import { createServiceClient } from "../_shared/service-client.ts";
 
 interface TestEmailRequest {
+  action?: "check" | "send";
   toEmail?: string;
 }
 
@@ -15,41 +16,11 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "METHOD_NOT_ALLOWED" }, 405);
   }
 
-  const authorization = request.headers.get("authorization");
-  const url = Deno.env.get("SUPABASE_URL");
-  const publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
-  if (!authorization || !url || !publishableKey) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const userClient = createClient(url, publishableKey, {
-    global: { headers: { Authorization: authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const {
-    data: { user },
-    error: userError,
-  } = await userClient.auth.getUser();
-  if (userError || !user) {
-    return jsonResponse(request, { error: "UNAUTHORIZED" }, 401);
-  }
-
-  const { data: adminRole } = await userClient
-    .from("system_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!adminRole) {
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
-  }
-  const { data: profile } = await userClient
-    .from("profiles")
-    .select("status,must_change_password")
-    .eq("id", user.id)
-    .single();
-  if (profile?.status !== "active" || profile.must_change_password)
-    return jsonResponse(request, { error: "FORBIDDEN" }, 403);
+  let actor;
+  try { actor = await requireActor(request); }
+  catch (error) { return jsonResponse(request, { error: error instanceof Error ? error.message : "UNAUTHORIZED" }, 401); }
+  const { user } = actor;
+  const url = Deno.env.get("SUPABASE_URL")!;
 
   let body: TestEmailRequest;
   try {
@@ -58,13 +29,29 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "INVALID_JSON" }, 400);
   }
 
+  const action = body?.action === "check" ? "check" : "send";
+
+  if ((Deno.env.get("EMAIL_PROVIDER") ?? "development") !== "gmail") {
+    return jsonResponse(request, { error: "EMAIL_NOT_CONFIGURED" }, 503);
+  }
+
+  if (action === "check") {
+    try {
+      const diagnostic = await checkGmailConfiguration();
+      return jsonResponse(request, diagnostic);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "TEST_EMAIL_FAILED";
+      const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_SCOPE_REQUIRED|GMAIL_LOOKUP_FAILED)$/.test(message)
+        ? message
+        : "TEST_EMAIL_FAILED";
+      return jsonResponse(request, { error: safe }, 502);
+    }
+  }
+
   const toEmail =
     typeof body?.toEmail === "string" ? body.toEmail.trim().toLowerCase() : "";
   if (toEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
     return jsonResponse(request, { error: "INVALID_EMAIL" }, 400);
-  }
-  if ((Deno.env.get("EMAIL_PROVIDER") ?? "development") !== "gmail") {
-    return jsonResponse(request, { error: "EMAIL_NOT_CONFIGURED" }, 503);
   }
 
   try {
@@ -86,7 +73,11 @@ Deno.serve(async (request) => {
       idempotencyId: `admin-test-${crypto.randomUUID()}`,
     });
     return jsonResponse(request, { ok: true, providerMessageId });
-  } catch {
-    return jsonResponse(request, { error: "TEST_EMAIL_FAILED" }, 502);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "TEST_EMAIL_FAILED";
+    const safe = /^(EMAIL_NOT_CONFIGURED|GMAIL_OAUTH_FAILED:[A-Za-z0-9_]+|GMAIL_WRONG_SENDER|GMAIL_SCOPE_REQUIRED|GMAIL_LOOKUP_FAILED|GMAIL_SEND_FAILED:\d{3}|GMAIL_SEND_UNCERTAIN)$/.test(message)
+      ? message
+      : "TEST_EMAIL_FAILED";
+    return jsonResponse(request, { error: safe }, 502);
   }
 });

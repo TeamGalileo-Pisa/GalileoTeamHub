@@ -229,3 +229,9 @@ textarea {
     padding-bottom: 12px;
   }
 }
+
+/* Keep every navigation item reachable, including on short mobile screens. */
+.sidebar { height: 100dvh; max-height: 100dvh; overflow: hidden; }
+.sidebar__brand, .workspace-chip, .sidebar__footer { flex-shrink: 0; }
+.sidebar__nav { align-content: start; grid-auto-rows: minmax(45px, auto); overscroll-behavior: contain; overflow-y: auto; min-height: 0; }
+@media (max-height: 450px) { .sidebar { overflow-y: auto; } .sidebar__nav { flex: 1 0 auto; } }

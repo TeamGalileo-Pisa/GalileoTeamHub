@@ -191,7 +191,25 @@ p {
 .sidebar__nav {
   display: grid;
   gap: 4px;
-  padding: 0 13px;
+  padding: 0 13px 12px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(43, 141, 204, 0.45) transparent;
+}
+
+.sidebar__nav::-webkit-scrollbar {
+  width: 7px;
+}
+
+.sidebar__nav::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(43, 141, 204, 0.45);
+}
+
+.sidebar__footer {
+  flex: 0 0 auto;
 }
 
 .nav-item {
@@ -818,6 +836,13 @@ p {
 }
 
 @media (max-width: 620px) {
+  .notification-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .notification-item .button {
+    grid-column: 2;
+    justify-self: start;
+  }
   .stats-grid,
   .form-grid {
     grid-template-columns: 1fr;
@@ -1483,6 +1508,49 @@ p {
 .announcement-form-panel {
   margin-bottom: 20px;
 }
+.notifications-panel {
+  margin-bottom: 20px;
+}
+.notifications-list {
+  display: grid;
+}
+.notification-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 13px;
+  align-items: center;
+  padding: 15px 18px;
+  border-top: 1px solid var(--border);
+}
+.notification-item--new {
+  background: rgba(43, 141, 204, 0.07);
+}
+.notification-item__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 11px;
+  color: var(--azure-light);
+  background: rgba(43, 141, 204, 0.12);
+}
+.notification-item__content {
+  min-width: 0;
+}
+.notification-item__content strong {
+  color: var(--white);
+}
+.notification-item__content p {
+  margin: 4px 0;
+  color: var(--muted-strong);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.notification-item__content time {
+  color: var(--muted);
+  font-size: 11px;
+}
+
 
 .check-row {
   display: inline-flex;
@@ -2186,6 +2254,30 @@ p {
   display: grid;
   gap: 8px;
 }
+.calendar-area-filter {
+  display: grid;
+  gap: 8px;
+  min-width: min(100%, 360px);
+}
+.calendar-area-filter__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.calendar-area-filter__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--page-raised);
+  font-size: 13px;
+}
+.calendar-area-filter__option input {
+  accent-color: var(--azure);
+}
+
 .weekday-picker {
   border: 1px solid var(--border);
   padding: 12px;

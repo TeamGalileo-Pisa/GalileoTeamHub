@@ -5,6 +5,7 @@ import {
   ClipboardList,
   FileText,
   LayoutDashboard,
+  ShoppingBag,
   HelpCircle,
   LogOut,
   Menu,
@@ -18,8 +19,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { getUnreadAnnouncementCount } from "../lib/data";
+import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
+import { enablePush, disablePush } from "../lib/push";
 import { Brand } from "./Brand";
 
 const adminNavigation = [
@@ -31,6 +33,8 @@ const adminNavigation = [
   { to: "/admin/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
   { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
+  { to: "/admin/candidature", label: "Candidature e adesioni", icon: FileText },
+  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
   { to: "/admin/account", label: "Account", icon: UsersRound },
   { to: "/admin/legal", label: "Termini e Privacy", icon: FileText },
   { to: "/admin/assistenza", label: "Assistenza", icon: HelpCircle },
@@ -44,6 +48,7 @@ const areaNavigation = [
   { to: "/area/votazioni", label: "Votazioni", icon: ClipboardList },
   { to: "/area/bacheca", label: "Bacheca", icon: Megaphone },
   { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
+  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
 ];
 
 export function AppShell() {
@@ -56,6 +61,27 @@ export function AppShell() {
     enabled: Boolean(access),
   });
 
+  useQuery({
+    queryKey: ["system-notifications", access?.userId],
+    queryFn: listNotifications,
+    enabled: Boolean(access),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  const unreadNotificationQuery = useQuery({
+    queryKey: ["unread-notifications", access?.userId],
+    queryFn: getUnreadNotificationCount,
+    enabled: Boolean(access),
+    refetchInterval: 20_000,
+    refetchIntervalInBackground: true,
+  });
+  const [pushStatus,setPushStatus] = useState("");
+
+  useEffect(() => {
+    const notify=(event:Event)=>setPushStatus((event as CustomEvent<string>).detail);
+    window.addEventListener('galileo-native-notice',notify);
+    return ()=>window.removeEventListener('galileo-native-notice',notify);
+  },[]);
   const reportPresence = useCallback(async () => {
     if (!access?.userId || document.visibilityState === "hidden") return;
     await supabase.rpc("touch_user_presence", { p_path: location.pathname });
@@ -75,13 +101,20 @@ export function AppShell() {
     };
   }, [access?.userId, reportPresence]);
 
-  const navigation = access?.isAdmin ? adminNavigation : areaNavigation;
+  const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
+  const navigation = access?.isAdmin ? adminNavigation : access?.isMember ? [
+    {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
+    {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
+    {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
+  ] : isLogisticsLead ? areaNavigation : areaNavigation.filter((item) => item.to !== "/merchandising");
+  const notificationCount = (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0);
   const areaLabel = access?.isAdmin
-    ? "Amministrazione"
+    ? access.isTeamLeader ? "Team Leader" : "Amministrazione"
     : access?.areas.map((area) => area.name).join(", ") || "Area";
 
   const handleSignOut = async () => {
     try {
+      await disablePush();
       await supabase.rpc("mark_user_offline");
     } finally {
       await signOut();
@@ -128,9 +161,9 @@ export function AppShell() {
             >
               <Icon size={19} />
               <span>{label}</span>
-              {label === "Bacheca" && (unreadQuery.data ?? 0) > 0 && (
-                <span className="nav-badge" aria-label={`${unreadQuery.data} comunicazioni non lette`}>
-                  {unreadQuery.data}
+              {label === "Bacheca" && notificationCount > 0 && (
+                <span className="nav-badge" aria-label={`${notificationCount} notifiche non lette`}>
+                  {notificationCount}
                 </span>
               )}
             </NavLink>
@@ -142,6 +175,8 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
+          <button className="icon-button" type="button" aria-label="Attiva notifiche push" title="Attiva notifiche push" onClick={() => { void enablePush().then(()=>setPushStatus("Notifiche attive su questo dispositivo.")).catch(e=>setPushStatus(e.message)); }}><Megaphone size={18}/></button>
+          {pushStatus && <p role="status" style={{fontSize:12}}>{pushStatus}</p>}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
@@ -152,3 +187,4 @@ export function AppShell() {
     </div>
   );
 }
+

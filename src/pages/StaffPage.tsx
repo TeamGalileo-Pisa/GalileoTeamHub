@@ -1,12 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { MailCheck, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
-import { createStaffMember, listAreas, listStaff } from "../lib/data";
+import { checkAdminGmail, createStaffMember, listAreas, listStaff } from "../lib/data";
 import { useState } from "react";
 import { StaffEditor } from "../components/AdminEditors";
 import type { StaffMember } from "../types/domain";
@@ -32,7 +32,7 @@ const schema = z
       .regex(/[a-z]/, "Aggiungi una lettera minuscola")
       .regex(/[0-9]/, "Aggiungi un numero")
       .regex(/[^A-Za-z0-9]/, "Aggiungi un simbolo"),
-    role: z.enum(["admin", "area_lead"]),
+    role: z.enum(["admin", "team_leader", "area_lead"]),
     areaId: z.string().optional(),
   })
   .superRefine((value, context) => {
@@ -55,13 +55,15 @@ export function StaffPage() {
     defaultValues: { role: "area_lead" },
   });
   const selectedRole = useWatch({ control: form.control, name: "role" });
+  const gmailCheck = useMutation({ mutationFn: checkAdminGmail });
   const mutation = useMutation({
     mutationFn: (values: z.infer<typeof schema>) =>
       createStaffMember({
         username: values.username,
         displayName: values.displayName,
         temporaryPassword: values.temporaryPassword,
-        isAdmin: values.role === "admin",
+        isAdmin: values.role !== "area_lead",
+        role: values.role,
         areaId: values.role === "area_lead" ? values.areaId : undefined,
       }),
     onSuccess: async () => {
@@ -130,6 +132,7 @@ export function StaffPage() {
               {...form.register("role")}
             >
               <option value="area_lead">Capo Area</option>
+              <option value="team_leader">Team Leader</option>
               <option value="admin">Amministrazione</option>
             </select>
           </div>
@@ -138,13 +141,13 @@ export function StaffPage() {
             <select
               id="staff-area"
               className="select"
-              disabled={selectedRole === "admin"}
+              disabled={selectedRole !== "area_lead"}
               defaultValue=""
               {...form.register("areaId")}
             >
               <option value="">
-                {selectedRole === "admin"
-                  ? "Non richiesta per Amministrazione"
+                {selectedRole !== "area_lead"
+                  ? "Non richiesta per ruolo globale"
                   : "Seleziona area"}
               </option>
               {areasQuery.data
@@ -206,7 +209,25 @@ export function StaffPage() {
             <h2>Account configurati</h2>
             <p>Ruoli globali e assegnazioni alle aree</p>
           </div>
+          <button
+            className="button button--secondary button--small"
+            type="button"
+            onClick={() => gmailCheck.mutate()}
+            disabled={gmailCheck.isPending}
+          >
+            <MailCheck size={16} /> {gmailCheck.isPending ? "Controllo…" : "Controlla Gmail"}
+          </button>
         </div>
+        {gmailCheck.data && (
+          <div className="form-success" role="status">
+            Gmail OAuth: {gmailCheck.data.oauth === "ok" ? "OK" : gmailCheck.data.oauth}; mittente: {gmailCheck.data.sender === "ok" ? "OK" : gmailCheck.data.sender}; API: {gmailCheck.data.lookup === "ok" ? "OK" : gmailCheck.data.lookup}. Nessuna email è stata inviata.
+          </div>
+        )}
+        {gmailCheck.error && (
+          <div className="form-error" role="alert">
+            Controllo Gmail fallito: {gmailCheck.error.message}
+          </div>
+        )}
         <div className="panel__body panel__body--flush">
           {staffQuery.data?.length ? (
             <div className="data-table-wrapper">
@@ -230,13 +251,10 @@ export function StaffPage() {
                         </span>
                       </td>
                       <td>
-                        {member.isAdmin ? (
-                          <span className="role-label">
-                            <ShieldCheck size={15} /> Amministrazione
-                          </span>
-                        ) : (
-                          "Capo Area"
-                        )}
+                        <span className="role-label">
+                          {member.isAdmin ? <ShieldCheck size={15} /> : null}
+                          {member.role === "member" ? "Membri area" : member.role === "team_leader" ? "Team Leader" : member.isAdmin ? "Amministrazione" : "Capo Area"}
+                        </span>
                       </td>
                       <td>
                         {member.areas.map((area) => area.name).join(", ") ||

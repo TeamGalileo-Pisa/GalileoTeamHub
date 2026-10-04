@@ -14,6 +14,7 @@ export interface DeliveryPayload {
   starts_at: string;
   ends_at: string;
   custom_message?: string;
+  manage_url?: string;
 }
 
 export const OFFICIAL_EMAIL_FROM =
@@ -80,6 +81,7 @@ function htmlLayout(input: {
   payload: DeliveryPayload;
   message?: string;
   note?: string;
+  manageUrl?: string;
 }): string {
   return `<!doctype html>
 <html lang="it">
@@ -112,6 +114,11 @@ function htmlLayout(input: {
                   : ""
               }
               <p style="margin:20px 0 0;font-size:15px;line-height:1.6;color:#344054;">Per eventuali contrattempi, avvisaci appena possibile rispondendo a questa email. La puntualità e il rispetto dell’impegno preso ci aiutano a organizzare al meglio i colloqui.</p>
+              ${
+                input.manageUrl
+                  ? `<p style="margin:20px 0 0;"><a href="${escapeHtml(input.manageUrl)}" style="display:inline-block;padding:12px 16px;background:#101828;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;">Gestisci la prenotazione</a></p>`
+                  : ""
+              }
               ${
                 input.note
                   ? `<p style="margin:18px 0 0;padding:12px 14px;background:#fff7ed;border-radius:8px;font-size:13px;line-height:1.55;color:#7c2d12;">${escapeHtml(input.note)}</p>`
@@ -153,6 +160,7 @@ export function emailCopy(payload: DeliveryPayload) {
         "",
         "Per eventuali contrattempi, avvisaci appena possibile rispondendo a questa email.",
         "La puntualità e il rispetto dell’impegno preso ci aiutano a organizzare al meglio i colloqui.",
+        ...(payload.manage_url ? ["", "Puoi modificare o annullare la prenotazione qui:", payload.manage_url] : []),
         ...(roomNote ? ["", roomNote] : []),
         "",
         "Team Galileo",
@@ -163,6 +171,7 @@ export function emailCopy(payload: DeliveryPayload) {
         intro,
         payload,
         note: roomNote,
+        manageUrl: payload.manage_url,
       }),
     };
   }

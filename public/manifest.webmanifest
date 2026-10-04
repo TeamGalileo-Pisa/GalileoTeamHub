@@ -7,6 +7,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#010711",
   "theme_color": "#010711",
@@ -16,7 +17,7 @@
       "src": "/icons/galileohub-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/galileohub-512-v2.png",

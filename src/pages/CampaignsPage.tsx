@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, CalendarRange, Play, Plus, Trash2 } from "lucide-react";
+import { Archive, CalendarRange, Link2, Play, Plus, Power, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -8,7 +8,13 @@ import { CampaignEditor } from "../components/AdminEditors";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
-import { activateCampaign, createCampaign, listCampaigns } from "../lib/data";
+import {
+  activateCampaign,
+  createCampaign,
+  listCampaigns,
+  listRecruitmentAreaControls,
+  setRecruitmentAreaOpen,
+} from "../lib/data";
 import { formatDateOnly } from "../lib/dates";
 import { archiveCampaign } from "../lib/hub-enhancements";
 import type { RecruitmentCampaign } from "../types/domain";
@@ -31,6 +37,7 @@ export function CampaignsPage() {
   const [editing, setEditing] = useState<RecruitmentCampaign | null>(null);
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["campaigns"], queryFn: listCampaigns });
+  const areaControlsQuery = useQuery({ queryKey: ["recruitment-area-controls"], queryFn: listRecruitmentAreaControls });
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema) });
 
   const mutation = useMutation({
@@ -43,6 +50,10 @@ export function CampaignsPage() {
   const activateMutation = useMutation({
     mutationFn: activateCampaign,
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["campaigns"] }),
+  });
+  const areaOpenMutation = useMutation({
+    mutationFn: ({ areaId, open }: { areaId: string; open: boolean }) => setRecruitmentAreaOpen(areaId, open),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["recruitment-area-controls"] }),
   });
   const archiveMutation = useMutation({
     mutationFn: ({ id, remove }: { id: string; remove: boolean }) => archiveCampaign(id, remove),
@@ -88,6 +99,50 @@ export function CampaignsPage() {
         </form>
       </section>
 
+      <section className="panel recruitment-controls-panel">
+        <div className="panel__header">
+          <div>
+            <h2>Apertura candidature per area</h2>
+            <p>Il Team Leader può aprire o chiudere singolarmente il link pubblico di ciascuna area.</p>
+          </div>
+          <Power size={20} />
+        </div>
+        <div className="panel__body panel__body--flush">
+          <div className="area-card-grid">
+            {(areaControlsQuery.data ?? []).map((area) => (
+              <article className="area-card" key={area.areaId}>
+                <div className="area-card__letter">{area.areaName.slice(0, 1).toUpperCase()}</div>
+                <div>
+                  <h3>{area.areaName}</h3>
+                  <p>{area.applicationOpen ? `Aperta · ${area.activeCampaigns} campagne attive` : "Chiusa"}</p>
+                </div>
+                <div className="table-actions">
+                  <button
+                    className={`button button--small ${area.applicationOpen ? "button--danger" : "button--primary"}`}
+                    type="button"
+                    disabled={areaOpenMutation.isPending || !area.areaActive}
+                    onClick={() => areaOpenMutation.mutate({ areaId: area.areaId, open: !area.applicationOpen })}
+                  >
+                    <Power size={14} /> {area.applicationOpen ? "Chiudi" : "Apri"}
+                  </button>
+                  {area.applicationOpen && area.bookingLink && (
+                    <button
+                      className="button button--secondary button--small"
+                      type="button"
+                      onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/book/${area.bookingLink}`)}
+                    >
+                      <Link2 size={14} /> Copia link
+                    </button>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+          {areaControlsQuery.isLoading && <div className="panel__body">Caricamento aree…</div>}
+          {areaControlsQuery.error && <p className="form-error" role="alert">{areaControlsQuery.error.message}</p>}
+          {areaOpenMutation.error && <p className="form-error" role="alert">{areaOpenMutation.error.message}</p>}
+        </div>
+      </section>
       <section className="panel availability-list-panel">
         <div className="panel__header">
           <div><h2>Storico recruitment</h2><p>Bozze, campagne attive e archiviate</p></div>

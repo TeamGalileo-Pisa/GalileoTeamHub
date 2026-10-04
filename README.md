@@ -9,14 +9,18 @@ L'interfaccia è progettata per desktop, notebook, tablet e smartphone, inclusi 
 ## Moduli e funzionalità attuali
 
 - accesso globale Amministrazione;
+- ruolo Team Leader con privilegi amministrativi;
 - account separati per i Capi Area;
 - nove aree iniziali indipendenti dagli utenti;
-- bacheca e comunicazioni;
+- bacheca, comunicazioni e notifiche di sistema;
+- notifiche browser tramite service worker;
 - campagne recruitment con storico;
 - disponibilità delle aule separate dalle fasce prese dalle aree;
 - sessioni e generazione slot con durata personalizzata;
 - link area stabili e revocabili per la prenotazione candidati;
 - prenotazione senza account candidato;
+- cutoff minimo di 24 ore per le prenotazioni pubbliche;
+- gestione candidato tramite link sicuro per modifica/annullamento;
 - vincolo atomico contro le doppie prenotazioni;
 - coda email Gmail API con worker automatico, retry e diagnostica;
 - disponibilità giornaliere create in gruppo con anteprima;
@@ -102,6 +106,8 @@ Il file locale è escluso da Git. Lo script crea o riconcilia in modo idempotent
 ```text
 https://galileohub.info-teamgalileo.workers.dev
 ```
+
+Per Google Auth Platform, la homepage pubblica è `https://galileohub.info-teamgalileo.workers.dev/`; i documenti legali sono disponibili senza login agli URL `/privacy` e `/terms`. La homepage descrive lo scopo del gestionale e l'uso dell'account Gmail per le comunicazioni. Prima della pubblicazione OAuth, mantenere aggiornati i testi dalla sezione amministrativa Termini e Privacy e verificare i requisiti di dominio di Google.
 
 Configurazione CI/CD Cloudflare:
 

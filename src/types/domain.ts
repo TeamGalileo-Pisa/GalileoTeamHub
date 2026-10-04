@@ -1,4 +1,4 @@
-export type AppRole = "admin" | "area_lead";
+export type AppRole = "admin" | "team_leader" | "area_lead" | "member";
 
 export interface AreaSummary {
   id: string;
@@ -11,6 +11,8 @@ export interface AccessContext {
   username: string;
   displayName: string;
   isAdmin: boolean;
+  isMember?: boolean;
+  isTeamLeader?: boolean;
   mustChangePassword: boolean;
   areas: AreaSummary[];
 }
@@ -82,6 +84,7 @@ export interface StaffMember {
   displayName: string;
   status: "active" | "disabled";
   isAdmin: boolean;
+  role: "admin" | "team_leader" | "area_lead" | "member";
   areas: AreaSummary[];
 }
 
@@ -163,4 +166,20 @@ export interface AnnouncementInput {
   expiresAt?: string;
   important: boolean;
   pinned: boolean;
+}
+
+export interface ManagedBooking {
+  bookingId: string;
+  candidateName: string;
+  candidateEmail: string;
+  areaName: string;
+  roomName: string;
+  startsAt: string;
+  endsAt: string;
+}
+export interface ManagedBookingSlot {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  roomName: string;
 }

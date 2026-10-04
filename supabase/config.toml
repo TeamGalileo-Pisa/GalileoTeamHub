@@ -18,11 +18,19 @@ additional_redirect_urls = ["http://localhost:5173"]
 verify_jwt = false
 
 [functions.staff-admin]
-verify_jwt = true
+# JWT verified by requireActor/auth.getUser inside the handler.
+verify_jwt = false
 
 [functions.admin-email-test]
-verify_jwt = true
+# JWT verified by requireActor/auth.getUser inside the handler.
+verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = false
 
+
+[functions.community]
+verify_jwt = false
+
+[functions.push-device]
+verify_jwt = false

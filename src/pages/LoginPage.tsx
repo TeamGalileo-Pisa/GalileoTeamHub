@@ -28,7 +28,7 @@ export function LoginPage() {
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
   if (access) {
-    return <Navigate to={access.isAdmin ? "/admin" : "/area"} replace />;
+    return <Navigate to={access.isAdmin ? "/admin" : access.isMember ? "/membri" : "/area"} replace />;
   }
 
   const onSubmit = async (values: LoginInput) => {

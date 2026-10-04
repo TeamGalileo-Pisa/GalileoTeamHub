@@ -8,6 +8,7 @@ import {
 export { OFFICIAL_EMAIL_FROM } from "./email-copy.ts";
 
 interface GmailMessage {
+  attachments?: {name:string;content:Uint8Array}[];
   reconcileOnly?: boolean;
   to: string;
   subject: string;
@@ -40,6 +41,20 @@ function messageId(idempotencyId: string): string {
 }
 
 function buildRawMessage(message: GmailMessage): string {
+  if (message.attachments?.length) {
+    const boundary = `attachment-${message.idempotencyId.replace(/[^a-z0-9]/gi, "")}`;
+    const inner = atob(buildRawMessage({...message, attachments:undefined}).replaceAll("-","+").replaceAll("_","/"));
+    const parts = inner.split("\r\n");
+    const mimeIndex = parts.findIndex(line=>line.startsWith("Content-Type:"));
+    const headers = parts.slice(0,mimeIndex);
+    headers.push(`Content-Type: multipart/mixed; boundary="${boundary}"`, "", `--${boundary}`, ...parts.slice(mimeIndex));
+    for (const file of message.attachments) {
+      let binary="";for(const byte of file.content)binary+=String.fromCharCode(byte);
+      headers.push(`--${boundary}`, 'Content-Type: application/pdf', `Content-Disposition: attachment; filename="${safeHeader(file.name).replaceAll('"','')}"`, 'Content-Transfer-Encoding: base64', '', btoa(binary).match(/.{1,76}/g)!.join("\r\n"));
+    }
+    headers.push(`--${boundary}--`,"");
+    return base64Url(headers.join("\r\n"));
+  }
   const headers = [
     `From: ${OFFICIAL_EMAIL_FROM}`,
     `To: ${safeHeader(message.to)}`,
@@ -124,12 +139,28 @@ async function findExistingMessage(
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
+  if (response.status === 403) throw new Error("GMAIL_SCOPE_REQUIRED");
   if (!response.ok) throw new Error("GMAIL_LOOKUP_FAILED");
 
   const payload = (await response.json()) as {
     messages?: Array<{ id?: string }>;
   };
   return payload.messages?.[0]?.id ?? null;
+}
+
+// Verifies OAuth and read permissions without sending any message.
+export async function checkGmailConfiguration() {
+  if (Deno.env.get("EMAIL_PROVIDER") !== "gmail") throw new Error("EMAIL_NOT_CONFIGURED");
+  const accessToken = await gmailAccessToken();
+  const identity = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+    signal: AbortSignal.timeout(8000), headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (identity.status === 403) throw new Error("GMAIL_SCOPE_REQUIRED");
+  if (!identity.ok) throw new Error("GMAIL_LOOKUP_FAILED");
+  const profile = await identity.json();
+  if (profile?.emailAddress?.toLowerCase() !== "info.teamgalileo@gmail.com") throw new Error("GMAIL_WRONG_SENDER");
+  await findExistingMessage(accessToken, "configuration-check");
+  return { oauth: "ok", sender: "ok", lookup: "ok", deliveryTested: false };
 }
 
 export async function sendGmailMessage(message: GmailMessage): Promise<string> {
@@ -141,7 +172,9 @@ export async function sendGmailMessage(message: GmailMessage): Promise<string> {
       headers: { Authorization: `Bearer ${accessToken}` },
     },
   );
-  const profile = identity.ok ? await identity.json() : null;
+  if (identity.status === 403) throw new Error("GMAIL_SCOPE_REQUIRED");
+  if (!identity.ok) throw new Error("GMAIL_LOOKUP_FAILED");
+  const profile = await identity.json();
   if (profile?.emailAddress?.toLowerCase() !== "info.teamgalileo@gmail.com")
     throw new Error("GMAIL_WRONG_SENDER");
   const existingId = await findExistingMessage(

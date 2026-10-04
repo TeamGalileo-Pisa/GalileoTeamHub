@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "codex/**"]
+    branches: [main, "codex/**", "fix/**"]
   pull_request:
 
 permissions:
@@ -37,6 +37,9 @@ jobs:
 
       - name: Unit tests
         run: pnpm test
+
+      - name: Community database regression tests
+        run: node scripts/test-community-database.mjs
 
       - name: Production build
         run: pnpm build
