@@ -140,24 +140,27 @@ export function CalendarPage() {
           />
         </label>
         {access?.isAdmin && (
-          <label>
-            Area
-            <select
-              className="select calendar-area-select"
-              multiple
-              size={Math.min(4, Math.max(2, areas.data?.length ?? 2))}
-              value={selectedAreas}
-              onChange={(event) =>
-                setSelectedAreas(Array.from(event.target.selectedOptions, (option) => option.value))
-              }
-              aria-label="Area"
-            >
-              {areas.data?.map((area) => (
-                <option key={area.id} value={area.id}>{area.name}</option>
+          <fieldset className="calendar-area-filter">
+            <legend>Aree da mostrare</legend>
+            <button className="button button--secondary button--small" type="button" aria-pressed={selectedAreas.length === 0} onClick={() => setSelectedAreas([])}>
+              Tutte le aree
+            </button>
+            <div className="calendar-area-filter__options">
+              {areas.data?.filter((area) => area.active).map((area) => (
+                <label className="calendar-area-filter__option" key={area.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedAreas.includes(area.id)}
+                    onChange={(event) => setSelectedAreas((current) => event.target.checked
+                      ? [...current, area.id]
+                      : current.filter((id) => id !== area.id))}
+                  />
+                  <span>{area.name}</span>
+                </label>
               ))}
-            </select>
-            <small className="field-help">Ctrl/Cmd + click per selezionare più aree. Nessuna selezione = tutte.</small>
-          </label>
+            </div>
+            <small className="field-help">{selectedAreas.length ? `${selectedAreas.length} ${selectedAreas.length === 1 ? "area selezionata" : "aree selezionate"}` : "Stai vedendo il calendario completo."}</small>
+          </fieldset>
         )}
       </section>
 
@@ -521,3 +524,4 @@ function FreeSlotManager({ item, onClose }: { item: CalendarItem; onClose: () =>
     </Modal>
   );
 }
+
