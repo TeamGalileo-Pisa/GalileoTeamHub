@@ -16,6 +16,15 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
         DUPLICATE_APPLICATION:
           "Hai già inviato una candidatura per questa area.",
         INVALID_DATA: "Completa tutti i campi obbligatori.",
+        INVALID_EMAIL: "Inserisci un indirizzo email istituzionale @studenti.unipi.it valido.",
+        REQUIRED_FIELDS: "Controlla nome, cognome, corso di laurea, motivazione e aspettative: uno di questi campi è vuoto.",
+        PRIVACY_REQUIRED: "Per inviare la candidatura devi accettare l’informativa privacy.",
+        INVALID_CHOICE: "Seleziona una risposta valida in tutti i menu a discesa.",
+        INVALID_AREA: "L’area scelta non è più disponibile. Aggiorna la pagina e riprova.",
+        SKILLS_REQUIRED: "Seleziona almeno una competenza per l’area scelta.",
+        INVALID_SKILLS: "Una competenza selezionata non è più valida. Aggiorna la pagina e riprova.",
+        CERTIFICATIONS_REQUIRED: "Seleziona almeno una certificazione oppure “Nessuna”.",
+        INVALID_CERTIFICATIONS: "Una certificazione selezionata non è più valida. Aggiorna la pagina e riprova.",
         FORBIDDEN: "Non hai i permessi necessari.",
         NOT_FOUND: "La candidatura non è più disponibile.",
         UNAUTHORIZED: "Accedi nuovamente.",
@@ -27,3 +36,4 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data as T;
 }
+

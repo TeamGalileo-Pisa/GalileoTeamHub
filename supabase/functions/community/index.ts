@@ -366,30 +366,36 @@ Deno.serve(async (request) => {
     }
     if (body.action === "apply") {
       const a = body.answers;
+      const email = typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
       if (
-        !validEmail(body.email) ||
-        !body.email.toLowerCase().endsWith("@studenti.unipi.it") ||
-        !validText(body.firstName, 100) || !validText(body.lastName, 100) ||
-        !a || a.privacyAccepted !== true || !validText(a.degree, 200) ||
-        !validText(a.motivation) || !validText(a.expectations)
-      ) throw new Error("INVALID_DATA");
+        !validEmail(email) ||
+        !email.endsWith("@studenti.unipi.it")
+      ) throw new Error("INVALID_EMAIL");
+      if (!validText(body.firstName, 100) || !validText(body.lastName, 100)) {
+        throw new Error("REQUIRED_FIELDS");
+      }
+      if (!a || !validText(a.degree, 200) || !validText(a.motivation) || !validText(a.expectations)) {
+        throw new Error("REQUIRED_FIELDS");
+      }
+      if (a.privacyAccepted !== true) throw new Error("PRIVACY_REQUIRED");
       for (const [key, choices] of Object.entries(applicationChoices)) {
-        if (!choices.includes(a[key])) throw new Error("INVALID_DATA");
+        if (!choices.includes(a[key])) throw new Error("INVALID_CHOICE");
       }
       const { data: area } = await client.from("areas").select("slug").eq(
         "id",
         body.areaId,
       ).single();
+      if (!area) throw new Error("INVALID_AREA");
       const division = divisions[area?.slug] ?? genericDivision;
-      if (
-        !division || !Array.isArray(a.skills) || !a.skills.length ||
-        !a.skills.every((s: string) => division.skills.includes(s)) ||
-        !Array.isArray(a.certifications) || !a.certifications.length ||
-        !a.certifications.every((s: string) => certifications.includes(s))
-      ) throw new Error("INVALID_DATA");
+      if (!Array.isArray(a.skills) || !a.skills.length) throw new Error("SKILLS_REQUIRED");
+      if (!a.skills.every((s: string) => division.skills.includes(s))) throw new Error("INVALID_SKILLS");
+      if (!Array.isArray(a.certifications) || !a.certifications.length) throw new Error("CERTIFICATIONS_REQUIRED");
+      if (!a.certifications.every((s: string) => certifications.includes(s))) throw new Error("INVALID_CERTIFICATIONS");
       const { error } = await client.rpc("submit_application", {
         p_area: body.areaId,
-        p_email: body.email.toLowerCase().trim(),
+        p_email: email,
         p_first: body.firstName.trim(),
         p_last: body.lastName.trim(),
         p_answers: a,
@@ -455,6 +461,15 @@ Deno.serve(async (request) => {
         "UNAUTHORIZED",
         "FORBIDDEN",
         "INVALID_DATA",
+        "INVALID_EMAIL",
+        "REQUIRED_FIELDS",
+        "PRIVACY_REQUIRED",
+        "INVALID_CHOICE",
+        "INVALID_AREA",
+        "SKILLS_REQUIRED",
+        "INVALID_SKILLS",
+        "CERTIFICATIONS_REQUIRED",
+        "INVALID_CERTIFICATIONS",
         "APPLICATION_CLOSED",
         "DUPLICATE_APPLICATION",
         "INVALID_INVITATION",
@@ -474,3 +489,4 @@ Deno.serve(async (request) => {
     );
   }
 });
+
