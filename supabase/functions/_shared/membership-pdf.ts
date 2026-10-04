@@ -84,7 +84,7 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
     if (value) drawFitText(value, left + 9, rowY + 2, width - 18);
     rowY -= 16;
   }
-  y = personalTop - personalHeight - 7;
+  y = personalTop - personalHeight - 14;
 
   section("In tale sede si impegna a:");
   for (let index = 1; index <= 6; index++) paragraph(`${index}. ${membershipTerms[index]}`, left + 12, 7.9, regular, width - 12, 9.6, 2, 8);
@@ -130,4 +130,3 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   rule(left + 9, right - 9, top - 29, 0.55);
   return doc.save();
 }
-
