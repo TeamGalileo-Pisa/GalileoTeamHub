@@ -23,7 +23,8 @@ const headers = [
   "Regolamento interno",
   "Proprietà intellettuale e responsabilità",
   "Autocertificazione requisiti",
-  "Consenso dati personali e immagini",
+  "Consenso dati personali",
+  "Consenso immagini e video",
   "Email istituzionale",
   "Numero di cellulare",
   "Profilo LinkedIn",
@@ -36,7 +37,7 @@ const headers = [
 const answerColumns = [
   "firstName", "lastName", "degree", "department", "studentNumber", "area",
   "leadershipRole", "commitmentsAccepted", "internalRegulationAccepted", "ipAccepted",
-  "selfCertificationAccepted", "gdprAccepted", "institutionalEmail", "phone", "linkedin", "privacyAccepted",
+  "selfCertificationAccepted", "gdprAccepted", "mediaAccepted", "institutionalEmail", "phone", "linkedin", "privacyAccepted",
 ] as const;
 
 const xml = (value: unknown) => String(value ?? "")
@@ -81,7 +82,7 @@ export function membershipExcel(rows: MembershipExportRow[]) {
       cell(`${columnName(colIndex)}${rowIndex + 1}`, value, rowIndex === 0 ? 1 : 0)
     ).join("")}</row>`
   ).join("");
-  const widths = [14, 26, 20, 20, 32, 36, 16, 36, 42, 20, 20, 32, 24, 30, 32, 20, 42, 28, 24, 24, 24];
+  const widths = [14, 26, 20, 20, 32, 36, 16, 36, 42, 20, 20, 32, 24, 24, 24, 20, 42, 28, 24, 24, 24, 24];
   const cols = widths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join("");
   const files: Record<string, Uint8Array> = {
     "[Content_Types].xml": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`),

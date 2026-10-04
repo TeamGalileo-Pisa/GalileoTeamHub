@@ -11,6 +11,8 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
         APPLICATION_CLOSED: "Le candidature per questa area sono chiuse.",
         INVALID_INVITATION: "Il link di adesione è scaduto o non è valido.",
         ALREADY_SUBMITTED: "Questo modulo è già stato inviato.",
+        DUPLICATE_MEMBERSHIP: "Esiste già un modulo inviato con questa email istituzionale.",
+        FORM_NOT_READY: "Il link al modulo non è ancora stato attivato dal Team Leader.",
         DUPLICATE_APPLICATION:
           "Hai già inviato una candidatura per questa area.",
         INVALID_DATA: "Completa tutti i campi obbligatori.",
@@ -24,3 +26,4 @@ export async function community<T>(body: Record<string, unknown>): Promise<T> {
   }
   return data as T;
 }
+

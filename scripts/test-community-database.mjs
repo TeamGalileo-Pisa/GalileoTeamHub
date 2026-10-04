@@ -9,6 +9,7 @@ create role anon;create role authenticated;create role service_role;
 create schema auth;create schema private;create schema extensions;
 create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
 create function extensions.digest(text,text) returns bytea language sql as $$select decode(md5($1),'hex')$$;
+create function extensions.gen_random_bytes(integer) returns bytea language sql as $$select decode(repeat('ab',$1),'hex')$$;
 create type public.app_role as enum('admin','team_leader','area_lead','member');
 create type public.profile_status as enum('active','disabled');
 create table public.profiles(id uuid primary key,username text,display_name text,status public.profile_status default 'active',must_change_password boolean default false);
@@ -107,6 +108,10 @@ await db.exec(await readFile(
 ));
 await db.exec(await readFile(
   "supabase/migrations/20261004130000_member_adhesion_service_policy.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004150000_shared_public_membership_link.sql",
   "utf8",
 ));
 await db.exec(
@@ -236,14 +241,62 @@ await assert.rejects(
   /ALREADY_SUBMITTED/,
 );
 assert.equal(await scalar("select answers->>'area' from member_adhesions where invitation_id=(select id from membership_invitations where email='sample@example.test')"), "Mobility Division");
+const sharedToken = await scalar(
+  "select get_or_create_membership_form_link($1)",
+  [a],
+);
+assert.match(sharedToken, /^[a-f0-9]{64}$/);
+assert.equal(await scalar("select get_or_create_membership_form_link($1)", [a]), sharedToken);
+const sharedDraftId = "99999999-9999-4999-8999-999999999999";
+await db.query(
+  "select save_membership_shared_draft($1,$2,$3::jsonb)",
+  [sharedToken, sharedDraftId, JSON.stringify({ firstName: "Public draft" })],
+);
+const sharedDraft = await scalar(
+  "select get_membership_shared_draft($1,$2)",
+  [sharedToken, sharedDraftId],
+);
+assert.equal(sharedDraft.shared, true);
+assert.equal(sharedDraft.answers.firstName, "Public draft");
+const sharedAnswers = {
+  ...validAnswers,
+  firstName: "Shared",
+  institutionalEmail: "shared@studenti.unipi.it",
+};
+await db.query(
+  "select submit_membership_shared_form($1,$2,$3::jsonb)",
+  [sharedToken, sharedDraftId, JSON.stringify(sharedAnswers)],
+);
+assert.equal(
+  await scalar("select status from membership_form_responses where draft_id=$1", [sharedDraftId]),
+  "submitted",
+);
+assert.equal(
+  await scalar("select count(*)::int from community_outbox where kind='membership'"),
+  2,
+);
+await assert.rejects(
+  db.query(
+    "select submit_membership_shared_form($1,$2,$3::jsonb)",
+    [sharedToken, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", JSON.stringify(sharedAnswers)],
+  ),
+  /DUPLICATE_MEMBERSHIP|unique/,
+);
+assert.equal(
+  await scalar("select get_membership_shared_draft($1,$2) is null", [
+    "f".repeat(64),
+    sharedDraftId,
+  ]),
+  true,
+);
 assert.equal(
   await scalar(
     `select count(*)::int from community_outbox where kind='membership'`,
   ),
-  1,
+  2,
 );
 const claimed = await db.query("select * from claim_community_mail()");
-assert.equal(claimed.rows.length, 2);
+assert.equal(claimed.rows.length, 3);
 assert.equal(
   (await db.query("select * from claim_community_mail()")).rows.length,
   0,
