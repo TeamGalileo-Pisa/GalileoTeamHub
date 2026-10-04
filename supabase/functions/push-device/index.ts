@@ -31,6 +31,7 @@ Deno.serve(async (request) => {
       typeof body.address !== "string" || body.address.length > 2000
     ) throw new Error("INVALID_DATA");
     if (body.platform === "web") {
+      if (body.deviceClass !== "mobile") throw new Error("INVALID_DATA");
       const u = new URL(body.address);
       if (
         u.protocol !== "https:" || u.username || u.password || u.port ||
@@ -60,6 +61,7 @@ Deno.serve(async (request) => {
     const { error } = await client.from("push_devices").upsert({
       user_id: user.id,
       platform: body.platform,
+      device_class: "mobile",
       address: body.address,
       subscription: body.platform === "web" ? body.subscription : null,
     }, { onConflict: "address" });
@@ -69,3 +71,4 @@ Deno.serve(async (request) => {
     return jsonResponse(request, { error: "PUSH_REGISTRATION_FAILED" }, 400);
   }
 });
+
