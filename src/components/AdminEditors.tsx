@@ -352,9 +352,9 @@ export function StaffEditor({
           Deve rimanere almeno un amministratore attivo. Gli account con storico
           si disattivano: non vengono eliminati.
         </p>
-        <label className="form-field form-field--full">Nuova password temporanea (per il reset)
-          <input className="input" type="password" autoComplete="new-password" value={temporaryPassword} onChange={(e) => setTemporaryPassword(e.target.value)} />
-          <span className="field-help">Almeno 12 caratteri, maiuscola, minuscola, numero e simbolo. Comunicala al titolare tramite un canale sicuro.</span>
+        <label className="form-field form-field--full">Password per il reset (facoltativa)
+          <input className="input" type="password" autoComplete="new-password" value={temporaryPassword} onChange={(e) => setTemporaryPassword(e.target.value)} placeholder="Lascia vuoto per ripristinare quella iniziale" />
+          <span className="field-help">Se lasci il campo vuoto, viene usata la password iniziale configurata sul server. Se ne inserisci una, deve avere almeno 12 caratteri con maiuscola, minuscola, numero e simbolo. Al prossimo accesso sarà richiesto di cambiarla.</span>
         </label>
         <Feedback error={mutation.error} />
         <div className="form-actions">
@@ -362,10 +362,10 @@ export function StaffEditor({
           <button
             className="button button--secondary"
             type="button"
-            disabled={mutation.isPending || temporaryPassword.length < 12}
+            disabled={mutation.isPending || (temporaryPassword.length > 0 && temporaryPassword.length < 12)}
             onClick={() => setConfirm("reset_password")}
           >
-            Reimposta password
+            {temporaryPassword ? "Imposta password temporanea" : "Ripristina password iniziale"}
           </button>
           <button
             className="button button--danger"
@@ -386,7 +386,9 @@ export function StaffEditor({
           }
           description={
             confirm === "reset_password"
-              ? "Verrà impostata la password temporanea inserita. Al prossimo accesso sarà obbligatorio cambiarla."
+              ? temporaryPassword
+                ? "Verrà impostata la password temporanea inserita. Al prossimo accesso sarà obbligatorio cambiarla."
+                : "Verrà ripristinata la password iniziale configurata sul server. Al prossimo accesso sarà obbligatorio cambiarla."
               : "L’operazione è definitiva ed è consentita soltanto senza storico. Altrimenti disattiva l’account."
           }
           pending={mutation.isPending}
@@ -405,3 +407,4 @@ function Feedback({ error }: { error: Error | null }) {
     </p>
   ) : null;
 }
+
