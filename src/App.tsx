@@ -73,6 +73,7 @@ const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
 const PublicMerchPage = lazy(() => import('./pages/PublicMerchPage').then(m=>({default:m.PublicMerchPage})));
 const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage').then(m=>({default:m.ApplicationsReviewPage})));
+const WarehousePage = lazy(() => import('./pages/WarehousePage').then(m=>({default:m.WarehousePage})));
 export default function App() {
   return (
     <>
@@ -98,6 +99,7 @@ export default function App() {
                   <Route path="/membri/adesione" element={<MemberAdhesionPage />} />
                 </Route>
                 <Route path="/merchandising" element={<MerchandisingPage />} />
+                <Route path="/magazzino" element={<WarehousePage />} />
                 <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/area" element={<DashboardPage />} />
                 <Route path="/area/disponibilita" element={<AvailabilityPage />} />
@@ -133,4 +135,3 @@ export default function App() {
     </>
   );
 }
-
