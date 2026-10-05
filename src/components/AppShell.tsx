@@ -52,6 +52,7 @@ const areaNavigation = [
   { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
   { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
 ];
+const inventoryNavigation = { to: "/magazzino", label: "Magazzino", icon: Warehouse, end: false };
 
 export function AppShell() {
   const { access, signOut } = useAuth();
@@ -145,12 +146,14 @@ export function AppShell() {
   }, [access?.userId, reportPresence]);
 
   const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
-  const navigation = access?.isAdmin ? adminNavigation : access?.isMember ? [
+  const navigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation] : adminNavigation : access?.isMember ? [
     {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
     {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
     {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
+    ...(access.areas.some((area) => area.slug === "logistica") ? [inventoryNavigation] : []),
   ] : (() => {
     const items = isLogisticsLead ? [...areaNavigation] : areaNavigation.filter((item) => item.to !== "/merchandising");
+    if (isLogisticsLead) items.push(inventoryNavigation);
     if ((openApplicationAreas.data?.length ?? 0) > 0) {
       const merchIndex = items.findIndex((item) => item.to === "/merchandising");
       items.splice(merchIndex < 0 ? items.length : merchIndex, 0,
