@@ -49,11 +49,11 @@ export function PublicHomePage() {
       <section className="public-info-links" aria-label="Installazione privata di GalileoHub">
         <article>
           <h2>Windows</h2>
-          <p>Apri GalileoHub in Edge o Chrome e scegli Installa app dal menu del browser o dall’icona nella barra degli indirizzi. Le notifiche push non vengono usate sui computer.</p>
+          <p>Apri GalileoHub in una versione aggiornata di Edge, Chrome o Firefox e consenti le notifiche del sito e di Windows quando richiesto. Non è necessario installare un’app.</p>
         </article>
         <article>
           <h2>Linux</h2>
-          <p>Apri GalileoHub in Chrome o Chromium e scegli Installa pagina come app dal menu del browser. Le notifiche push non vengono usate sui computer Linux.</p>
+          <p>Apri GalileoHub in una versione aggiornata di Chrome, Chromium o Firefox e consenti le notifiche del sito e dell’ambiente desktop quando richiesto.</p>
         </article>
         <article>
           <h2>Android</h2>
@@ -65,11 +65,11 @@ export function PublicHomePage() {
         </article>
         <article>
           <h2>Mac</h2>
-          <p>In Safari scegli File → Aggiungi al Dock; in Chrome o Edge usa Installa GalileoHub dal menu del browser. Le notifiche push non vengono usate sui computer Mac.</p>
+          <p>Apri GalileoHub in una versione aggiornata di Safari, Chrome, Edge o Firefox e consenti le notifiche del sito e di macOS. Non è necessario installare un’app.</p>
         </article>
         <article>
-          <h2>Notifiche sui dispositivi mobili</h2>
-          <p>Le notifiche push sono attive solo su Android, iPhone e iPad. Su computer puoi accedere e usare tutte le funzioni senza autorizzare notifiche.</p>
+          <h2>Notifiche su tutti i dispositivi</h2>
+          <p>Le notifiche push sono disponibili nei browser aggiornati che supportano Web Push. Consenti le notifiche del sito e verifica che il sistema operativo non le stia silenziando. Su iPhone e iPad, aggiungi GalileoHub alla schermata Home prima di attivarle.</p>
         </article>
         <article>
           <h2>Distribuzione privata</h2>
