@@ -616,7 +616,8 @@ await db.query(
   "insert into applications(area_id,email,first_name,last_name,answers) values($1,'candidate@studenti.unipi.it','Candidate','Example','{\"motivation\":\"test\"}')",
   [area],
 );
-assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 3, "Team Leader, logistics and the candidate's area lead are notified");
+assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 2, "Team Leader and the candidate's area lead are notified, while logistics is excluded");
+assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and recipient_user_id=$1", [logisticsId]), 0, "Logistics only receives applications for its own area");
 assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 5);
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 5);
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
