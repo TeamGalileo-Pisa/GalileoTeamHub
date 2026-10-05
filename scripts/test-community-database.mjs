@@ -140,6 +140,10 @@ await db.exec(await readFile(
   "utf8",
 ));
 await db.exec(await readFile(
+  "supabase/migrations/20261004160000_application_notifications_without_logistics.sql",
+  "utf8",
+));
+await db.exec(await readFile(
   "supabase/migrations/20261005170000_enable_web_push_all_devices.sql",
   "utf8",
 ));
