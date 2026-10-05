@@ -12,8 +12,8 @@ type ApplicationAnswers = {
 function answerText(value: unknown): string {
   if (value === null || value === undefined || value === "") return "Nessuna risposta";
   if (typeof value === "boolean") return value ? "Sì" : "No";
-  if (Array.isArray(value)) return value.map(String).join(", ") || "Nessuna risposta";
-  if (typeof value === "object") return Object.values(value).map(String).join(", ");
+  if (Array.isArray(value)) return value.map(String).join(" · ") || "Nessuna risposta";
+  if (typeof value === "object") return Object.values(value).map(String).join(" · ");
   return String(value);
 }
 
@@ -61,13 +61,16 @@ export function ApplicationAnswerList({ application }: { application: Applicatio
     if (!knownKeys.has(key)) fields.push({ question: key, answer });
   }
 
-  return <div className="application-question-list">
-    {fields.map(({ question, answer }, index) => <article className="application-question" key={`${index}-${question}`}>
-      <p><strong>Domanda</strong></p>
-      <h3>{question}</h3>
-      <p><strong>Risposta</strong></p>
-      <div className="application-question__answer">{answerText(answer)}</div>
-    </article>)}
-  </div>;
+  return <ol className="application-question-list">
+    {fields.map(({ question, answer }, index) => <li className="application-question" key={`${index}-${question}`}>
+      <div className="application-question__prompt">
+        <span className="application-question__number">{String(index + 1).padStart(2, "0")}</span>
+        <div><p className="application-question__label">Domanda</p><h3>{question}</h3></div>
+      </div>
+      <div className="application-question__response">
+        <p className="application-question__label">Risposta</p>
+        <div className="application-question__answer">{answerText(answer)}</div>
+      </div>
+    </li>)}
+  </ol>;
 }
-

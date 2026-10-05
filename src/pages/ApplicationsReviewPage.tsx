@@ -5,6 +5,8 @@ import { ApplicationAnswerList } from "../components/ApplicationAnswerList";
 import { community } from "../lib/community";
 import { downloadApplicationsExport } from "../lib/application-export";
 import { useAuth } from "../hooks/useAuth";
+import { useMemo, useState } from "react";
+import { Search } from "lucide-react";
 
 type Application = {
   id: string; first_name: string; last_name: string; email: string;
@@ -14,6 +16,8 @@ type Application = {
 
 export function ApplicationsReviewPage() {
   const { access } = useAuth();
+  const [search, setSearch] = useState("");
+  const [areaFilter, setAreaFilter] = useState("all");
   const queryClient = useQueryClient();
   const applications = useQuery({
     queryKey: ["review-applications", access?.userId],
@@ -25,9 +29,19 @@ export function ApplicationsReviewPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["review-applications"] }),
   });
   const exportApplications = useMutation({ mutationFn: downloadApplicationsExport });
+  const areas = useMemo(() => [...new Set((applications.data ?? []).map((item) => item.area_name))].sort((a, b) => a.localeCompare(b, "it")), [applications.data]);
+  const visibleApplications = useMemo(() => (applications.data ?? []).filter((item) => {
+    const searchText = `${item.first_name} ${item.last_name} ${item.email} ${item.area_name}`.toLocaleLowerCase("it");
+    return (areaFilter === "all" || item.area_name === areaFilter) && searchText.includes(search.trim().toLocaleLowerCase("it"));
+  }), [applications.data, areaFilter, search]);
 
   return <div className="page-container">
-    <PageHeader title="Candidature" eyebrow="Revisione riservata" description="Consulta le candidature in ordine di domanda. I capi area vedono solo le candidature delle proprie aree; Team Leader, amministrazione e logistica possono consultare tutte le aree." />
+    <PageHeader title="Candidature ricevute" eyebrow="Revisione riservata" description="Apri una candidatura per leggere ogni domanda e la relativa risposta. I capi area vedono solo le candidature della propria area." />
+    <section className="application-review-tools panel" aria-label="Filtra candidature">
+      <label className="application-search"><span>Cerca candidato</span><span className="application-search__input"><Search size={17} aria-hidden="true" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nome, cognome o email" /></span></label>
+      {areas.length > 1 && <label className="application-area-filter"><span>Area</span><select value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="all">Tutte le aree</option>{areas.map((area) => <option key={area}>{area}</option>)}</select></label>}
+      <p className="application-result-count">{visibleApplications.length} {visibleApplications.length === 1 ? "candidatura" : "candidature"}</p>
+    </section>
     <div className="page-actions">
       <button className="button button--secondary" type="button" disabled={exportApplications.isPending} onClick={() => exportApplications.mutate()}>
         <Download size={16} /> {exportApplications.isPending ? "Preparo l’Excel…" : "Scarica candidature Excel"}
@@ -39,7 +53,8 @@ export function ApplicationsReviewPage() {
     {applications.error && <p className="form-error" role="alert">{applications.error.message}</p>}
     {deleteApplication.error && <p className="form-error" role="alert">{deleteApplication.error.message}</p>}
     {!applications.isLoading && applications.data?.length === 0 && <section className="panel panel__body"><p>Non ci sono candidature disponibili.</p></section>}
-    {applications.data?.map((application) => {
+    {!applications.isLoading && (applications.data?.length ?? 0) > 0 && visibleApplications.length === 0 && <section className="panel panel__body"><p>Nessuna candidatura corrisponde ai filtri selezionati.</p></section>}
+    {visibleApplications.map((application) => {
       return <section className="panel application-review-card" key={application.id}>
         <header className="application-review-card__header">
           <details className="application-disclosure">
@@ -65,4 +80,3 @@ export function ApplicationsReviewPage() {
     })}
   </div>;
 }
-

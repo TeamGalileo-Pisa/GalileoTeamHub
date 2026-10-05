@@ -255,20 +255,14 @@ Deno.serve(async (request) => {
       ]);
       if (rolesError || membershipsError) throw new Error("SAVE_FAILED");
       const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
-      const [{ data: leadAreas, error: leadAreaError }, { data: allAreas, error: allAreaError }] = await Promise.all([
-        leadAreaIds.length
-          ? client.from("areas").select("id,slug").in("id", leadAreaIds)
-          : Promise.resolve({ data: [], error: null }),
-        client.from("areas").select("id,name,slug"),
-      ]);
-      if (leadAreaError || allAreaError) throw new Error("SAVE_FAILED");
+      const { data: allAreas, error: allAreaError } = await client.from("areas").select("id,name,slug");
+      if (allAreaError) throw new Error("SAVE_FAILED");
       const isAdmin = (roles ?? []).length > 0;
-      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
-      if (!isAdmin && !isLogistics && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
+      if (!isAdmin && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
       let applicationQuery = client.from("applications")
         .select("id,area_id,email,first_name,last_name,answers,created_at")
         .order("created_at", { ascending: false }).limit(500);
-      if (!isAdmin && !isLogistics) applicationQuery = applicationQuery.in("area_id", leadAreaIds);
+      if (!isAdmin) applicationQuery = applicationQuery.in("area_id", leadAreaIds);
       const { data: applications, error: applicationError } = await applicationQuery;
       if (applicationError) throw new Error("SAVE_FAILED");
       const names = new Map((allAreas ?? []).map((area) => [area.id, area.name]));
@@ -288,16 +282,10 @@ Deno.serve(async (request) => {
       ]);
       if (rolesError || membershipsError) throw new Error("SAVE_FAILED");
       const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
-      const [{ data: leadAreas, error: leadAreaError }, { data: allAreas, error: allAreaError }] = await Promise.all([
-        leadAreaIds.length
-          ? client.from("areas").select("id,slug,name").in("id", leadAreaIds)
-          : Promise.resolve({ data: [], error: null }),
-        client.from("areas").select("id,name,slug"),
-      ]);
-      if (leadAreaError || allAreaError) throw new Error("SAVE_FAILED");
+      const { data: allAreas, error: allAreaError } = await client.from("areas").select("id,name,slug");
+      if (allAreaError) throw new Error("SAVE_FAILED");
       const isAdmin = (roles ?? []).length > 0;
-      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
-      if (!isAdmin && !isLogistics && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
+      if (!isAdmin && leadAreaIds.length === 0) throw new Error("FORBIDDEN");
       const areaById = new Map((allAreas ?? []).map((area) => [area.id, area]));
       const rows: ApplicationExportRow[] = [];
       const pageSize = 1000;
@@ -305,7 +293,7 @@ Deno.serve(async (request) => {
         let query = client.from("applications")
           .select("id,area_id,email,first_name,last_name,answers,created_at")
           .order("created_at", { ascending: true }).range(offset, offset + pageSize - 1);
-        if (!isAdmin && !isLogistics) query = query.in("area_id", leadAreaIds);
+        if (!isAdmin) query = query.in("area_id", leadAreaIds);
         const { data: applications, error: applicationError } = await query;
         if (applicationError) throw new Error("SAVE_FAILED");
         for (const application of applications ?? []) {
@@ -350,14 +338,7 @@ Deno.serve(async (request) => {
       if (!application) throw new Error("NOT_FOUND");
       const leadAreaIds = (memberships ?? []).map((membership) => membership.area_id);
       const isAdminOrTeamLeader = (roles ?? []).length > 0;
-      const [{ data: leadAreas, error: leadAreaError }] = await Promise.all([
-        leadAreaIds.length
-          ? client.from("areas").select("id,slug").in("id", leadAreaIds)
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-      if (leadAreaError) throw new Error("SAVE_FAILED");
-      const isLogistics = (leadAreas ?? []).some((area) => area.slug === "logistica");
-      if (!isAdminOrTeamLeader && !isLogistics && !leadAreaIds.includes(application.area_id)) {
+      if (!isAdminOrTeamLeader && !leadAreaIds.includes(application.area_id)) {
         throw new Error("FORBIDDEN");
       }
       const { error } = await client.from("applications").delete().eq("id", body.applicationId);
@@ -489,4 +470,3 @@ Deno.serve(async (request) => {
     );
   }
 });
-
