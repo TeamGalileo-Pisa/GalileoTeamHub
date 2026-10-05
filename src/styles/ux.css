@@ -337,7 +337,7 @@ textarea::placeholder {
 
 .application-question-list {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -345,63 +345,57 @@ textarea::placeholder {
 
 .application-question {
   display: grid;
-  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
-  gap: 20px;
-  padding: 18px;
+  gap: 14px;
+  padding: 18px 20px;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  background: rgba(1, 7, 17, 0.42);
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(8, 26, 51, 0.9), rgba(3, 14, 31, 0.94));
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
 }
 
 .application-question__prompt {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
 }
 
 .application-question__number {
   display: grid;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
   place-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: 9px;
-  color: #8bd1ff;
-  background: rgba(43, 141, 204, 0.1);
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.application-question__label {
-  margin: 0 0 6px;
-  color: var(--muted);
+  border: 1px solid rgba(75, 170, 223, 0.4);
+  border-radius: 50%;
+  color: #c5eaff;
+  background: rgba(43, 141, 204, 0.18);
   font-size: 11px;
   font-weight: 750;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .application-question h3 {
   margin: 0;
   color: var(--white);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 .application-question__response {
   min-width: 0;
-  padding-left: 18px;
-  border-left: 1px solid var(--border);
+  margin-left: 48px;
+  padding: 13px 16px;
+  border: 1px solid rgba(125, 163, 196, 0.16);
+  border-radius: 10px;
+  background: rgba(1, 8, 20, 0.54);
 }
 
 .application-question__answer {
   color: var(--muted-strong);
-  font-size: 14px;
+  font-size: 15px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.65;
+  line-height: 1.7;
 }
 
 .application-review-tools {
@@ -467,8 +461,8 @@ textarea::placeholder {
   .application-review-tools { align-items: stretch; flex-direction: column; }
   .application-search, .application-area-filter { min-width: 0; }
   .application-result-count { margin: 0; }
-  .application-question { grid-template-columns: 1fr; gap: 14px; padding: 15px; }
-  .application-question__response { padding: 12px 0 0; border-top: 1px solid var(--border); border-left: 0; }
+  .application-question { gap: 12px; padding: 15px; }
+  .application-question__response { margin-left: 0; padding: 12px 13px; }
 }
 
 .push-setup-button {
@@ -571,6 +565,41 @@ textarea::placeholder {
   font-size: 13px;
 }
 
+.merch-orders { display: grid; gap: 16px; }
+.merch-orders__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.merch-orders__header h2 { margin: 0 0 6px; }
+.merch-orders__header p { margin: 0; color: var(--muted); }
+.merch-orders__list { display: grid; gap: 12px; }
+.merch-order { padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--page-raised); }
+.merch-order__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.merch-order__status { display: inline-flex; align-items: center; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.merch-order__status--ordered { color: #a53434; background: #fff0f0; border-color: #edb2b2; }
+.merch-order__status--paid { color: #176b45; background: #e9f8ef; border-color: #a7ddbb; }
+.merch-order__status--pending { color: #845a0a; background: #fff7df; border-color: #ead28e; }
+.merch-order__status--cancelled,
+.merch-order__status--expired { color: var(--muted); background: rgba(125, 137, 153, .12); border-color: var(--border); }
+.merch-order ul { margin: 8px 0 0; padding-left: 20px; }
+.merch-order__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.merch-order-edit { min-width: min(720px, 82vw); }
+.merch-order-edit h3 { margin: 0 0 10px; }
+.merch-order-edit__line { display: grid; grid-template-columns: minmax(0, 1fr) 110px auto auto; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.merch-order-edit__line > span { display: grid; gap: 3px; font-weight: 650; }
+.merch-order-edit__line small { color: var(--muted); font-weight: 400; }
+.merch-order-edit__line label { display: grid; gap: 4px; font-size: 13px; }
+.merch-order-edit__line input { min-width: 0; }
+.merch-order-edit__add { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; }
+.merch-order-edit__confirm { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--page-raised); }
+.merch-order-edit__confirm input { margin-top: 4px; }
+.merch-order-edit__total { display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px solid var(--border); font-size: 18px; }
+@media (max-width: 620px) {
+  .merch-order-edit { min-width: 0; }
+  .merch-order-edit__line { grid-template-columns: minmax(0, 1fr) 86px; }
+  .merch-order-edit__line > strong { grid-column: 1; }
+  .merch-order-edit__line > button { grid-column: 2; grid-row: 2; }
+  .merch-order-edit__add { grid-template-columns: 1fr; }
+}
+@media (max-width: 620px) { .merch-orders__header { display: grid; } }
+
 .application-choice-option {
   display: flex;
   align-items: flex-start;
@@ -624,6 +653,41 @@ textarea::placeholder {
 
 .application-form.form-grid > * {
   grid-column: 1;
+}
+
+.application-area-info-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--page-raised) 75%, transparent);
+}
+
+.application-area-info-trigger p {
+  flex: 1 1 260px;
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.application-area-info-dialog h3 {
+  margin: 22px 0 10px;
+}
+
+.application-area-info-dialog ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 22px;
+  line-height: 1.55;
+}
+
+.application-area-info-dialog .form-hint {
+  margin-top: 22px;
 }
 
 .application-choice-list legend {

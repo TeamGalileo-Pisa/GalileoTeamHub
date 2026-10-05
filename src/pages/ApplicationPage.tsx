@@ -9,8 +9,11 @@ import {
   genericDivision,
 } from "../lib/application-fields";
 import { Brand } from "../components/Brand";
+import { Modal } from "../components/Modal";
+import { applicationAreaInfo } from "../lib/application-area-info";
 export function ApplicationPage() {
   const [areaId, setAreaId] = useState("");
+  const [showAreaInfo, setShowAreaInfo] = useState(false);
   const [localError, setLocalError] = useState("");
   const areas = useQuery({
     queryKey: ["public-application-areas"],
@@ -23,6 +26,10 @@ export function ApplicationPage() {
   const division = areaId
     ? divisions[areas.data?.find((a) => a.id === areaId)?.slug ?? ""] ??
       genericDivision
+    : undefined;
+  const selectedArea = areas.data?.find((area) => area.id === areaId);
+  const areaInfo = selectedArea
+    ? applicationAreaInfo[selectedArea.slug]
     : undefined;
   const mutation = useMutation({
     mutationFn: (form: FormData) =>
@@ -129,8 +136,10 @@ export function ApplicationPage() {
               </label>
             ))}
             {choice("year", "Anno di iscrizione")}
-            <label className="form-field">
-              Per quale specifica Divisione ti stai candidando? *<select
+            <div className="form-field form-field--full application-area-picker">
+              <label htmlFor="application-area-select">Per quale specifica Divisione ti stai candidando? *</label>
+              <select
+                id="application-area-select"
                 className="select"
                 required
                 value={areaId}
@@ -143,19 +152,28 @@ export function ApplicationPage() {
                   </option>
                 ))}
               </select>
-            </label>
+              {selectedArea && (
+                <div className="application-area-info-trigger">
+                  <p>{areaInfo?.summary ?? "Scopri le attività previste per questa area."}</p>
+                  <button
+                    className="button button--secondary button--small"
+                    type="button"
+                    onClick={() => setShowAreaInfo(true)}
+                    aria-haspopup="dialog"
+                  >
+                    Cosa si fa in quest’area?
+                  </button>
+                </div>
+              )}
+            </div>
             {division && (
               <fieldset className="application-choice-list form-field--full" key={areaId}>
                 <legend>{division.question} *</legend>
-                <ol className="application-choice-list__items">
-                  {division.skills.map((s) => (
-                    <li key={s}>
-                      <label className="application-choice-option">
-                        <input type="checkbox" name="skills" value={s} /> {s}
-                      </label>
-                    </li>
-                  ))}
-                </ol>
+                {division.skills.map((s) => (
+                  <label key={s} className="application-choice-option">
+                    <input type="checkbox" name="skills" value={s} /> {s}
+                  </label>
+                ))}
                 <input
                   className="input"
                   name="otherSkills"
@@ -189,15 +207,11 @@ export function ApplicationPage() {
             )}
             <fieldset className="application-choice-list form-field--full">
               <legend>Certificazioni extra o competenze linguistiche *</legend>
-              <ol className="application-choice-list__items">
-                {certifications.map((s) => (
-                  <li key={s}>
-                    <label className="application-choice-option">
-                      <input type="checkbox" name="certifications" value={s} /> {s}
-                    </label>
-                  </li>
-                ))}
-              </ol>
+              {certifications.map((s) => (
+                <label key={s} className="application-choice-option">
+                  <input type="checkbox" name="certifications" value={s} /> {s}
+                </label>
+              ))}
             </fieldset>
             {choice(
               "problemSolving",
@@ -224,7 +238,27 @@ export function ApplicationPage() {
             </button>
           </form>
         )}
+      {showAreaInfo && selectedArea && (
+        <Modal
+          title={division?.title ?? selectedArea.name}
+          onClose={() => setShowAreaInfo(false)}
+        >
+          <div className="application-area-info-dialog">
+            <p>{areaInfo?.summary ?? "Le attività specifiche di quest’area vengono definite insieme al team."}</p>
+            {areaInfo ? (
+              <>
+                <h3>Di cosa si occupa</h3>
+                <ul>
+                  {areaInfo.activities.map((activity) => <li key={activity}>{activity}</li>)}
+                </ul>
+              </>
+            ) : (
+              <p>Nel modulo puoi indicare le competenze e gli interessi che vorresti mettere a disposizione.</p>
+            )}
+            <p className="form-hint">Non serve avere già esperienza in tutto: puoi indicare ciò che sai fare e anche quello che vuoi imparare.</p>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }
-
