@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeEuro, Check, CirclePlus, Clock3, Download, FileText, History, Paperclip, Save, X } from "lucide-react";
+import { BadgeEuro, BarChart3, Check, CirclePlus, Clock3, Download, FileText, History, Paperclip, Save, X } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
@@ -79,6 +79,30 @@ export function BudgetPage() {
   const planned = list.filter((r) => r.entry_type === "expense" && r.approval_status !== "rejected").reduce((s,r) => s + Number(r.budgeted_amount), 0);
   const actual = list.filter((r) => r.entry_type === "expense" && r.approval_status === "approved").reduce((s,r) => s + Number(r.actual_amount), 0);
   const unpaid = list.filter((r) => r.payment_status !== "paid" && r.approval_status === "approved").reduce((s,r) => s + Number(r.actual_amount || r.budgeted_amount), 0);
+  const categoryTotals = [...list.filter((row) => row.entry_type === "expense" && row.approval_status === "approved").reduce((totals, row) => {
+    const current = totals.get(row.category) ?? { planned: 0, actual: 0 };
+    current.planned += Number(row.budgeted_amount);
+    current.actual += Number(row.actual_amount);
+    totals.set(row.category, current);
+    return totals;
+  }, new Map<string, { planned: number; actual: number }>()).entries()]
+    .map(([category, values]) => ({ category, ...values }))
+    .sort((a, b) => b.actual - a.actual || b.planned - a.planned)
+    .slice(0, 6);
+  const categoryScale = Math.max(1, ...categoryTotals.flatMap((item) => [item.planned, item.actual]));
+  const now = new Date();
+  const paymentMonths = Array.from({ length: 6 }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthRows = list.filter((row) => row.payment_status === "paid" && row.paid_at?.slice(0, 7) === key);
+    return {
+      key,
+      label: date.toLocaleDateString("it-IT", { month: "short" }).replace(".", ""),
+      expenses: monthRows.filter((row) => row.entry_type === "expense").reduce((sum, row) => sum + Number(row.actual_amount), 0),
+      income: monthRows.filter((row) => row.entry_type === "income").reduce((sum, row) => sum + Number(row.actual_amount), 0),
+    };
+  });
+  const paymentScale = Math.max(1, ...paymentMonths.flatMap((month) => [month.expenses, month.income]));
   const error = areas.error ?? entries.error ?? audit.error ?? save.error ?? approve.error ?? setPayment.error ?? attach.error;
 
   if (!canManage) return <div className="page-container"><PageHeader title="Budget" eyebrow="Accesso riservato" description="Questa sezione è disponibile al Team Leader e al Capo Business." /></div>;
@@ -87,6 +111,12 @@ export function BudgetPage() {
     <PageHeader title="Budget" eyebrow="Team Leader · Capo Business" description="Monitora preventivi, spese reali, approvazioni, pagamenti e documenti in un registro con storico delle modifiche." />
     {error && <p className="form-error" role="alert">{error instanceof Error ? error.message : "Operazione non riuscita."}</p>}
     <div className="budget-stats"><article className="budget-stat"><span>Preventivato · uscite</span><strong>{euro.format(planned)}</strong></article><article className="budget-stat"><span>Consuntivo approvato</span><strong>{euro.format(actual)}</strong></article><article className="budget-stat budget-stat--due"><span>Da saldare</span><strong>{euro.format(unpaid)}</strong></article></div>
+    <section className="budget-chart-grid" aria-label="Grafici di andamento del budget">
+      <article className="panel panel__body budget-chart"><header><div><h2><BarChart3 size={18}/> Preventivo e consuntivo</h2><p>Confronto delle uscite approvate per categoria.</p></div></header><div className="budget-chart__legend"><span><i className="budget-chart__swatch budget-chart__swatch--planned"/>Preventivo</span><span><i className="budget-chart__swatch budget-chart__swatch--actual"/>Consuntivo</span></div>
+        {categoryTotals.length ? <div className="budget-chart__categories">{categoryTotals.map((item) => <div className="budget-chart__category" key={item.category}><div className="budget-chart__category-heading"><strong>{item.category}</strong><span>{euro.format(item.actual)} / {euro.format(item.planned)}</span></div><div className="budget-chart__track"><i className="budget-chart__bar budget-chart__bar--planned" style={{ width: `${(item.planned / categoryScale) * 100}%` }}/></div><div className="budget-chart__track"><i className="budget-chart__bar budget-chart__bar--actual" style={{ width: `${(item.actual / categoryScale) * 100}%` }}/></div></div>)}</div> : <p className="budget-chart__empty">I grafici compariranno quando saranno presenti voci di budget approvate.</p>}
+      </article>
+      <article className="panel panel__body budget-chart"><header><div><h2><BarChart3 size={18}/> Pagamenti negli ultimi sei mesi</h2><p>Entrate e uscite effettivamente segnate come pagate.</p></div></header><div className="budget-chart__legend"><span><i className="budget-chart__swatch budget-chart__swatch--expense"/>Uscite</span><span><i className="budget-chart__swatch budget-chart__swatch--income"/>Entrate</span></div><div className="budget-chart__months">{paymentMonths.map((month) => <div className="budget-chart__month" key={month.key}><div className="budget-chart__month-bars"><i className="budget-chart__month-bar budget-chart__month-bar--expense" style={{ height: `${Math.max(month.expenses ? 5 : 0, (month.expenses / paymentScale) * 100)}%` }} title={`Uscite ${month.label}: ${euro.format(month.expenses)}`} aria-label={`Uscite ${month.label}: ${euro.format(month.expenses)}`}/><i className="budget-chart__month-bar budget-chart__month-bar--income" style={{ height: `${Math.max(month.income ? 5 : 0, (month.income / paymentScale) * 100)}%` }} title={`Entrate ${month.label}: ${euro.format(month.income)}`} aria-label={`Entrate ${month.label}: ${euro.format(month.income)}`}/></div><span>{month.label}</span><small>{euro.format(month.income - month.expenses)}</small></div>)}</div></article>
+    </section>
     <section className="panel panel__body budget-section">
       <header className="budget-toolbar"><div><h2><BadgeEuro size={19}/> Registro budget</h2><p>Le nuove voci richiedono approvazione prima di entrare nel consuntivo.</p></div><div className="budget-toolbar__actions"><button className="button button--secondary" onClick={() => exportBudget(list, areas.data ?? [])} type="button"><Download size={16}/> Esporta CSV</button><button className="button button--primary" onClick={() => setDraft({...blank})} type="button"><CirclePlus size={16}/> Nuova voce</button></div></header>
       <div className="budget-filters"><label>Mostra<select className="input" value={filter} onChange={(e) => setFilter(e.target.value)}><option value="all">Tutte le voci</option><option value="pending">Da approvare</option><option value="approved">Approvate</option><option value="rejected">Respinte</option><option value="unpaid">Da pagare</option><option value="partial">Pagate in parte</option><option value="paid">Pagate</option></select></label><span>{rows.length} {rows.length === 1 ? "voce" : "voci"}</span></div>
