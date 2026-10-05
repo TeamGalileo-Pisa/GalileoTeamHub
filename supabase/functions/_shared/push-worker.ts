@@ -100,7 +100,9 @@ export async function processPush(client: SupabaseClient) {
       ).eq("id", device?.user_id).single();
       if (
         !device || !notice || notice.recipient_user_id !== device.user_id ||
-        device.device_class !== "mobile" ||
+        (device.platform === "web"
+          ? !["mobile", "desktop"].includes(device.device_class)
+          : device.device_class !== "mobile") ||
         profile?.status !== "active"
       ) {
         await client.from("push_jobs").delete().eq("id", job.id);
@@ -160,3 +162,4 @@ export async function processPush(client: SupabaseClient) {
     }
   }
 }
+
