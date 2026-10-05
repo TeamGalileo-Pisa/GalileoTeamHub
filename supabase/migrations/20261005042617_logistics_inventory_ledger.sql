@@ -97,7 +97,7 @@ begin
   if not private.can_manage_logistics_inventory() then raise exception 'FORBIDDEN'; end if;
   if char_length(btrim(coalesce(p_name,''))) not between 2 and 120
     or char_length(coalesce(p_location,''))>240 or char_length(coalesce(p_notes,''))>2000 then raise exception 'INVALID_INVENTORY_DATA'; end if;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   insert into public.inventory_warehouses(id,name,location,notes,created_by)
     values(v_id,btrim(p_name),btrim(coalesce(p_location,'')),btrim(coalesce(p_notes,'')),auth.uid());
   insert into public.inventory_movements(warehouse_id,warehouse_name_snapshot,event_type,actor_user_id,actor_name,details)
@@ -116,7 +116,7 @@ begin
     or char_length(coalesce(p_location,''))>240 or char_length(coalesce(p_notes,''))>2000 then raise exception 'INVALID_INVENTORY_DATA'; end if;
   select * into v_old from public.inventory_warehouses where id=p_id for update;
   if not found then raise exception 'WAREHOUSE_NOT_FOUND'; end if;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   update public.inventory_warehouses set name=btrim(p_name),location=btrim(coalesce(p_location,'')),notes=btrim(coalesce(p_notes,'')),updated_at=now() where id=p_id;
   insert into public.inventory_movements(warehouse_id,warehouse_name_snapshot,event_type,actor_user_id,actor_name,details)
     values(p_id,btrim(p_name),'warehouse_updated',auth.uid(),v_actor,
@@ -135,7 +135,7 @@ begin
   if p_archived and exists(select 1 from public.inventory_items where warehouse_id=p_id and archived_at is null) then
     raise exception 'ARCHIVE_ACTIVE_ITEMS_FIRST';
   end if;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   update public.inventory_warehouses set archived_at=case when p_archived then now() else null end,updated_at=now() where id=p_id;
   v_event:=case when p_archived then 'warehouse_archived' else 'warehouse_restored' end;
   insert into public.inventory_movements(warehouse_id,warehouse_name_snapshot,event_type,actor_user_id,actor_name,details)
@@ -156,7 +156,7 @@ begin
     or p_initial_quantity not between 0 and 1000000 or p_minimum_quantity not between 0 and 1000000 then raise exception 'INVALID_INVENTORY_DATA'; end if;
   select * into v_warehouse from public.inventory_warehouses where id=p_warehouse_id and archived_at is null for update;
   if not found then raise exception 'WAREHOUSE_NOT_FOUND'; end if;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   insert into public.inventory_items(id,warehouse_id,name,sku,description,unit,quantity,minimum_quantity,created_by)
     values(v_id,p_warehouse_id,btrim(p_name),btrim(coalesce(p_sku,'')),btrim(coalesce(p_description,'')),btrim(p_unit),p_initial_quantity,p_minimum_quantity,auth.uid());
   insert into public.inventory_movements(warehouse_id,item_id,warehouse_name_snapshot,item_name_snapshot,event_type,
@@ -179,7 +179,7 @@ begin
   select * into v_old from public.inventory_items where id=p_id for update;
   if not found then raise exception 'ITEM_NOT_FOUND'; end if;
   select name into v_warehouse from public.inventory_warehouses where id=v_old.warehouse_id;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   update public.inventory_items set name=btrim(p_name),sku=btrim(coalesce(p_sku,'')),description=btrim(coalesce(p_description,'')),unit=btrim(p_unit),minimum_quantity=p_minimum_quantity,updated_at=now() where id=p_id;
   insert into public.inventory_movements(warehouse_id,item_id,warehouse_name_snapshot,item_name_snapshot,event_type,quantity_before,quantity_after,actor_user_id,actor_name,details)
     values(v_old.warehouse_id,p_id,coalesce(v_warehouse,''),btrim(p_name),'item_updated',v_old.quantity,v_old.quantity,auth.uid(),v_actor,
@@ -202,7 +202,7 @@ begin
   v_delta:=case when p_event='stock_in' then p_quantity else -p_quantity end;
   v_after:=v_item.quantity+v_delta;
   if v_after<0 then raise exception 'INSUFFICIENT_STOCK'; end if;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   update public.inventory_items set quantity=v_after,updated_at=now() where id=p_item_id;
   insert into public.inventory_movements(warehouse_id,item_id,warehouse_name_snapshot,item_name_snapshot,event_type,quantity_delta,quantity_before,quantity_after,actor_user_id,actor_name,taken_by_name,notes)
     values(v_item.warehouse_id,p_item_id,v_warehouse.name,v_item.name,p_event,v_delta,v_item.quantity,v_after,auth.uid(),v_actor,btrim(coalesce(p_taken_by,'')),btrim(coalesce(p_notes,'')));
@@ -218,7 +218,7 @@ begin
   if not found then raise exception 'ITEM_NOT_FOUND'; end if;
   if not p_archived and not exists(select 1 from public.inventory_warehouses where id=v_item.warehouse_id and archived_at is null) then raise exception 'WAREHOUSE_ARCHIVED'; end if;
   select name into v_warehouse from public.inventory_warehouses where id=v_item.warehouse_id;
-  select display_name into v_actor from public.profiles where id=auth.uid();
+  select coalesce(nullif(current_setting('app.inventory_actor_name',true),''),display_name) into v_actor from public.profiles where id=auth.uid();
   update public.inventory_items set archived_at=case when p_archived then now() else null end,updated_at=now() where id=p_id;
   v_event:=case when p_archived then 'item_archived' else 'item_restored' end;
   insert into public.inventory_movements(warehouse_id,item_id,warehouse_name_snapshot,item_name_snapshot,event_type,quantity_before,quantity_after,actor_user_id,actor_name,details)
