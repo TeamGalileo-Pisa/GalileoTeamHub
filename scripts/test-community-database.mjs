@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 const db = new PGlite();
 await db.exec(`
 create role anon;create role authenticated;create role service_role;
-create schema auth;create schema private;create schema extensions;
+create schema auth;create schema private;create schema extensions;create schema storage;
 create function auth.uid() returns uuid language sql as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
 create function extensions.digest(text,text) returns bytea language sql as $$select decode(md5($1),'hex')$$;
 create function extensions.gen_random_bytes(integer) returns bytea language sql as $$select decode(repeat('ab',$1),'hex')$$;
@@ -28,6 +28,8 @@ create table public.announcement_targets(announcement_id uuid references public.
 create table public.announcement_reads(announcement_id uuid references public.announcements,area_id uuid references public.areas,read_by uuid references public.profiles,read_at timestamptz default now(),primary key(announcement_id,area_id));
 create function public.list_room_availabilities() returns integer language sql as $$select 42$$;
 create table public.notifications(id uuid primary key default gen_random_uuid(),recipient_user_id uuid references public.profiles on delete cascade,type text,title text,body text,data jsonb,created_at timestamptz not null default now(),read_at timestamptz);
+create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+create table storage.objects(id uuid primary key default gen_random_uuid(),bucket_id text,name text,owner_id uuid);
 `);
 const original = await readFile(
   "supabase/migrations/20260902100000_staff_and_admin_management.sql",
@@ -135,6 +137,10 @@ await db.exec(await readFile(
 ));
 await db.exec(await readFile(
   "supabase/migrations/20261004200000_team_leader_notification_fanout.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004160000_application_notifications_without_logistics.sql",
   "utf8",
 ));
 await db.exec(await readFile(
@@ -614,14 +620,62 @@ await db.query(
   "insert into applications(area_id,email,first_name,last_name,answers) values($1,'candidate@studenti.unipi.it','Candidate','Example','{\"motivation\":\"test\"}')",
   [area],
 );
-assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 3, "Team Leader, logistics and the candidate's area lead are notified");
-assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 5);
-assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 5);
+assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 2, "Team Leader and the candidate's area lead are notified, while logistics is excluded");
+assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and recipient_user_id=$1", [logisticsId]), 0, "Logistics only receives applications for its own area");
+assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 4);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 4);
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
 await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
 assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
+await db.exec(await readFile("supabase/migrations/20261005200000_sponsor_budget_management.sql", "utf8"));
+const businessLeadId = "99999999-9999-4999-8999-999999999999";
+const logisticsMemberId = "aaaaaaaa-9999-4999-8999-999999999999";
+await db.query("insert into profiles(id,username,display_name) values($1,'business-lead','Business Lead'),($2,'logistics-member','Logistics Member')", [businessLeadId, logisticsMemberId]);
+await db.query("insert into areas(name,slug) values('Business','business') on conflict(slug) do nothing");
+const businessAreaId = await scalar("select id from areas where slug='business'");
+await db.query("insert into area_memberships(user_id,area_id,role) values($1,$2,'area_lead')", [businessLeadId,businessAreaId]);
+await db.query("select set_config('test.uid',$1,false)", [leaderId]);
+assert.equal(await scalar("select private.can_manage_sponsors()"), true, "Team Leader can access sponsor CRM");
+assert.equal(await scalar("select private.can_manage_budget()"), true, "Team Leader can access budget");
+const sponsorId = await scalar("insert into sponsors(organization_name,created_by) values('Sponsor Test',$1) returning id", [leaderId]);
+await db.query("insert into sponsor_interactions(sponsor_id,interaction_type,summary,actor_user_id,actor_name) values($1,'email','Primo contatto',$2,'nome contraffatto')", [sponsorId,leaderId]);
+assert.equal(await scalar("select actor_name='Merch Leader' from sponsor_interactions where sponsor_id=$1", [sponsorId]), true, "interaction actor name comes from the authenticated profile");
+assert.equal(await scalar("select count(*)::int from sponsor_audit_log where sponsor_id=$1 and event_type='created'", [sponsorId]), 1, "sponsor creation is audited");
+await db.query("select set_config('test.uid',$1,false)", [logisticsId]);
+assert.equal(await scalar("select private.can_manage_sponsors()"), true, "Capo Logistica can access sponsor CRM");
+assert.equal(await scalar("select private.can_manage_budget()"), false, "Capo Logistica cannot access budget");
+await db.query("insert into area_shared_accounts(area_id,user_id) values($1,$2)", [logisticsAreaId,logisticsMemberId]);
+await db.query("select set_config('test.uid',$1,false)", [logisticsMemberId]);
+assert.equal(await scalar("select private.can_manage_sponsors()"), true, "shared Logistica account can access sponsor CRM");
+assert.equal(await scalar("select private.can_manage_budget()"), false, "shared Logistica account cannot access budget");
+await db.query("select set_config('test.uid',$1,false)", [businessLeadId]);
+assert.equal(await scalar("select private.can_manage_budget()"), true, "Capo Business can access budget");
+assert.equal(await scalar("select private.can_manage_sponsors()"), false, "Capo Business cannot access sponsor CRM");
+const budgetId = await scalar("insert into budget_entries(title,category,created_by) values('Budget Test','Test',$1) returning id", [leaderId]);
+assert.equal(await scalar("select approval_status from budget_entries where id=$1", [budgetId]), "pending", "budget items start pending approval");
+await db.query("select set_config('test.uid',$1,false)", [leaderId]);
+await assert.rejects(db.query("update budget_entries set approval_status='approved' where id=$1", [budgetId]), /BUDGET_SELF_APPROVAL_NOT_ALLOWED/);
+await db.query("select set_config('test.uid',$1,false)", [businessLeadId]);
+await db.query("update budget_entries set approval_status='approved' where id=$1", [budgetId]);
+await db.query("update budget_entries set actual_amount=12.5 where id=$1", [budgetId]);
+assert.equal(await scalar("select approval_status='pending' and approved_by is null from budget_entries where id=$1", [budgetId]), true, "editing an approved budget figure requires a new approval");
+await assert.rejects(db.query("update budget_entries set payment_status='paid' where id=$1", [budgetId]), /BUDGET_ENTRY_NOT_APPROVED/);
+assert.equal(await scalar("select count(*)::int from budget_audit_log where entry_id=$1 and event_type='created'", [budgetId]), 1, "budget creation is audited");
+await db.exec(await readFile("supabase/migrations/20261005210000_team_purchase_orders.sql", "utf8"));
+await db.query("select set_config('test.uid',$1,false)", [leaderId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "Team Leader can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [logisticsId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "Capo Logistica can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [logisticsMemberId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "shared Logistica account can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [businessLeadId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), false, "Capo Business cannot manage purchase orders");
+const purchaseOrderId = await scalar(`insert into team_purchase_orders(requester_user_id,requester_first_name,requester_last_name,vendor_name,description,order_date,amount)
+  values($1,'Mario','Rossi','Fornitore test','Componenti per rover',current_date,145.9) returning id`, [leaderId]);
+assert.equal(await scalar("select count(*)::int from team_purchase_order_audit where order_id=$1 and event_type='created'", [purchaseOrderId]), 1, "purchase order creation is audited");
+await assert.rejects(db.query("update team_purchase_orders set requester_last_name='Altro' where id=$1", [purchaseOrderId]), /PURCHASE_ORDER_REQUESTER_IS_IMMUTABLE/);
 console.log(
-  "PASS: roles, account guards, mail and membership queues, mobile and desktop push jobs, merch visibility, public checkout, scoped application notices and paid-order notifications.",
+  "PASS: roles, account guards, mail and membership queues, mobile and desktop push jobs, merch visibility, public checkout, scoped application notices, paid-order notifications, sponsor/budget access, purchase-order access and audit guards.",
 );
 await db.close();
 

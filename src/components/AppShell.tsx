@@ -14,6 +14,9 @@ import {
   Megaphone,
   UsersRound,
   Warehouse,
+  Handshake,
+  Wallet,
+  ShoppingCart,
   X,
 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
@@ -53,6 +56,9 @@ const areaNavigation = [
   { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
 ];
 const inventoryNavigation = { to: "/magazzino", label: "Magazzino", icon: Warehouse, end: false };
+const sponsorNavigation = { to: "/sponsor", label: "Sponsor", icon: Handshake, end: false };
+const budgetNavigation = { to: "/budget", label: "Budget", icon: Wallet, end: false };
+const ordersNavigation = { to: "/ordini", label: "Ordini", icon: ShoppingCart, end: false };
 
 export function AppShell() {
   const { access, signOut } = useAuth();
@@ -146,14 +152,20 @@ export function AppShell() {
   }, [access?.userId, reportPresence]);
 
   const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
-  const navigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation] : adminNavigation : access?.isMember ? [
+  const isBusinessLead = Boolean(!access?.isMember && access?.areas.some((area) => area.slug === "business"));
+  const navigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation, sponsorNavigation, ordersNavigation, budgetNavigation] : adminNavigation : access?.isMember ? [
     {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
     {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
     {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
     ...(access.areas.some((area) => area.slug === "logistica") ? [inventoryNavigation] : []),
+    ...(access.areas.some((area) => area.slug === "logistica") ? [sponsorNavigation] : []),
+    ...(access.areas.some((area) => area.slug === "logistica") ? [ordersNavigation] : []),
   ] : (() => {
     const items = isLogisticsLead ? [...areaNavigation] : areaNavigation.filter((item) => item.to !== "/merchandising");
-    if (isLogisticsLead) items.push(inventoryNavigation);
+      if (isLogisticsLead) items.push(inventoryNavigation);
+      if (isLogisticsLead) items.push(sponsorNavigation);
+      if (isLogisticsLead) items.push(ordersNavigation);
+    if (isBusinessLead) items.push(budgetNavigation);
     if ((openApplicationAreas.data?.length ?? 0) > 0) {
       const merchIndex = items.findIndex((item) => item.to === "/merchandising");
       items.splice(merchIndex < 0 ? items.length : merchIndex, 0,

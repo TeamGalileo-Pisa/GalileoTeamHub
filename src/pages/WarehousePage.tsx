@@ -111,9 +111,11 @@ export function WarehousePage() {
   };
 
   useEffect(() => {
-    if (canUse) void updateExternalLedger();
+    if (!canUse) return;
+    const timeoutId = window.setTimeout(() => void updateExternalLedger(), 0);
     // Sync once when an authorized inventory screen opens; writes sync again after each operation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.clearTimeout(timeoutId);
   }, [canUse]);
 
   const stores = useQuery({ queryKey: ["inventory-warehouses"], enabled: canUse, queryFn: async () => {
