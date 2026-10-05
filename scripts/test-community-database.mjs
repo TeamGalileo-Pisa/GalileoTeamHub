@@ -656,8 +656,21 @@ await db.query("update budget_entries set actual_amount=12.5 where id=$1", [budg
 assert.equal(await scalar("select approval_status='pending' and approved_by is null from budget_entries where id=$1", [budgetId]), true, "editing an approved budget figure requires a new approval");
 await assert.rejects(db.query("update budget_entries set payment_status='paid' where id=$1", [budgetId]), /BUDGET_ENTRY_NOT_APPROVED/);
 assert.equal(await scalar("select count(*)::int from budget_audit_log where entry_id=$1 and event_type='created'", [budgetId]), 1, "budget creation is audited");
+await db.exec(await readFile("supabase/migrations/20261005210000_team_purchase_orders.sql", "utf8"));
+await db.query("select set_config('test.uid',$1,false)", [leaderId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "Team Leader can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [logisticsId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "Capo Logistica can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [logisticsMemberId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), true, "shared Logistica account can manage purchase orders");
+await db.query("select set_config('test.uid',$1,false)", [businessLeadId]);
+assert.equal(await scalar("select private.can_manage_team_orders()"), false, "Capo Business cannot manage purchase orders");
+const purchaseOrderId = await scalar(`insert into team_purchase_orders(requester_user_id,requester_first_name,requester_last_name,vendor_name,description,order_date,amount)
+  values($1,'Mario','Rossi','Fornitore test','Componenti per rover',current_date,145.9) returning id`, [leaderId]);
+assert.equal(await scalar("select count(*)::int from team_purchase_order_audit where order_id=$1 and event_type='created'", [purchaseOrderId]), 1, "purchase order creation is audited");
+await assert.rejects(db.query("update team_purchase_orders set requester_last_name='Altro' where id=$1", [purchaseOrderId]), /PURCHASE_ORDER_REQUESTER_IS_IMMUTABLE/);
 console.log(
-  "PASS: roles, account guards, mail and membership queues, mobile and desktop push jobs, merch visibility, public checkout, scoped application notices, paid-order notifications, sponsor/budget access and audit guards.",
+  "PASS: roles, account guards, mail and membership queues, mobile and desktop push jobs, merch visibility, public checkout, scoped application notices, paid-order notifications, sponsor/budget access, purchase-order access and audit guards.",
 );
 await db.close();
 
