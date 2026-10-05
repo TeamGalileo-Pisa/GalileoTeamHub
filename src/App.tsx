@@ -76,6 +76,7 @@ const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage
 const WarehousePage = lazy(() => import('./pages/WarehousePage').then(m=>({default:m.WarehousePage})));
 const SponsorsPage = lazy(() => import('./pages/SponsorsPage').then(m=>({default:m.SponsorsPage})));
 const BudgetPage = lazy(() => import('./pages/BudgetPage').then(m=>({default:m.BudgetPage})));
+const TeamOrdersPage = lazy(() => import('./pages/TeamOrdersPage').then(m=>({default:m.TeamOrdersPage})));
 export default function App() {
   return (
     <>
@@ -104,6 +105,7 @@ export default function App() {
                 <Route path="/magazzino" element={<WarehousePage />} />
                 <Route path="/sponsor" element={<SponsorsPage />} />
                 <Route path="/budget" element={<BudgetPage />} />
+                <Route path="/ordini" element={<TeamOrdersPage />} />
                 <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/area" element={<DashboardPage />} />
                 <Route path="/area/disponibilita" element={<AvailabilityPage />} />
