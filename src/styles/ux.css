@@ -610,14 +610,14 @@ textarea::placeholder {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted-strong);
-  background: #fff;
+  background: var(--navy-soft);
   line-height: 1.45;
   cursor: pointer;
 }
 
 .application-choice-option:hover {
   border-color: var(--border-strong);
-  background: #f6f9fa;
+  background: rgba(43, 141, 204, 0.16);
 }
 
 .application-choice-option input {
@@ -644,7 +644,7 @@ textarea::placeholder {
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 9px;
-  background: #fff;
+  background: var(--page-raised);
 }
 
 .application-form.form-grid {
@@ -971,11 +971,12 @@ textarea::placeholder {
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 9px;
-  background: #fff;
+  background: var(--page-raised);
 }
 
 .calendar-area-filter legend {
   padding-inline: 5px;
+  color: var(--white);
   font-size: 14px;
   font-weight: 700;
 }
@@ -997,15 +998,15 @@ textarea::placeholder {
   border: 1px solid var(--border);
   border-radius: 8px;
   color: var(--muted-strong);
-  background: #fff;
+  background: var(--navy-soft);
   font-size: 13px;
   cursor: pointer;
 }
 
 .calendar-area-filter__option:has(input:checked) {
-  border-color: #9cbac0;
-  color: #1c4d5d;
-  background: #edf4f4;
+  border-color: var(--border-strong);
+  color: var(--white);
+  background: rgba(43, 141, 204, 0.2);
 }
 
 .calendar-area-filter__option input {
