@@ -622,7 +622,7 @@ assert.equal(await scalar("select count(*)::int from push_jobs j join notificati
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
 await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
 assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
-await db.exec(await readFile("supabase/migrations/20261005150416_sponsor_budget_management.sql", "utf8"));
+await db.exec(await readFile("supabase/migrations/20261005200000_sponsor_budget_management.sql", "utf8"));
 const businessLeadId = "99999999-9999-4999-8999-999999999999";
 const logisticsMemberId = "aaaaaaaa-9999-4999-8999-999999999999";
 await db.query("insert into profiles(id,username,display_name) values($1,'business-lead','Business Lead'),($2,'logistics-member','Logistics Member')", [businessLeadId, logisticsMemberId]);
