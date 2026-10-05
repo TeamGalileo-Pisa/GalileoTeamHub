@@ -31,7 +31,7 @@ self.addEventListener("push", (event) => {
   try { payload = event.data?.json() ?? {}; } catch { /* generic notification */ }
   event.waitUntil(self.registration.showNotification(payload.title || "GalileoHub", {
     body: payload.body || "Hai una nuova comunicazione.", icon: "/icons/galileohub-192-v2.png",
-    badge: "/icons/galileohub-192-v2.png", tag: payload.id, data: {url:"/"}
+    badge: "/icons/galileohub-192-v2.png", tag: payload.id, data: {url:payload.url || "/"}
   }));
 });
 
@@ -64,3 +64,4 @@ self.addEventListener("fetch", (event) => {
 `;
 
 await writeFile(resolve(publicDir, "sw.js"), serviceWorker, "utf8");
+
