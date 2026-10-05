@@ -81,6 +81,7 @@ export function WarehousePage() {
   const [warehouseFilter, setWarehouseFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [operatorName, setOperatorName] = useState("");
   const [backupState, setBackupState] = useState<"syncing" | "saved" | "error" | "idle">("idle");
   const [backupError, setBackupError] = useState("");
 
@@ -103,7 +104,8 @@ export function WarehousePage() {
   };
 
   const writeRpc = async <T,>(name: string, args: Record<string, unknown>) => {
-    const result = await rpc<T>(name, args);
+    if (operatorName.trim().length < 2) throw new Error("Inserisci nome e cognome dell’operatore.");
+    const result = await rpc<T>(name, { ...args, p_actor_name: operatorName.trim() });
     await updateExternalLedger();
     return result;
   };
@@ -174,6 +176,13 @@ export function WarehousePage() {
   return <div className="page-container warehouse-page">
     <PageHeader title="Magazzino" eyebrow="Logistica · Registro inventario" description="Gestisci le scorte e consulta la cronologia completa di carichi, prelievi e modifiche. I record vengono archiviati, non cancellati." />
     {pageError && <p className="form-error" role="alert">{pageError instanceof Error ? pageError.message : "Operazione non riuscita. Riprova."}</p>}
+
+    <section className="panel panel__body warehouse-operator">
+      <label className="form-field">Nome e cognome dell’operatore
+        <input className="input" required minLength={2} maxLength={160} value={operatorName} onChange={(event) => setOperatorName(event.target.value)} placeholder="Chi sta registrando le operazioni" />
+      </label>
+      <p>Il registro conserva anche l’account usato. Con l’account condiviso Logistica, inserisci qui il nome della persona presente.</p>
+    </section>
 
     <section className="warehouse-stats" aria-label="Riepilogo inventario">
       <article className="warehouse-stat"><span>Articoli attivi</span><strong>{activeItems.length}</strong></article>
