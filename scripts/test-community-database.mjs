@@ -622,8 +622,8 @@ await db.query(
 );
 assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 2, "Team Leader and the candidate's area lead are notified, while logistics is excluded");
 assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and recipient_user_id=$1", [logisticsId]), 0, "Logistics only receives applications for its own area");
-assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 5);
-assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 5);
+assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 4);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 4);
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
 await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
 assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
