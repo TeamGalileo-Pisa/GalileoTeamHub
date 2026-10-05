@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../lib/supabase";
 import { community } from "../lib/community";
@@ -6,13 +6,15 @@ import { listAreas } from "../lib/data";
 import { downloadMembershipExport } from "../lib/membership-export";
 import { PageHeader } from "../components/PageHeader";
 import { ApplicationAnswerList } from "../components/ApplicationAnswerList";
-import { Download, Trash2 } from "lucide-react";
+import { Download, Search, Trash2 } from "lucide-react";
 import { downloadApplicationsExport } from "../lib/application-export";
 export function CommunityAdminPage() {
   const cache = useQueryClient();
   const [credentials, setCredentials] = useState<
     { username: string; temporaryPassword: string } | null
   >(null);
+  const [applicationSearch, setApplicationSearch] = useState("");
+  const [applicationArea, setApplicationArea] = useState("all");
   const areas = useQuery({ queryKey: ["areas"], queryFn: listAreas });
   const settings = useQuery({
     queryKey: ["application-settings"],
@@ -49,6 +51,14 @@ export function CommunityAdminPage() {
         answers: Record<string, unknown>;
       }[];
     },
+  });
+  const applicationAreas = useMemo(() => [...new Set((applications.data ?? []).map((application) =>
+    areas.data?.find((area) => area.id === application.area_id)?.name ?? "Area"
+  ))].sort((a, b) => a.localeCompare(b, "it")), [applications.data, areas.data]);
+  const filteredApplications = (applications.data ?? []).filter((application) => {
+    const areaName = areas.data?.find((area) => area.id === application.area_id)?.name ?? "Area";
+    const phrase = `${application.first_name} ${application.last_name} ${application.email} ${areaName}`.toLocaleLowerCase("it");
+    return (applicationArea === "all" || applicationArea === areaName) && phrase.includes(applicationSearch.trim().toLocaleLowerCase("it"));
   });
   const deliveries = useQuery({
     queryKey: ["community-mail"],
@@ -259,8 +269,13 @@ export function CommunityAdminPage() {
         </button>
         {exportApplications.error && <p className="form-error" role="alert">{exportApplications.error.message}</p>}
         {exportApplications.isSuccess && <p className="form-success" role="status">Excel candidature scaricato.</p>}
-        {applications.data?.map((a) => (
-          <article className="application-review-card" key={a.id}>
+        <div className="application-review-tools panel" aria-label="Filtra candidature">
+          <label className="application-search"><span>Cerca candidato</span><span className="application-search__input"><Search size={17} aria-hidden="true" /><input value={applicationSearch} onChange={(event) => setApplicationSearch(event.target.value)} placeholder="Nome, cognome o email" /></span></label>
+          {applicationAreas.length > 1 && <label className="application-area-filter"><span>Area</span><select value={applicationArea} onChange={(event) => setApplicationArea(event.target.value)}><option value="all">Tutte le aree</option>{applicationAreas.map((area) => <option key={area}>{area}</option>)}</select></label>}
+          <p className="application-result-count">{filteredApplications.length} {filteredApplications.length === 1 ? "candidatura" : "candidature"}</p>
+        </div>
+        {filteredApplications.map((a) => (
+          <article className="panel application-review-card" key={a.id}>
             <header className="application-review-card__header">
               <details className="application-disclosure">
                 <summary>
@@ -289,4 +304,3 @@ export function CommunityAdminPage() {
     </div>
   );
 }
-
