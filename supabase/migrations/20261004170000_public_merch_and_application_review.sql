@@ -18,9 +18,6 @@ as $$
     or exists(select 1 from public.area_memberships m
       where m.user_id=auth.uid() and m.area_id=a.id and m.role='area_lead'
         and m.ended_at is null)
-    or exists(select 1 from public.area_memberships m join public.areas logistics
-      on logistics.id=m.area_id and logistics.slug='logistica'
-      where m.user_id=auth.uid() and m.role='area_lead' and m.ended_at is null)
   )
   order by a.name;
 $$;
@@ -122,7 +119,7 @@ begin
     select m.user_id from public.area_memberships m join public.areas a on a.id=m.area_id
       join public.profiles p on p.id=m.user_id
       where m.role='area_lead' and m.ended_at is null and p.status='active'
-        and not p.must_change_password and (m.area_id=new.area_id or a.slug='logistica')
+        and not p.must_change_password and m.area_id=new.area_id
   ) recipients;
   return new;
 end;
