@@ -23,7 +23,7 @@ import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
 import { supabase } from "../lib/supabase";
-import { enablePush, isMobileNotificationDevice, pushIsReady } from "../lib/push";
+import { enablePush, supportsPushNotifications, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
 
 const adminNavigation = [
@@ -57,25 +57,25 @@ const inventoryNavigation = { to: "/magazzino", label: "Magazzino", icon: Wareho
 export function AppShell() {
   const { access, signOut } = useAuth();
   const location = useLocation();
-  const mobileNotificationsEnabled = isMobileNotificationDevice();
+  const pushSupported = supportsPushNotifications();
   const [mobileOpen, setMobileOpen] = useState(false);
   const unreadQuery = useQuery({
     queryKey: ["unread-announcements", access?.userId],
     queryFn: getUnreadAnnouncementCount,
-    enabled: Boolean(access && mobileNotificationsEnabled),
+    enabled: Boolean(access && pushSupported),
   });
 
   useQuery({
     queryKey: ["system-notifications", access?.userId],
     queryFn: listNotifications,
-    enabled: Boolean(access && mobileNotificationsEnabled),
+    enabled: Boolean(access && pushSupported),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
   const unreadNotificationQuery = useQuery({
     queryKey: ["unread-notifications", access?.userId],
     queryFn: getUnreadNotificationCount,
-    enabled: Boolean(access && mobileNotificationsEnabled),
+    enabled: Boolean(access && pushSupported),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
@@ -95,7 +95,7 @@ export function AppShell() {
   useEffect(() => {
     let active = true;
     if (!access?.userId) return () => { active = false; };
-    if (!mobileNotificationsEnabled) {
+    if (!pushSupported) {
       queueMicrotask(() => {
         if (active) setPushState({ userId: access.userId, ready: true });
       });
@@ -119,7 +119,7 @@ export function AppShell() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [access?.userId, mobileNotificationsEnabled]);
+  }, [access?.userId, pushSupported]);
 
   useEffect(() => {
     const notify=(event:Event)=>setPushStatus((event as CustomEvent<string>).detail);
@@ -161,7 +161,7 @@ export function AppShell() {
     }
     return items;
   })();
-  const notificationCount = mobileNotificationsEnabled
+  const notificationCount = pushSupported
     ? (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0)
     : 0;
   const areaLabel = access?.isAdmin
@@ -194,11 +194,11 @@ export function AppShell() {
   };
 
   const pushReady = Boolean(access?.userId && pushState?.userId === access.userId && pushState.ready);
-  const pushCheckPending = mobileNotificationsEnabled && Boolean(access?.userId && pushState?.userId !== access.userId);
+  const pushCheckPending = pushSupported && Boolean(access?.userId && pushState?.userId !== access.userId);
   const iosInstalledApp = window.matchMedia?.("(display-mode: standalone)").matches ||
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
 
-  if (access && mobileNotificationsEnabled && !pushReady) {
+  if (access && pushSupported && !pushReady) {
     return (
       <main className="push-required-page">
         <div className="push-required-brand"><Brand /></div>
@@ -207,7 +207,7 @@ export function AppShell() {
           <p className="eyebrow">Un ultimo passaggio</p>
           <h1 id="push-required-title">Attiva le notifiche</h1>
           <p className="push-required-copy">
-            Le notifiche sono necessarie per usare GalileoHub da questo dispositivo. Ti avviseranno quando ci sono comunicazioni e aggiornamenti importanti.
+            Attiva le notifiche per ricevere aggiornamenti importanti anche quando GalileoHub non è aperto. Vale per questo browser o dispositivo.
           </p>
           <div className="push-required-note">
             <strong>Si attiva una sola volta</strong>
@@ -215,6 +215,9 @@ export function AppShell() {
           </div>
           {!Capacitor.isNativePlatform() && /iPhone|iPad|iPod/i.test(navigator.userAgent) && !iosInstalledApp && (
             <p className="push-required-help">Su iPhone e iPad, aggiungi prima GalileoHub alla schermata Home e aprilo da lì.</p>
+          )}
+          {!Capacitor.isNativePlatform() && !/iPhone|iPad|iPod/i.test(navigator.userAgent) && (
+            <p className="push-required-help">Quando il browser lo chiede, consenti le notifiche. Se in precedenza le hai bloccate, riabilitale dalle impostazioni del sito e del sistema operativo.</p>
           )}
           {pushCheckPending && <p className="push-required-status" role="status">Controllo delle notifiche in corso…</p>}
           {pushStatus && <p className="push-required-error" role="alert">{pushStatus}</p>}
@@ -281,8 +284,8 @@ export function AppShell() {
             <span className="user-summary__avatar">{access?.displayName.slice(0, 1).toUpperCase()}</span>
             <span><strong>{access?.displayName}</strong><small>{areaLabel}</small></span>
           </div>
-          {mobileNotificationsEnabled && pushReady && <span className="push-ready-label" role="status"><BellRing size={15} /> Notifiche attive</span>}
-          {mobileNotificationsEnabled && pushStatus && <p className="push-status" role="status">{pushStatus}</p>}
+          {pushSupported && pushReady && <span className="push-ready-label" role="status"><BellRing size={15} /> Notifiche attive</span>}
+          {pushSupported && pushStatus && <p className="push-status" role="status">{pushStatus}</p>}
           <button className="icon-button" type="button" aria-label="Esci" title="Esci" onClick={() => void handleSignOut()}>
             <LogOut size={18} />
           </button>
@@ -293,3 +296,4 @@ export function AppShell() {
     </div>
   );
 }
+

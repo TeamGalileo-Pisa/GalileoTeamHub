@@ -14,11 +14,17 @@ async function invoke(body: Record<string, unknown>) {
 }
 const key = "galileo-push-address";
 
-export function isMobileNotificationDevice() {
+export function supportsPushNotifications() {
   if (typeof navigator === "undefined") return false;
   return Capacitor.isNativePlatform() ||
-    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    ("Notification" in window && "serviceWorker" in navigator && "PushManager" in window);
+}
+
+function webDeviceClass(): "mobile" | "desktop" {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    ? "mobile"
+    : "desktop";
 }
 
 export async function pushIsReady() {
@@ -68,19 +74,14 @@ export async function pushIsReady() {
   const registration = await navigator.serviceWorker.getRegistration();
   if (!registration) return false;
   const subscription = await registration.pushManager.getSubscription();
-  if (!subscription) {
-    try {
-      await enablePush();
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  // Checking status must never open the browser permission prompt. The user
+  // can opt in explicitly from the notification setup page.
+  if (!subscription) return false;
   // Re-register after login to associate the existing subscription with the
   // active account. This does not show the permission prompt again.
   await invoke({
     platform: "web",
-    deviceClass: "mobile",
+    deviceClass: webDeviceClass(),
     address: subscription.endpoint,
     subscription: subscription.toJSON(),
   });
@@ -89,9 +90,6 @@ export async function pushIsReady() {
 }
 
 export async function enablePush() {
-  if (!isMobileNotificationDevice()) {
-    throw new Error("Le notifiche push sono riservate ai dispositivi mobili.");
-  }
   if (Capacitor.isNativePlatform()) {
     const permission = await PushNotifications.requestPermissions();
     if (permission.receive !== "granted") {
@@ -135,9 +133,10 @@ export async function enablePush() {
     return;
   }
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    throw new Error(
-      "Su iPhone/iPad aggiungi GalileoHub alla schermata Home e aprilo da lì.",
-    );
+    throw new Error("Questo browser non supporta le notifiche push. Apri GalileoHub con una versione recente di Chrome, Edge, Firefox o Safari.");
+  }
+  if (!("Notification" in window)) {
+    throw new Error("Questo browser non consente le notifiche. Usa una versione recente di Chrome, Edge, Firefox o Safari.");
   }
   if (await Notification.requestPermission() !== "granted") {
     throw new Error("Autorizza le notifiche nelle impostazioni del browser.");
@@ -156,7 +155,7 @@ export async function enablePush() {
     });
   await invoke({
     platform: "web",
-    deviceClass: "mobile",
+    deviceClass: webDeviceClass(),
     address: subscription.endpoint,
     subscription: subscription.toJSON(),
   });
@@ -177,3 +176,4 @@ export async function disablePush() {
     }
   }
 }
+

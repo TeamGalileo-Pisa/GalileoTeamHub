@@ -21,10 +21,13 @@ create table public.audit_logs(actor_user_id uuid,actor_type text,action text,en
 create table public.email_deliveries(id uuid primary key,booking_id uuid,kind text default 'booking_confirmation',status text default 'pending',attempt_count int default 0,last_error text,send_uncertain boolean default false,next_attempt_at timestamptz default now(),updated_at timestamptz default now(),payload jsonb,metadata jsonb default '{}');
 create function private.booking_email_payload(uuid) returns jsonb language sql as $$select '{}'::jsonb$$;
 create function private.staff_ready() returns boolean language sql as $$select exists(select 1 from public.profiles where id=auth.uid() and status='active' and not must_change_password)$$;
-create table public.announcements(id uuid primary key,title text,body text,all_areas boolean,created_by uuid references public.profiles,published_at timestamptz default now(),expires_at timestamptz);
+create function private.is_admin() returns boolean language sql as $$select private.staff_ready() and exists(select 1 from public.system_roles where user_id=auth.uid() and role='admin')$$;
+create function private.user_area_ids() returns setof uuid language sql as $$select area_id from public.area_memberships where user_id=auth.uid() and ended_at is null$$;
+create table public.announcements(id uuid primary key default gen_random_uuid(),title text,body text,all_areas boolean,created_by uuid references public.profiles,published_at timestamptz default now(),expires_at timestamptz,important boolean default false,pinned boolean default false,created_at timestamptz default now(),updated_at timestamptz default now());
 create table public.announcement_targets(announcement_id uuid references public.announcements,area_id uuid references public.areas);
+create table public.announcement_reads(announcement_id uuid references public.announcements,area_id uuid references public.areas,read_by uuid references public.profiles,read_at timestamptz default now(),primary key(announcement_id,area_id));
 create function public.list_room_availabilities() returns integer language sql as $$select 42$$;
-create table public.notifications(id uuid primary key default gen_random_uuid(),recipient_user_id uuid references public.profiles on delete cascade,type text,title text,body text,data jsonb);
+create table public.notifications(id uuid primary key default gen_random_uuid(),recipient_user_id uuid references public.profiles on delete cascade,type text,title text,body text,data jsonb,created_at timestamptz not null default now(),read_at timestamptz);
 `);
 const original = await readFile(
   "supabase/migrations/20260902100000_staff_and_admin_management.sql",
@@ -124,6 +127,18 @@ await db.exec(await readFile(
 ));
 await db.exec(await readFile(
   "supabase/migrations/20261004190000_recipient_notifications_and_push_reuse.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004193000_board_audience_controls.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261004200000_team_leader_notification_fanout.sql",
+  "utf8",
+));
+await db.exec(await readFile(
+  "supabase/migrations/20261005170000_enable_web_push_all_devices.sql",
   "utf8",
 ));
 await db.exec(
@@ -391,6 +406,31 @@ await db.query(
    values($1,$3,'area_lead'),($2,$4,'area_lead')`,
   [logisticsId, areaLeadId, logisticsAreaId, area],
 );
+const sharedEventAt = await scalar("select now()");
+const sharedEventData = JSON.stringify({ event_id: "aaaaaaaa-eeee-4aaa-8aaa-aaaaaaaaaaaa" });
+await db.query(
+  `insert into notifications(recipient_user_id,type,title,body,data,created_at)
+   values($1,'booking.changed','Prenotazione aggiornata','Un evento per più destinatari',$2::jsonb,$3)`,
+  [memberId, sharedEventData, sharedEventAt],
+);
+await db.query(
+  `insert into notifications(recipient_user_id,type,title,body,data,created_at)
+   values($1,'booking.changed','Prenotazione aggiornata','Un evento per più destinatari',$2::jsonb,$3)`,
+  [logisticsId, sharedEventData, sharedEventAt],
+);
+assert.equal(await scalar("select count(*)::int from notifications where recipient_user_id=$1 and type='booking.changed' and data->>'event_id'='aaaaaaaa-eeee-4aaa-8aaa-aaaaaaaaaaaa'", [leaderId]), 1,
+  "the Team Leader receives one copy of an event sent to several recipients");
+const directLeaderEventAt = await scalar("select now()");
+const directLeaderEventData = JSON.stringify({ event_id: "bbbbbbbb-eeee-4bbb-8bbb-bbbbbbbbbbbb" });
+for (const recipient of [leaderId, memberId]) {
+  await db.query(
+    `insert into notifications(recipient_user_id,type,title,body,data,created_at)
+     values($1,'booking.cancelled','Prenotazione annullata','Avviso diretto',$2::jsonb,$3)`,
+    [recipient, directLeaderEventData, directLeaderEventAt],
+  );
+}
+assert.equal(await scalar("select count(*)::int from notifications where recipient_user_id=$1 and type='booking.cancelled' and data->>'event_id'='bbbbbbbb-eeee-4bbb-8bbb-bbbbbbbbbbbb'", [leaderId]), 1,
+  "a direct Team Leader notification is not duplicated by fanout");
 const allAreasAnnouncement = "88888888-8888-4888-8888-888888888888";
 await db.query(
   "insert into announcements(id,title,body,all_areas,created_by) values($1,'Avviso generale','Test avviso',true,$2)",
@@ -414,6 +454,78 @@ for (const recipient of [a, leaderId, areaLeadId]) {
 }
 assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [logisticsId, targetedAnnouncement]), false,
   "targeted announcements do not notify unrelated area leads");
+
+const boardAdminId = a;
+await db.query("select set_config('test.uid',$1,false)", [boardAdminId]);
+assert.equal(await scalar("select count(*)::int from public.list_announcement_leads()"), 2,
+  "administration can pick active area leads one at a time");
+const adminAllLeads = await scalar(`select public.create_announcement(
+  'Tutti i Capi Area','Avviso per i responsabili',false,'{}','{}',true,false,now(),null,false,false)`);
+assert.equal(await scalar("select private.can_read_announcement($1)", [adminAllLeads]), true,
+  "all selected area leads can read an administration post");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [areaLeadId, adminAllLeads]), true,
+  "all area leads receive notifications");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [c, adminAllLeads]), false,
+  "administration does not notify members");
+const adminOneLead = await scalar(`select public.create_announcement(
+  'Un solo Capo','Avviso selettivo',false,'{}',array[$1::uuid],false,false,now(),null,false,false)`, [areaLeadId]);
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [areaLeadId, adminOneLead]), true,
+  "individual area lead receives the targeted notice");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [logisticsId, adminOneLead]), false,
+  "an unselected area lead does not receive an individual notice");
+await assert.rejects(
+  db.query(`select public.create_announcement('Admin membri','Non autorizzato',false,array[$1::uuid],'{}',false,true,now(),null,false,false)`, [area]),
+  /FORBIDDEN/,
+  "administration cannot target member accounts",
+);
+await db.query("select set_config('test.uid',$1,false)", [leaderId]);
+const allTeamPost = await scalar(`select public.create_announcement(
+  'Tutto il team','Avviso globale Team Leader',true,'{}','{}',false,false,now(),null,false,false)`);
+assert.equal(await scalar("select private.can_read_announcement($1)", [allTeamPost]), true,
+  "Team Leader can publish one post to all roles");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [c, allTeamPost]), true,
+  "all members receive a Team Leader broadcast");
+const combinedPost = await scalar(`select public.create_announcement(
+  'Area e responsabile','Avviso combinato',false,array[$1::uuid],array[$2::uuid],false,true,now(),null,false,false)`, [area, areaLeadId]);
+assert.equal(await scalar("select private.can_read_announcement($1)", [combinedPost]), true,
+  "selected area members can read a combined notice");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [c, combinedPost]), true,
+  "area members receive the combined notice");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [areaLeadId, combinedPost]), true,
+  "selected area lead receives the combined notice");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [logisticsId, combinedPost]), false,
+  "unselected area leads do not receive the combined notice");
+const allLeadsAndAreaPost = await scalar(`select public.create_announcement(
+  'Tutti i capi e una area','Avviso combinato esteso',false,array[$1::uuid],'{}',true,true,now(),null,false,false)`, [area]);
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [c, allLeadsAndAreaPost]), true,
+  "Team Leader can notify one area's members and every area lead together");
+assert.equal(await scalar("select exists(select 1 from notifications where recipient_user_id=$1 and data->>'announcement_id'=$2)", [logisticsId, allLeadsAndAreaPost]), true,
+  "every area lead receives a combined all-leads notice");
+await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
+assert.equal(await scalar("select private.can_read_announcement($1)", [adminAllLeads]), true,
+  "area lead can read an administration notice addressed to all leads");
+assert.equal(await scalar("select private.can_read_announcement($1)", [adminOneLead]), true,
+  "area lead can read a notice addressed to them individually");
+assert.equal(await scalar("select private.can_read_announcement($1)", [combinedPost]), true,
+  "the individually selected area lead can read a combined notice");
+assert.equal(await scalar("select private.can_read_announcement($1)", [allLeadsAndAreaPost]), true,
+  "area leads can read combined notices sent to all leads");
+const areaLeadPost = await scalar(`select public.create_announcement(
+  'Solo membri','Messaggio ai miei membri',false,array[$1::uuid],'{}',false,true,now(),null,false,false)`, [area]);
+assert.equal(await scalar("select private.can_read_announcement($1)", [areaLeadPost]), false,
+  "area lead does not become a recipient of their members-only post");
+await assert.rejects(
+  db.query(`select public.create_announcement('Fuori area','No',false,array[$1::uuid],'{}',false,true,now(),null,false,false)`, [logisticsAreaId]),
+  /INVALID_ANNOUNCEMENT_TARGETS|INVALID_ANNOUNCEMENT/,
+  "area lead cannot send to members outside their own area",
+);
+await db.query("select set_config('test.uid',$1,false)", [c]);
+assert.equal(await scalar("select private.can_read_announcement($1)", [areaLeadPost]), true,
+  "members can read the communication sent to their area");
+assert.equal(await scalar("select private.can_read_announcement($1)", [adminOneLead]), false,
+  "members cannot read a post intended only for area leads");
+assert.equal(await scalar("select count(*)::int from public.member_announcements()"), 6,
+  "member board lists broadcasts and only the member's area notices");
 await db.query(
   `insert into merch_products(id,name,price_cents,visibility) values
    ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Solo leader',1000,'team_leader'),
@@ -457,16 +569,29 @@ assert.equal(order.rows[0].total_cents, 2000);
 await db.query(
   `insert into push_devices(user_id,platform,address,device_class) values
    ($1,'web','https://fcm.googleapis.com/merch-leader','mobile'),
+   ($1,'web','https://fcm.googleapis.com/merch-leader-desktop','desktop'),
    ($2,'web','https://fcm.googleapis.com/merch-logistics','mobile'),
    ($3,'web','https://fcm.googleapis.com/merch-area-lead','mobile'),
    ('22222222-2222-4222-8222-222222222222','web','https://fcm.googleapis.com/admin-desktop','desktop')`,
   [leaderId, logisticsId, areaLeadId],
 );
+const forwardedEvent = JSON.stringify({ event_id: "cccccccc-eeee-4ccc-8ccc-cccccccccccc" });
+await db.query(
+  `insert into notifications(recipient_user_id,type,title,body,data)
+   values($1,'test.mobile_forward','Evento test','Push inoltrata al Team Leader',$2::jsonb)`,
+  [memberId, forwardedEvent],
+);
+assert.equal(await scalar(`select count(*)::int from push_jobs j
+  join notifications n on n.id=j.notification_id
+  join push_devices d on d.id=j.device_id
+  where n.recipient_user_id=$1 and n.type='test.mobile_forward'`, [leaderId]), 2,
+  "forwarded notifications reach the Team Leader's mobile and desktop subscriptions");
 const newOrderId = order.rows[0].order_id;
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 0);
 await db.query("update merch_orders set status='paid' where id=$1", [newOrderId]);
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 2);
-assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='merch.order_paid'"), 2);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='merch.order_paid'"), 3);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='merch.order_paid' and d.device_class='desktop'"), 1, "paid-order pushes also queue for the Team Leader's desktop browser");
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid' and data->>'route'='/merchandising'"), 2);
 await db.query("update merch_orders set status='paid' where id=$1", [newOrderId]);
 assert.equal(await scalar("select count(*)::int from notifications where type='merch.order_paid'"), 2);
@@ -491,11 +616,12 @@ await db.query(
 );
 assert.equal(await scalar("select count(distinct recipient_user_id)::int from notifications where type='application.received' and recipient_user_id in ($1,$2,$3)", [leaderId, logisticsId, areaLeadId]), 3, "Team Leader, logistics and the candidate's area lead are notified");
 assert.equal(await scalar("select count(*)::int from notifications where type='application.received' and data ? 'application_id'"), 5);
-assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 4);
-assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 0, "application pushes never queue for desktop subscriptions");
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id where n.type='application.received'"), 5);
+assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
 await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
 assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
 console.log(
-  "PASS: roles, account guards, mail and membership queues, push jobs, merch visibility, public checkout, scoped application notices and paid-order notifications.",
+  "PASS: roles, account guards, mail and membership queues, mobile and desktop push jobs, merch visibility, public checkout, scoped application notices and paid-order notifications.",
 );
 await db.close();
+

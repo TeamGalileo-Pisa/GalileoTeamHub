@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-10-04T07:59:51.887Z";
+const APP_VERSION = "2026-10-05T13:49:36.734Z";
 
 self.addEventListener("install", () => {
   // Do not activate over an app that is already open. The user chooses when to update.
@@ -17,10 +17,9 @@ self.addEventListener("message", (event) => {
 self.addEventListener("push", (event) => {
   let payload = {};
   try { payload = event.data?.json() ?? {}; } catch { /* generic notification */ }
-  const target = payload.url === "/merchandising" ? "/merchandising" : "/";
   event.waitUntil(self.registration.showNotification(payload.title || "GalileoHub", {
     body: payload.body || "Hai una nuova comunicazione.", icon: "/icons/galileohub-192-v2.png",
-    badge: "/icons/galileohub-192-v2.png", tag: payload.id, data: {url: target}
+    badge: "/icons/galileohub-192-v2.png", tag: payload.id, data: {url:payload.url || "/"}
   }));
 });
 
