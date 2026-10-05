@@ -36,7 +36,7 @@ await db.exec(`
   );
 `);
 
-await db.exec(await readFile("supabase/migrations/20261005090000_merch_order_management.sql", "utf8"));
+await db.exec(await readFile("supabase/migrations/20261005125919_merch_order_management.sql", "utf8"));
 
 const manager = "11111111-1111-4111-8111-111111111111";
 const orderId = "22222222-2222-4222-8222-222222222222";
