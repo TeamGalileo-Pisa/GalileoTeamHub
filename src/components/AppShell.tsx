@@ -12,6 +12,7 @@ import {
   Menu,
   PanelsTopLeft,
   Megaphone,
+  Bell,
   UsersRound,
   Warehouse,
   Handshake,
@@ -24,7 +25,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { getUnreadAnnouncementCount, getUnreadNotificationCount, listNotifications } from "../lib/data";
+import { getUnreadAnnouncementCount, getUnreadNotificationCount } from "../lib/data";
 import { supabase } from "../lib/supabase";
 import { enablePush, supportsPushNotifications, pushIsReady } from "../lib/push";
 import { Brand } from "./Brand";
@@ -59,6 +60,7 @@ const inventoryNavigation = { to: "/magazzino", label: "Magazzino", icon: Wareho
 const sponsorNavigation = { to: "/sponsor", label: "Sponsor", icon: Handshake, end: false };
 const budgetNavigation = { to: "/budget", label: "Budget", icon: Wallet, end: false };
 const ordersNavigation = { to: "/ordini", label: "Ordini", icon: ShoppingCart, end: false };
+const notificationsNavigation = { to: "/notifiche", label: "Notifiche", icon: Bell, end: false };
 
 export function AppShell() {
   const { access, signOut } = useAuth();
@@ -68,20 +70,12 @@ export function AppShell() {
   const unreadQuery = useQuery({
     queryKey: ["unread-announcements", access?.userId],
     queryFn: getUnreadAnnouncementCount,
-    enabled: Boolean(access && pushSupported),
-  });
-
-  useQuery({
-    queryKey: ["system-notifications", access?.userId],
-    queryFn: listNotifications,
-    enabled: Boolean(access && pushSupported),
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: true,
+    enabled: Boolean(access),
   });
   const unreadNotificationQuery = useQuery({
     queryKey: ["unread-notifications", access?.userId],
     queryFn: getUnreadNotificationCount,
-    enabled: Boolean(access && pushSupported),
+    enabled: Boolean(access),
     refetchInterval: 20_000,
     refetchIntervalInBackground: true,
   });
@@ -153,7 +147,7 @@ export function AppShell() {
 
   const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
   const isBusinessLead = Boolean(!access?.isMember && access?.areas.some((area) => area.slug === "business"));
-  const navigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation, sponsorNavigation, ordersNavigation, budgetNavigation] : adminNavigation : access?.isMember ? [
+  const baseNavigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation, sponsorNavigation, ordersNavigation, budgetNavigation] : adminNavigation : access?.isMember ? [
     {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
     {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
     {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
@@ -173,9 +167,9 @@ export function AppShell() {
     }
     return items;
   })();
-  const notificationCount = pushSupported
-    ? (unreadNotificationQuery.data ?? 0) + (unreadQuery.data ?? 0)
-    : 0;
+  const navigation = [...baseNavigation, notificationsNavigation];
+  const unreadNotifications = unreadNotificationQuery.data ?? 0;
+  const unreadAnnouncements = unreadQuery.data ?? 0;
   const areaLabel = access?.isAdmin
     ? access.isTeamLeader ? "Team Leader" : "Amministrazione"
     : access?.areas.map((area) => area.name).join(", ") || "Area";
@@ -282,9 +276,14 @@ export function AppShell() {
             >
               <Icon size={19} />
               <span>{label}</span>
-              {label === "Bacheca" && notificationCount > 0 && (
-                <span className="nav-badge" aria-label={`${notificationCount} notifiche non lette`}>
-                  {notificationCount}
+              {label === "Bacheca" && unreadAnnouncements > 0 && (
+                <span className="nav-badge" aria-label={`${unreadAnnouncements} comunicazioni non lette`}>
+                  {unreadAnnouncements}
+                </span>
+              )}
+              {label === "Notifiche" && unreadNotifications > 0 && (
+                <span className="nav-badge" aria-label={`${unreadNotifications} notifiche non lette`}>
+                  {unreadNotifications}
                 </span>
               )}
             </NavLink>
@@ -308,4 +307,5 @@ export function AppShell() {
     </div>
   );
 }
+
 

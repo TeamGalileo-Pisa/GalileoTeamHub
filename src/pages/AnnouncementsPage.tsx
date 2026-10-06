@@ -2,14 +2,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Check, Megaphone, Pencil, Pin, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../hooks/useAuth";
-import { supportsPushNotifications } from "../lib/push";
 import { formatDateTime } from "../lib/dates";
 import {
   createAnnouncement,
@@ -17,8 +16,6 @@ import {
   listAnnouncements,
   listAnnouncementLeads,
   listAreas,
-  listNotifications,
-  markNotificationRead,
   markAnnouncementRead,
   updateAnnouncement,
 } from "../lib/data";
@@ -66,22 +63,14 @@ const emptyForm = {
 
 export function AnnouncementsPage() {
   const { access } = useAuth();
+  const [searchParams] = useSearchParams();
+  const requestedAnnouncementId = searchParams.get("annuncio");
   const isAdmin = Boolean(access?.isAdmin);
   const isTeamLeader = Boolean(access?.isTeamLeader);
   const isAreaLead = Boolean(access && !access.isAdmin && !access.isMember);
-  const showSystemNotifications = supportsPushNotifications();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Announcement | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const notificationsQuery = useQuery({
-    queryKey: ["system-notifications", access?.userId],
-    queryFn: listNotifications,
-    enabled: Boolean(access && showSystemNotifications),
-    refetchInterval: 20_000,
-    refetchIntervalInBackground: true,
-  });
-  const announcementNotifications = notificationsQuery.data ?? [];
-
   const announcementsQuery = useQuery({
     queryKey: ["announcements", access?.userId],
     queryFn: listAnnouncements,
@@ -158,14 +147,17 @@ export function AnnouncementsPage() {
       ]);
     },
   });
+  const { mutate: markAnnouncementReadMutation, isPending: markingAnnouncementRead } = readMutation;
 
-  const notificationReadMutation = useMutation({
-    mutationFn: markNotificationRead,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["system-notifications"] });
-      await queryClient.invalidateQueries({ queryKey: ["unread-notifications"] });
-    },
-  });
+  useEffect(() => {
+    if (!requestedAnnouncementId || !announcementsQuery.data) return;
+    const announcement = announcementsQuery.data.find((item) => item.id === requestedAnnouncementId);
+    if (!announcement) return;
+    document.getElementById(`announcement-${announcement.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!isAdmin && !announcement.isRead && !markingAnnouncementRead) {
+      markAnnouncementReadMutation({ id: announcement.id, read: true });
+    }
+  }, [requestedAnnouncementId, announcementsQuery.data, isAdmin, markingAnnouncementRead, markAnnouncementReadMutation]);
 
   function stopEditing() {
     setEditing(null);
@@ -195,7 +187,7 @@ export function AnnouncementsPage() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container page-container--announcements">
       <PageHeader
         eyebrow="Comunicazioni interne"
         title="Bacheca"
@@ -211,47 +203,6 @@ export function AnnouncementsPage() {
       />
 
       {feedback && <div className="form-success page-feedback" role="status">{feedback}</div>}
-
-      {showSystemNotifications && announcementNotifications.length > 0 && (
-        <section className="panel notifications-panel" aria-labelledby="system-notifications-title">
-          <div className="panel__header">
-            <div>
-              <h2 id="system-notifications-title">Notifiche di sistema</h2>
-              <p>Nuove candidature, prenotazioni, modifiche e comunicazioni importanti.</p>
-            </div>
-            <BellRing size={20} />
-          </div>
-          <div className="notifications-list">
-            {announcementNotifications.slice(0, 12).map((notification) => (
-              <article className={`notification-item ${notification.readAt ? "" : "notification-item--new"}`} key={notification.id}>
-                <div className="notification-item__icon"><BellRing size={16} /></div>
-                <div className="notification-item__content">
-                  <strong>{notification.title}</strong>
-                  <p>{notification.body}</p>
-                  <time>{formatDateTime(notification.createdAt)}</time>
-                </div>
-                {typeof notification.data.route === "string" && notification.data.route.startsWith("/") && !notification.data.route.startsWith("//") && (
-                  <Link className="button button--secondary button--small" to={notification.data.route}>
-                    {notification.type === "application.received" ? "Apri candidatura" : "Apri"}
-                  </Link>
-                )}
-                {!notification.readAt && (
-                  <button
-                    className="button button--secondary button--small"
-                    type="button"
-                    disabled={notificationReadMutation.isPending}
-                    onClick={() => notificationReadMutation.mutate(notification.id)}
-                  >
-                    Segna letto
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-
 
       {(isAdmin || isAreaLead) && (
         <section className="panel announcement-form-panel">
@@ -387,7 +338,7 @@ export function AnnouncementsPage() {
                           : "",
                 ].filter(Boolean).join(" · ") || "Destinatari selezionati";
             return (
-            <article className={`panel announcement-card ${!announcement.isRead && !isAdmin ? "announcement-card--new" : ""}`} key={announcement.id}>
+            <article className={`panel announcement-card ${!announcement.isRead && !isAdmin ? "announcement-card--new" : ""} ${requestedAnnouncementId === announcement.id ? "announcement-card--selected" : ""}`} id={`announcement-${announcement.id}`} key={announcement.id}>
               <div className="announcement-card__meta">
                 <div className="badge-row">
                   {announcement.pinned && <StatusBadge label="In evidenza" tone="info" />}
@@ -429,4 +380,5 @@ export function AnnouncementsPage() {
     </div>
   );
 }
+
 
