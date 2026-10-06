@@ -276,7 +276,7 @@ export function AppShell() {
             >
               <Icon size={19} />
               <span>{label}</span>
-              {label === "Bacheca" && unreadAnnouncements > 0 && (
+              {label === "Bacheca" && !access?.isMember && unreadAnnouncements > 0 && (
                 <span className="nav-badge" aria-label={`${unreadAnnouncements} comunicazioni non lette`}>
                   {unreadAnnouncements}
                 </span>
