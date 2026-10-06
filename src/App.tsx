@@ -70,6 +70,7 @@ const MembershipPage = lazy(() => import('./pages/MembershipPage').then(m=>({def
 const CommunityAdminPage = lazy(() => import('./pages/CommunityAdminPage').then(m=>({default:m.CommunityAdminPage})));
 const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.MemberPage})));
 const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m=>({default:m.NotificationsPage})));
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
 const PublicMerchPage = lazy(() => import('./pages/PublicMerchPage').then(m=>({default:m.PublicMerchPage})));
 const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage').then(m=>({default:m.ApplicationsReviewPage})));
@@ -98,6 +99,7 @@ export default function App() {
             <Route element={<PasswordGate />}>
               <Route element={<AppShell />}>
                 <Route path="/membri" element={<MemberPage />} />
+                <Route path="/notifiche" element={<NotificationsPage />} />
                 <Route element={<ProtectedRoute memberOnly />}>
                   <Route path="/membri/adesione" element={<MemberAdhesionPage />} />
                 </Route>
@@ -141,4 +143,5 @@ export default function App() {
     </>
   );
 }
+
 

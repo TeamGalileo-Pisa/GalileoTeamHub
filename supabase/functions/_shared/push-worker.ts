@@ -108,13 +108,35 @@ export async function processPush(client: SupabaseClient) {
         await client.from("push_jobs").delete().eq("id", job.id);
         continue;
       }
+      const messageBody = typeof notice.body === "string" ? notice.body.trim() : "";
+      const preview = messageBody.length > 160
+        ? `${messageBody.slice(0, 157).trimEnd()}…`
+        : messageBody || "Apri GalileoHub per leggere il messaggio.";
+      let url = `/notifiche?notifica=${encodeURIComponent(notice.id)}`;
+      const announcementId = typeof notice.data?.announcement_id === "string"
+        ? notice.data.announcement_id
+        : null;
+      if (notice.type === "announcement.created" && announcementId) {
+        const { data: systemRole } = await client.from("system_roles").select("role")
+          .eq("user_id", device.user_id).in("role", ["admin", "team_leader"]).limit(1).maybeSingle();
+        if (systemRole) {
+          url = `/admin/bacheca?annuncio=${encodeURIComponent(announcementId)}`;
+        } else {
+          const { data: areaLead } = await client.from("area_memberships").select("user_id")
+            .eq("user_id", device.user_id).eq("role", "area_lead").is("ended_at", null)
+            .limit(1).maybeSingle();
+          url = areaLead
+            ? `/area/bacheca?annuncio=${encodeURIComponent(announcementId)}`
+            : `/membri?annuncio=${encodeURIComponent(announcementId)}`;
+        }
+      }
       const payload = {
         title: notice.title,
-        body: "Apri GalileoHub per leggere la comunicazione.",
+        body: preview,
         id: notice.id,
-        url: typeof notice.data?.route === "string" && notice.data.route.startsWith("/") && !notice.data.route.startsWith("//")
-          ? notice.data.route
-          : notice.type === "merch.order_paid" ? "/merchandising" : "/",
+        // Open the exact notification in the inbox so its full message is
+        // immediately visible. The inbox can then link to the related feature.
+        url,
       };
       if (device.platform === "web") {
         const { publicKey, privateKey } = await webPushConfig(client);
@@ -162,4 +184,5 @@ export async function processPush(client: SupabaseClient) {
     }
   }
 }
+
 
