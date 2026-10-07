@@ -55,7 +55,7 @@ export async function processCommunityMail(client: SupabaseClient) {
       } else if (row.kind === "membership") {
         subject = "Modulo di Adesione Team Galileo - Da stampare e firmare";
         text = "Ciao " + row.payload.firstName +
-          ",\n\nin allegato trovi il Modulo di adesione compilato con i tuoi dati.\n\nCosa devi fare:\n1. stampa il modulo;\n2. firmalo;\n3. consegnalo al Team Leader.\n\nCordiali saluti,\nMario De Lumé\nTeam Leader | Team Galileo\nUniversità di Pisa";
+          ",\n\nin allegato trovi il Modulo di adesione compilato con i tuoi dati.\n\nCosa devi fare:\n1. stampa il modulo;\n2. firmalo;\n3. consegnalo al Team Leader.\n\nCordiali saluti,\nTeam Galileo\nUniversità di Pisa";
         attachments = [{
           name: "Modulo-adesione-Team-Galileo.pdf",
           content: await membershipPdf(row.payload),
