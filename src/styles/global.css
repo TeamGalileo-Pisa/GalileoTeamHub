@@ -2500,3 +2500,21 @@ p {
   }
 }
 
+
+/* Modulo di adesione: una scelta per riga, con il cerchio a sinistra dell'etichetta. */
+.choice-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 0;
+  color: var(--muted-strong);
+  cursor: pointer;
+}
+
+.choice-row input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--azure-light);
+}
