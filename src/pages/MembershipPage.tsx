@@ -21,6 +21,7 @@ function loadDraftId(token: string | undefined) {
 export function MembershipPage() {
   const { token } = useParams();
   const [draftId, setDraftId] = useState(() => loadDraftId(token));
+  const [submitted, setSubmitted] = useState(false);
   const loadDraft = useCallback(() => community<{ answers?: MembershipAnswers; submitted?: boolean }>({
     action: "get_membership_shared_draft",
     token,
@@ -48,8 +49,8 @@ export function MembershipPage() {
     <Brand />
     <h1>Team Galileo - Modulo di adesione</h1>
     <p>a.a. 2026/2027</p>
-    <p>Questo link è condiviso con tutti i membri. Scegli la tua area e compila il modulo: le risposte vengono salvate automaticamente. La sezione Direzione tecnica compare solo se selezioni “Direzione tecnica/Responsabile”. Dopo l’invio riceverai il PDF personale via email, da stampare, firmare e consegnare.</p>
-    <MembershipQuestionnaire key={draftId} loadDraft={loadDraft} saveDraft={saveDraft} submit={submit} onNewDraft={startNew} />
+    {!submitted && <p>Questo link è condiviso con tutti i membri. Scegli la tua area e compila il modulo: le risposte vengono salvate automaticamente. La sezione Direzione tecnica compare solo se selezioni “Direzione tecnica/Responsabile”. Dopo l’invio riceverai il PDF personale via email, da stampare, firmare e consegnare.</p>}
+    <MembershipQuestionnaire key={draftId} loadDraft={loadDraft} saveDraft={saveDraft} submit={submit} onNewDraft={startNew} onSubmittedChange={setSubmitted} />
   </main>;
 }
 
