@@ -89,6 +89,7 @@ export default function App() {
           <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
           <Route path="/candidature" element={<ApplicationPage />} />
           <Route path="/merchandising/ordine" element={<PublicMerchPage />} />
+          <Route path="/adesione" element={<MembershipPage />} />
           <Route path="/adesione/:token" element={<MembershipPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/book/:token" element={<PublicBookingPage />} />

@@ -5,8 +5,9 @@ import { Brand } from "../components/Brand";
 import { community } from "../lib/community";
 import type { MembershipAnswers } from "../lib/membership-form";
 
+// Senza token (link statico /adesione) il backend usa il link pubblico attivo.
 function draftKey(token: string | undefined) {
-  return `galileo-public-membership-draft:${token ?? "invalid"}`;
+  return `galileo-public-membership-draft:${token ?? "shared"}`;
 }
 
 function loadDraftId(token: string | undefined) {
