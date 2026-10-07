@@ -91,7 +91,7 @@ Deno.serve(async (request) => {
       );
       if (error || typeof token !== "string") throw new Error("SAVE_FAILED");
       return jsonResponse(request, {
-        url: origin.replace(/\/$/, "") + "/adesione/" + token,
+        url: origin.replace(/\/$/, "") + "/adesione",
       });
     }
     if (body.action === "get_membership_public_link") {
@@ -113,7 +113,7 @@ Deno.serve(async (request) => {
         throw new Error("SERVER_NOT_CONFIGURED");
       }
       return jsonResponse(request, {
-        url: origin.replace(/\/$/, "") + "/adesione/" + link.public_token,
+        url: origin.replace(/\/$/, "") + "/adesione",
       });
     }
     if (
@@ -122,10 +122,23 @@ Deno.serve(async (request) => {
       body.action === "submit_membership_shared_form"
     ) {
       if (
-        typeof body.token !== "string" || !/^[a-f0-9]{64}$/.test(body.token) ||
         typeof body.draftId !== "string" || !/^[0-9a-f-]{36}$/i.test(body.draftId)
       ) throw new Error("INVALID_INVITATION");
-      const args = { p_token: body.token, p_draft_id: body.draftId };
+      let sharedToken = body.token;
+      if (sharedToken === undefined || sharedToken === null) {
+        // Link statico /adesione: senza token si usa il link pubblico attivo.
+        const { data: activeLink, error: activeLinkError } = await client
+          .from("membership_form_links").select("public_token")
+          .is("revoked_at", null).maybeSingle();
+        if (activeLinkError) throw new Error("SAVE_FAILED");
+        if (!activeLink?.public_token) throw new Error("FORM_NOT_READY");
+        sharedToken = activeLink.public_token;
+      }
+      if (
+        typeof sharedToken !== "string" ||
+        !/^(?:[a-f0-9]{24}|[a-f0-9]{64})$/.test(sharedToken)
+      ) throw new Error("INVALID_INVITATION");
+      const args = { p_token: sharedToken, p_draft_id: body.draftId };
       if (body.action === "get_membership_shared_draft") {
         const { data, error } = await client.rpc(
           "get_membership_shared_draft",
@@ -135,7 +148,7 @@ Deno.serve(async (request) => {
         if (data !== null) return jsonResponse(request, data);
         const { data: legacyData, error: legacyError } = await client.rpc(
           "get_membership_draft",
-          { p_token: body.token },
+          { p_token: sharedToken },
         );
         if (legacyError) throw new Error("INVALID_INVITATION");
         return jsonResponse(request, legacyData);
@@ -158,7 +171,7 @@ Deno.serve(async (request) => {
         ? "submit_membership"
         : "save_membership_draft";
       const { error: legacyError } = await client.rpc(legacyRpc, {
-        p_token: body.token,
+        p_token: sharedToken,
         p_data: data,
       });
       if (legacyError) {
