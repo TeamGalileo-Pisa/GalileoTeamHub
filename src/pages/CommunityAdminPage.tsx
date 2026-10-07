@@ -107,6 +107,10 @@ export function CommunityAdminPage() {
   const exportMembership = useMutation({
     mutationFn: downloadMembershipExport,
   });
+  const deleteResponses = useMutation({
+    mutationFn: () => community({ action: "delete_membership_responses", confirm: true }),
+    onSuccess: () => exportMembership.reset(),
+  });
   const exportApplications = useMutation({ mutationFn: downloadApplicationsExport });
   const deleteApplication = useMutation({
     mutationFn: (id: string) => community({ action: "delete_application", applicationId: id }),
@@ -114,7 +118,8 @@ export function CommunityAdminPage() {
   });
   const error = deliveries.error ?? settings.error ?? controls.error ??
     applications.error ?? toggle.error ?? sharedLink.error ??
-    member.error ?? exportMembership.error ?? deleteApplication.error;
+    member.error ?? exportMembership.error ?? deleteApplication.error ??
+    deleteResponses.error;
   return (
     <div className="page-container">
       <PageHeader
@@ -201,6 +206,19 @@ export function CommunityAdminPage() {
           {exportMembership.isPending ? "Preparazione Excel…" : "Scarica Excel adesioni"}
         </button>
         {exportMembership.isSuccess && <p role="status">File Excel scaricato.</p>}
+        <button
+          className="button button--danger"
+          type="button"
+          disabled={deleteResponses.isPending}
+          onClick={() => {
+            if (window.confirm("Eliminare definitivamente tutte le risposte ricevute dal link pubblico del modulo di adesione? Usa questa funzione per le prove. Questa operazione non può essere annullata.")) {
+              deleteResponses.mutate();
+            }
+          }}
+        >
+          {deleteResponses.isPending ? "Eliminazione…" : "Elimina risposte ricevute (prove)"}
+        </button>
+        {deleteResponses.isSuccess && <p role="status">Risposte eliminate.</p>}
       </section>
       <section className="panel panel__body">
         <h2>Account membri per area</h2>

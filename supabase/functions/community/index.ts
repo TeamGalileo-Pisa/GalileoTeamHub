@@ -258,6 +258,14 @@ Deno.serve(async (request) => {
         "X-Content-Type-Options": "nosniff",
       }});
     }
+    if (body.action === "delete_membership_responses") {
+      const { client: adminClient } = await requireActor(request);
+      if (body.confirm !== true) throw new Error("INVALID_DATA");
+      const { error } = await adminClient.from("membership_form_responses")
+        .delete().not("id", "is", null);
+      if (error) throw new Error("SAVE_FAILED");
+      return jsonResponse(request, { ok: true });
+    }
     if (body.action === "list_applications") {
       const { user } = await requireActor(request, false);
       const [{ data: roles, error: rolesError }, { data: memberships, error: membershipsError }] = await Promise.all([
