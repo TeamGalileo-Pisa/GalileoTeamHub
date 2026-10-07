@@ -29,6 +29,12 @@ function applicationConfirmationHtml(firstName: string) {
     <p style="margin:0">🌐 <a href="https://info-teamgalileo.netlify.app" style="${linkStyle}">info-teamgalileo.netlify.app</a></p>
   </div>`;
 }
+function textToHtml(text: string) {
+  const paragraphs = text.split(/\n{2,}/).map((block) =>
+    `<p style="margin:0 0 16px 0">${escape(block).replace(/\n/g, "<br>")}</p>`
+  ).join("");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;color:#242424">${paragraphs}</div>`;
+}
 export async function processCommunityMail(client: SupabaseClient) {
   if (Deno.env.get("EMAIL_PROVIDER") !== "gmail") return;
   const { data: rows, error } = await client.rpc("claim_community_mail");
@@ -49,7 +55,7 @@ export async function processCommunityMail(client: SupabaseClient) {
       } else if (row.kind === "membership") {
         subject = "Modulo di Adesione Team Galileo - Da stampare e firmare";
         text = "Ciao " + row.payload.firstName +
-          ",\n\nin allegato trovi il Modulo di adesione compilato con i tuoi dati.\nTi chiediamo di stamparlo, apporre la tua firma e consegnarlo.\n\nCordiali saluti,\nMario De Lumé\nTeam Leader | Team Galileo\nUniversità di Pisa";
+          ",\n\nin allegato trovi il Modulo di adesione compilato con i tuoi dati.\n\nCosa devi fare:\n1. stampa il modulo;\n2. firmalo;\n3. consegnalo al Team Leader.\n\nCordiali saluti,\nTeam Galileo\nUniversità di Pisa";
         attachments = [{
           name: "Modulo-adesione-Team-Galileo.pdf",
           content: await membershipPdf(row.payload),
@@ -79,9 +85,7 @@ export async function processCommunityMail(client: SupabaseClient) {
         cc,
         subject,
         text,
-        html: html ??
-          '<div style="font-family:Verdana,sans-serif;white-space:pre-wrap">' +
-            escape(text) + "</div>",
+        html: html ?? textToHtml(text),
         attachments,
         idempotencyId: row.id,
         reconcileOnly: row.uncertain,

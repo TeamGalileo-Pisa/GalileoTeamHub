@@ -124,7 +124,10 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   drawText("SPAZIO RISERVATO ALLA DIREZIONE", left + 9, top - 13, 7.5, bold);
   drawText("Assegnazione Ufficiale Area / Divisione / Ruolo di Coordinamento:", left + 9, top - 28, 7.6, bold);
   rule(left + 9, right - 9, top - 43, 0.55);
-  if (data.area) drawText(data.area, left + 9, top - 40, 7.6);
+  const assignment = data.area === "Direzione tecnica/Responsabile" && data.leadershipRole
+    ? `${data.area} - ${data.leadershipRole}`
+    : data.area;
+  if (assignment) drawFitText(assignment, left + 9, top - 40, width - 18, 7.6);
   drawText("Note:", left + 9, top - 58, 7.6, bold);
   rule(left + 9, right - 9, top - 73, 0.55);
   drawText("Data di ricezione:", left + 9, top - 91, 7.6, bold);

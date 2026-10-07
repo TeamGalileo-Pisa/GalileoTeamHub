@@ -9,9 +9,10 @@ type Props = {
   submit: (answers: MembershipAnswers) => Promise<unknown>;
   onNewDraft?: () => void;
   onDone?: () => void;
+  onSubmittedChange?: (submitted: boolean) => void;
 };
 
-export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDraft, onDone }: Props) {
+export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDraft, onDone, onSubmittedChange }: Props) {
   const [answers, setAnswers] = useState<MembershipAnswers>({});
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
@@ -21,6 +22,10 @@ export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDra
   const latest = useRef<MembershipAnswers>({});
   const timer = useRef<number | undefined>(undefined);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
+
+  useEffect(() => {
+    onSubmittedChange?.(submitted);
+  }, [submitted, onSubmittedChange]);
 
   useEffect(() => {
     let active = true;
@@ -116,15 +121,15 @@ export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDra
 
     <fieldset className="form-field--full">
       <legend>6. Divisione/Area di appartenenza *</legend>
-      {membershipAreas.map((area) => <label className="form-field" key={area}>
-        <input type="radio" name="area" value={area} checked={answers.area === area} required /> {area}
+      {membershipAreas.map((area) => <label className="choice-row" key={area}>
+        <input type="radio" name="area" value={area} checked={answers.area === area} required /> <span>{area}</span>
       </label>)}
     </fieldset>
 
     {answers.area === "Direzione tecnica/Responsabile" && <fieldset className="form-field--full">
       <legend>Direzione tecnica — 7. Direzione di Area *</legend>
-      {membershipLeadershipRoles.map((role) => <label className="form-field" key={role}>
-        <input type="radio" name="leadershipRole" value={role} checked={answers.leadershipRole === role} required /> {role}
+      {membershipLeadershipRoles.map((role) => <label className="choice-row" key={role}>
+        <input type="radio" name="leadershipRole" value={role} checked={answers.leadershipRole === role} required /> <span>{role}</span>
       </label>)}
     </fieldset>}
 
