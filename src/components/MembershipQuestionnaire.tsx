@@ -112,7 +112,6 @@ export function MembershipQuestionnaire({ loadDraft, saveDraft, submit, onNewDra
 
   const checked = (key: keyof MembershipAnswers) => answers[key] === "yes";
   return <form className="panel panel__body form-grid" onSubmit={handleSubmit} onChange={change}>
-    <p className="form-field--full">* Obbligatoria. Le risposte vengono salvate automaticamente mentre compili.</p>
     <label className="form-field">1. Nome *<input className="input" name="firstName" required maxLength={100} value={answers.firstName ?? ""} /></label>
     <label className="form-field">2. Cognome *<input className="input" name="lastName" required maxLength={100} value={answers.lastName ?? ""} /></label>
     <label className="form-field--full">3. Corso di Laurea (inserire il nome completo) *<input className="input" name="degree" required maxLength={180} value={answers.degree ?? ""} /></label>
