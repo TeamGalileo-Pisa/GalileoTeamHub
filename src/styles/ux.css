@@ -1201,3 +1201,343 @@ textarea::placeholder {
   .team-order-card__actions,.team-order-history { grid-column:1; }
 }
 
+
+
+/* Logistica: UI più semplice e leggibile per Merchandising, Magazzino, Sponsor e Ordini. */
+.merch-admin,
+.merch-checkout,
+.merch-orders,
+.warehouse-operator,
+.warehouse-section,
+.sponsor-section,
+.team-order-section {
+  border-radius: 16px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .12);
+}
+
+.merch-admin,
+.warehouse-operator {
+  display: grid;
+  gap: 14px;
+}
+
+.merch-admin > p:first-child,
+.warehouse-operator > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.merch-admin > h2 {
+  margin: 6px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  font-size: 18px;
+}
+
+.merch-admin > .button {
+  width: fit-content;
+}
+
+.merch-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.merch-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-strong);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, .16);
+}
+
+.merch-card .panel__body {
+  display: grid;
+  gap: 11px;
+  flex: 1;
+}
+
+.merch-card .panel__body > p {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.5;
+}
+
+.merch-card__heading h2 {
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.merch-variants {
+  margin: 5px 0 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(1, 7, 17, .22);
+}
+
+.merch-variants .form-field {
+  gap: 7px;
+  font-size: 12px;
+}
+
+.merch-admin-actions {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.merch-checkout {
+  display: grid;
+  gap: 13px;
+  margin-top: 24px;
+}
+
+.merch-checkout h2,
+.merch-orders__header h2 {
+  font-size: 18px;
+}
+
+.merch-total {
+  margin-top: 2px;
+}
+
+.merch-checkout > .button--primary {
+  width: 100%;
+}
+
+.merch-orders__header {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.merch-orders__header p {
+  max-width: 560px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.merch-order {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+
+.merch-order__top {
+  padding-bottom: 4px;
+}
+
+.merch-order > span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.merch-order ul {
+  margin: 4px 0 2px;
+  color: var(--muted-strong);
+  line-height: 1.55;
+}
+
+.merch-order > .button--primary {
+  width: fit-content;
+}
+
+.warehouse-operator {
+  grid-template-columns: minmax(240px, 1fr) minmax(260px, 1.4fr);
+  align-items: end;
+  gap: 18px;
+}
+
+.warehouse-operator .form-field {
+  margin: 0;
+}
+
+.warehouse-stats,
+.sponsor-stats,
+.team-order-stats {
+  gap: 14px;
+}
+
+.warehouse-stat,
+.sponsor-stat,
+.team-order-stats article {
+  min-height: 92px;
+  align-content: center;
+  padding: 16px 18px;
+}
+
+.warehouse-section__header,
+.sponsor-toolbar,
+.team-order-toolbar {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.warehouse-section__header h2,
+.sponsor-toolbar h2,
+.team-order-toolbar h2 {
+  font-size: 18px;
+}
+
+.warehouse-section__header p:last-child,
+.sponsor-toolbar p,
+.team-order-toolbar p {
+  max-width: 560px;
+  font-size: 12px;
+}
+
+.warehouse-store,
+.warehouse-item,
+.sponsor-card,
+.team-order-card {
+  border-radius: 14px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.warehouse-store:hover,
+.warehouse-item:hover,
+.sponsor-card:hover,
+.team-order-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .12);
+}
+
+.warehouse-item {
+  gap: 12px 18px;
+}
+
+.warehouse-item__main p {
+  max-width: 760px;
+}
+
+.warehouse-item__actions,
+.sponsor-card__actions,
+.team-order-card__actions {
+  min-height: 38px;
+}
+
+.warehouse-item__actions .button,
+.sponsor-card__actions .button,
+.team-order-card__actions .button {
+  min-height: 36px;
+}
+
+.sponsor-card,
+.team-order-card {
+  gap: 12px 22px;
+  padding: 18px;
+}
+
+.sponsor-card__main,
+.team-order-card__main {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+}
+
+.sponsor-card__main > p,
+.team-order-card__description {
+  margin: 0;
+}
+
+.sponsor-card__links {
+  margin-top: 4px;
+}
+
+.sponsor-card__value,
+.team-order-card__amount {
+  min-width: 145px;
+  padding: 2px 0;
+}
+
+.sponsor-card__actions,
+.team-order-card__actions {
+  margin-top: 2px;
+}
+
+.sponsor-filters,
+.team-order-filters,
+.warehouse-filters {
+  padding: 4px 0 2px;
+}
+
+.sponsor-filters > span,
+.team-order-filters > span {
+  padding: 0 2px;
+  font-weight: 700;
+}
+
+.sponsor-modal,
+.team-orders-page .sponsor-modal {
+  border-radius: 16px;
+}
+
+.sponsor-modal > header {
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sponsor-form {
+  gap: 15px;
+}
+
+.sponsor-form .form-field {
+  line-height: 1.35;
+}
+
+.sponsor-form__actions {
+  position: sticky;
+  bottom: -1px;
+  margin-top: 4px;
+  padding: 14px 0 0;
+  background: var(--page-raised);
+}
+
+.team-order-card__description {
+  max-width: 760px;
+}
+
+.team-order-meta {
+  gap: 5px 16px;
+  margin-top: 3px;
+}
+
+.team-order-meta span {
+  line-height: 1.45;
+}
+
+.team-order-card__actions {
+  padding-top: 12px;
+}
+
+.team-order-empty,
+.sponsor-empty,
+.warehouse-empty {
+  min-height: 150px;
+  align-content: center;
+}
+
+@media (max-width: 760px) {
+  .warehouse-operator {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .merch-admin > .button,
+  .merch-admin-actions .button,
+  .merch-order__actions .button,
+  .team-order-card__actions .button,
+  .sponsor-card__actions .button {
+    flex: 1 1 auto;
+  }
+
+  .merch-card:hover,
+  .warehouse-store:hover,
+  .warehouse-item:hover,
+  .sponsor-card:hover,
+  .team-order-card:hover {
+    transform: none;
+  }
+}
