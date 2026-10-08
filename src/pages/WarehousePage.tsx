@@ -176,14 +176,14 @@ export function WarehousePage() {
   if (!canUse) return <div className="page-container"><PageHeader title="Magazzino" eyebrow="Accesso riservato" description="Questa sezione è disponibile al Team Leader e agli account dell’area Logistica." /><section className="panel panel__body"><p>Il tuo account non è abilitato a questo magazzino.</p></section></div>;
 
   return <div className="page-container warehouse-page">
-    <PageHeader title="Magazzino" eyebrow="Logistica · Registro inventario" description="Gestisci le scorte e consulta la cronologia completa di carichi, prelievi e modifiche. I record vengono archiviati, non cancellati." />
+    <PageHeader title="Magazzino" eyebrow="Logistica · Registro inventario" description="Controlla quantità, sedi e movimenti del materiale." />
     {pageError && <p className="form-error" role="alert">{pageError instanceof Error ? pageError.message : "Operazione non riuscita. Riprova."}</p>}
 
     <section className="panel panel__body warehouse-operator">
       <label className="form-field">Nome e cognome dell’operatore
         <input className="input" required minLength={2} maxLength={160} value={operatorName} onChange={(event) => setOperatorName(event.target.value)} placeholder="Chi sta registrando le operazioni" />
       </label>
-      <p>Il registro conserva anche l’account usato. Con l’account condiviso Logistica, inserisci qui il nome della persona presente.</p>
+      <p>L’account viene registrato automaticamente. Qui indica solo chi sta effettuando l’operazione.</p>
     </section>
 
     <section className="warehouse-stats" aria-label="Riepilogo inventario">
@@ -193,7 +193,7 @@ export function WarehousePage() {
     </section>
 
     <section className="panel panel__body warehouse-section">
-      <header className="warehouse-section__header"><div><p className="eyebrow">Spazi e ubicazioni</p><h2>I magazzini</h2><p>Puoi creare più magazzini e indicare dove si trovano.</p></div><button className="button button--secondary" type="button" onClick={() => { setWarehouseDraft({ id: "", name: "", location: "", notes: "" }); setShowWarehouseForm((value) => !value); }}><Plus size={16} /> Nuovo magazzino</button></header>
+      <header className="warehouse-section__header"><div><p className="eyebrow">Spazi e ubicazioni</p><h2>I magazzini</h2><p>Gestisci gli spazi e la loro posizione.</p></div><button className="button button--secondary" type="button" onClick={() => { setWarehouseDraft({ id: "", name: "", location: "", notes: "" }); setShowWarehouseForm((value) => !value); }}><Plus size={16} /> Nuovo magazzino</button></header>
       {showWarehouseForm && <form className="warehouse-form" onSubmit={(event) => { event.preventDefault(); saveWarehouse.mutate(); }}>
         <h3>{warehouseDraft.id ? "Modifica magazzino" : "Crea un magazzino"}</h3>
         <label className="form-field">Nome<input className="input" required minLength={2} maxLength={120} value={warehouseDraft.name} onChange={(event) => setWarehouseDraft({ ...warehouseDraft, name: event.target.value })} placeholder="Es. Laboratorio, armadio elettronica" /></label>
@@ -209,7 +209,7 @@ export function WarehousePage() {
     </section>
 
     <section className="panel panel__body warehouse-section">
-      <header className="warehouse-section__header"><div><p className="eyebrow">Inventario</p><h2>Articoli e quantità</h2><p>Ogni variazione viene registrata con data, account operatore e persona che ha ritirato il materiale.</p></div><button className="button button--primary" type="button" disabled={!allStores.some((store) => !store.archived_at)} onClick={() => { setEditingItem(null); setItemDraft({ ...emptyItem, warehouse_id: allStores.find((store) => !store.archived_at)?.id ?? "" }); }}><Plus size={16} /> Aggiungi articolo</button></header>
+      <header className="warehouse-section__header"><div><p className="eyebrow">Inventario</p><h2>Articoli e quantità</h2><p>Registra quantità, entrate e uscite del materiale.</p></div><button className="button button--primary" type="button" disabled={!allStores.some((store) => !store.archived_at)} onClick={() => { setEditingItem(null); setItemDraft({ ...emptyItem, warehouse_id: allStores.find((store) => !store.archived_at)?.id ?? "" }); }}><Plus size={16} /> Aggiungi articolo</button></header>
       {(!editingItem && itemDraft.name === "" && itemDraft.warehouse_id !== "" || editingItem) && <form className="warehouse-form" onSubmit={(event) => { event.preventDefault(); saveItem.mutate(); }}>
         <h3>{editingItem ? "Modifica articolo" : "Nuovo articolo"}</h3>
         <label className="form-field">Magazzino<select className="input" required value={itemDraft.warehouse_id} onChange={(event) => setItemDraft({ ...itemDraft, warehouse_id: event.target.value })} disabled={Boolean(editingItem)}>{allStores.filter((store) => !store.archived_at).map((store) => <option key={store.id} value={store.id}>{store.name}</option>)}</select></label>
