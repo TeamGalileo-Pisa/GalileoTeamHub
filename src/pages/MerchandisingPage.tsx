@@ -309,7 +309,7 @@ export function MerchandisingPage() {
   }
 
   return <div className="page-container">
-    <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci prodotti, varianti, immagini, prezzi e disponibilità. Le richieste d’ordine arrivano via email alla logistica." : "Scegli prodotti, taglie e quantità; invia la richiesta alla logistica con il tuo indirizzo istituzionale."} />
+    <PageHeader title="Merchandising" eyebrow="Team Galileo" description={canManage ? "Gestisci catalogo, disponibilità e richieste." : "Scegli gli articoli e invia la richiesta alla Logistica."} />
     {error && <p className="form-error" role="alert">{error}</p>}{notice && <p className="form-success" role="status">{notice}</p>}{busy && <p role="status">Invio della richiesta in corso…</p>}
     {canManage && <section className="panel panel__body merch-admin">
       <p>Link pubblico per gli ordini: <a href={publicOrderUrl} target="_blank" rel="noreferrer">{publicOrderUrl}</a></p>
