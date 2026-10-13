@@ -61,7 +61,7 @@ export function MerchandisingPage() {
   const queryClient = useQueryClient();
   const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica"));
   const canPurchase = (product: Product) => product.visibility === "everyone" ||
-    Boolean(access?.isTeamLeader) ||
+    Boolean(access?.isAdmin) ||
     (product.visibility === "team_leader_and_area_leads" && Boolean(access?.areas.length && !access.isMember));
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
@@ -321,7 +321,7 @@ export function MerchandisingPage() {
       <form className="form-grid" onSubmit={(event) => { event.preventDefault(); void saveProduct(new FormData(event.currentTarget)); }} key={editing?.id ?? "new-product"}>
         <label className="form-field">Nome<input className="input" name="name" required maxLength={120} defaultValue={editing?.name ?? ""} /></label>
         <label className="form-field">Prezzo (€)<input className="input" name="price" type="number" min="0.01" step="0.01" required defaultValue={editing ? (editing.price_cents / 100).toFixed(2) : ""} /></label>
-        <label className="form-field">Visibile a<select className="input" name="visibility" defaultValue={editing?.visibility ?? "everyone"}>{access?.isTeamLeader && <option value="team_leader">Solo Team Leader</option>}<option value="team_leader_and_area_leads">Team Leader e capi area</option><option value="everyone">Tutti</option></select></label>
+        <label className="form-field">Visibile a<select className="input" name="visibility" defaultValue={editing?.visibility ?? "everyone"}>{access?.isAdmin && <option value="team_leader">Solo Team Leader</option>}<option value="team_leader_and_area_leads">Team Leader e capi area</option><option value="everyone">Tutti</option></select></label>
         <label className="form-field--full">Descrizione<textarea className="input" name="description" rows={3} maxLength={3000} defaultValue={editing?.description ?? ""} /></label>
         <VariantStockEditor name="variants" initial={editing ? editing.variants.filter((v) => v.active).map((v) => ({ label: v.label, stock: v.stock })) : undefined} />
         <label className="form-field--full">Foto prodotto (JPG, PNG o WebP; massimo 5 MB)<input className="input" name="image" type="file" accept="image/jpeg,image/png,image/webp" /></label>

@@ -1,9 +1,9 @@
--- I prodotti con visibilita' "Solo Team Leader" li vede e li gestisce soltanto il Team Leader:
--- ne' l'Amministrazione ne' i capi area li vedono, anche se gestiscono il Merchandising.
+-- I prodotti con visibilita' "Solo Team Leader" li vedono e li gestiscono Team Leader e Amministrazione (stesse funzioni):
+-- i capi area e gli altri non li vedono, anche se gestiscono il Merchandising.
 create or replace function private.can_manage_merch_product(p_visibility text)
 returns boolean language sql stable security definer set search_path to '' as $$
   select private.can_manage_merchandising()
-    and (p_visibility <> 'team_leader' or private.is_team_leader());
+    and (p_visibility <> 'team_leader' or private.is_admin());
 $$;
 revoke all on function private.can_manage_merch_product(text) from public;
 grant execute on function private.can_manage_merch_product(text) to authenticated;
