@@ -1,3 +1,4 @@
+import { useModalBehavior } from "../hooks/useModalBehavior";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Download, FileText, History, Plus, ReceiptText, Save, Search, X } from "lucide-react";
@@ -38,6 +39,7 @@ export function TeamOrdersPage() {
   const [queryText, setQueryText] = useState("");
   const [filter, setFilter] = useState("all");
   const [historyId, setHistoryId] = useState<string | null>(null);
+  useModalBehavior(Boolean(draft), () => setDraft(null));
   const orders = useQuery({ queryKey: ["team-purchase-orders"], enabled: canManage, queryFn: async () => {
     const { data, error } = await supabase.from("team_purchase_orders").select("*").order("order_date", { ascending: false }).order("created_at", { ascending: false });
     if (error) throw error; return data as PurchaseOrder[];

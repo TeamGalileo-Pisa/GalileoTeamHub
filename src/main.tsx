@@ -10,6 +10,7 @@ import "./styles/global.css";
 import "./styles/responsive.css";
 import "./styles/hub-enhancements.css";
 import "./styles/pwa.css";
+import "./styles/ux.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
