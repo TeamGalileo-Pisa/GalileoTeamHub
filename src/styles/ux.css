@@ -1612,3 +1612,14 @@ textarea::placeholder {
 .nav-group { flex:0 0 auto; }
 .nav-group>.nav-item { flex:0 0 auto; }
 .nav-group .nav-item { min-height:44px; }
+
+/* Notifiche in stile chat */
+.chat-thread { display:flex; flex-direction:column; gap:6px; max-width:720px; margin:0 auto; padding-bottom:24px; }
+.chat-day { align-self:center; margin:14px 0 6px; padding:4px 12px; border-radius:999px; color:var(--muted); background:rgba(255,255,255,.06); font-size:12px; text-transform:capitalize; }
+.chat-bubble { position:relative; align-self:flex-start; max-width:min(92%, 560px); padding:10px 14px 8px; border-radius:4px 16px 16px 16px; background:rgba(255,255,255,.07); scroll-margin-block:80px; }
+.chat-bubble--unread { background:rgba(43,141,204,.18); }
+.chat-bubble--selected { outline:2px solid var(--azure-light); outline-offset:2px; }
+.chat-bubble__title { margin:0 0 4px; color:var(--azure-light); font-size:14px; font-weight:700; }
+.chat-bubble__body { margin:0; color:var(--white); font-size:15px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
+.chat-bubble__actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.chat-bubble__time { display:block; margin-top:4px; color:var(--muted); font-size:11px; text-align:right; }
