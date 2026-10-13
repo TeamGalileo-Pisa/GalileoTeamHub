@@ -60,14 +60,22 @@ export async function membershipPdf(data: Record<string, string>): Promise<Uint8
   };
   const drawBox = (top: number, height: number) => page.drawRectangle({ x: left, y: top - height, width, height, borderColor: black, borderWidth: 0.8 });
 
-  const logo = await doc.embedPng(membershipLogoBytes());
+  // Il logo e' opzionale: se non e' raggiungibile o non e' un PNG valido il PDF si genera senza.
+  const logoBytes = await membershipLogoBytes();
   const logoSize = 56;
-  page.drawImage(logo, {
-    x: (595.28 - logoSize) / 2,
-    y: 773,
-    width: logoSize,
-    height: logoSize,
-  });
+  if (logoBytes) {
+    try {
+      const logo = await doc.embedPng(logoBytes);
+      page.drawImage(logo, {
+        x: (595.28 - logoSize) / 2,
+        y: 773,
+        width: logoSize,
+        height: logoSize,
+      });
+    } catch {
+      // logo non valido: si prosegue senza
+    }
+  }
   y -= 56;
   centered("MODULO DI INGRESSO NEL TEAM", y, 12, bold); y -= 14;
   centered("Anno Accademico 2026/2027", y, 9, italic); y -= 11;
