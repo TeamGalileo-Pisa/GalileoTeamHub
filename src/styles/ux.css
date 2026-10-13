@@ -1581,3 +1581,34 @@ textarea::placeholder {
 .variant-editor .icon-button { width:40px; height:40px; }
 .variant-editor>.button { justify-self:start; }
 @media (max-width:480px) { .variant-editor__head,.variant-editor__row { grid-template-columns:minmax(0,1fr) 96px 40px; } }
+
+/* ---- Editor varianti: scelta Per tutti / Uomo e donna ---- */
+.variant-editor__mode { display:inline-flex; gap:6px; padding:4px; width:fit-content; border:1px solid var(--border); border-radius:12px; background:rgba(1,7,17,.5); }
+.variant-editor__mode .button { border-color:transparent; background:transparent; }
+.variant-editor__mode .button[aria-pressed="true"] { background:var(--azure); border-color:var(--azure-light); color:#fff; }
+.variant-editor__group { display:grid; gap:8px; }
+.variant-editor__group+.variant-editor__group { margin-top:8px; padding-top:14px; border-top:1px solid var(--border); }
+.variant-editor__group h4 { margin:0; font-size:15px; color:#8fd3ff; }
+.variant-editor__group>.button { justify-self:start; }
+
+/* ---- Rifiniture grafiche sulle altre pagine ---- */
+@media (min-width: 821px) { .stats-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+@media (min-width: 821px) and (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.calendar-nav { display:flex; gap:8px; align-items:center; }
+@media (max-width: 620px) {
+  .calendar-nav { width:100%; }
+  .calendar-nav .button { flex:1; }
+  .filter-bar .table-actions { width:100%; }
+  .filter-bar .table-actions .button { flex:1; }
+  .public-info-header { flex-wrap:wrap; align-items:center; gap:12px; }
+  .public-info-brand { flex:1 1 auto; min-width:0; }
+}
+
+/* ---- Menu laterale a sezioni ---- */
+.nav-group { display:grid; gap:4px; align-content:start; }
+.nav-group+.nav-group { margin-top:10px; padding-top:12px; border-top:1px solid var(--border); }
+.nav-group__title { margin:0; padding:2px 14px 4px; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; }
+.sidebar__nav { display:flex; flex-direction:column; gap:0; align-content:normal; grid-auto-rows:auto; }
+.nav-group { flex:0 0 auto; }
+.nav-group>.nav-item { flex:0 0 auto; }
+.nav-group .nav-item { min-height:44px; }

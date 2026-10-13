@@ -1,25 +1,4 @@
-import {
-  CalendarDays,
-  CalendarRange,
-  ChevronDown,
-  ClipboardList,
-  BellRing,
-  FileText,
-  LayoutDashboard,
-  ShoppingBag,
-  HelpCircle,
-  LogOut,
-  Menu,
-  PanelsTopLeft,
-  Megaphone,
-  Bell,
-  UsersRound,
-  Warehouse,
-  Handshake,
-  Wallet,
-  ShoppingCart,
-  X,
-} from "lucide-react";
+import { BellRing, ChevronDown, LogOut, Menu, X } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
@@ -28,39 +7,8 @@ import { useAuth } from "../hooks/useAuth";
 import { getUnreadAnnouncementCount, getUnreadNotificationCount } from "../lib/data";
 import { supabase } from "../lib/supabase";
 import { enablePush, supportsPushNotifications, pushIsReady } from "../lib/push";
+import { buildNavigation } from "../lib/navigation";
 import { Brand } from "./Brand";
-
-const adminNavigation = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/admin/disponibilita", label: "Disponibilità", icon: Warehouse },
-  { to: "/admin/calendario", label: "Calendario", icon: CalendarDays },
-  { to: "/admin/sessioni", label: "Sessioni e slot", icon: ClipboardList },
-  { to: "/admin/votazioni", label: "Votazioni", icon: ClipboardList },
-  { to: "/admin/bacheca", label: "Bacheca", icon: Megaphone },
-  { to: "/admin/aree", label: "Aree", icon: PanelsTopLeft },
-  { to: "/admin/recruitment", label: "Recruitment", icon: CalendarRange },
-  { to: "/admin/candidature", label: "Candidature e adesioni", icon: FileText },
-  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
-  { to: "/admin/account", label: "Account", icon: UsersRound },
-  { to: "/admin/legal", label: "Termini e Privacy", icon: FileText },
-  { to: "/admin/assistenza", label: "Assistenza", icon: HelpCircle },
-];
-
-const areaNavigation = [
-  { to: "/area", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/area/disponibilita", label: "Disponibilità", icon: Warehouse },
-  { to: "/area/sessioni", label: "Sessioni e slot", icon: ClipboardList },
-  { to: "/area/calendario", label: "Calendario", icon: CalendarDays },
-  { to: "/area/votazioni", label: "Votazioni", icon: ClipboardList },
-  { to: "/area/bacheca", label: "Bacheca", icon: Megaphone },
-  { to: "/area/assistenza", label: "Assistenza", icon: HelpCircle },
-  { to: "/merchandising", label: "Merchandising", icon: ShoppingBag },
-];
-const inventoryNavigation = { to: "/magazzino", label: "Magazzino", icon: Warehouse, end: false };
-const sponsorNavigation = { to: "/sponsor", label: "Sponsor", icon: Handshake, end: false };
-const budgetNavigation = { to: "/budget", label: "Budget", icon: Wallet, end: false };
-const ordersNavigation = { to: "/ordini", label: "Ordini", icon: ShoppingCart, end: false };
-const notificationsNavigation = { to: "/notifiche", label: "Notifiche", icon: Bell, end: false };
 
 export function AppShell() {
   const { access, signOut } = useAuth();
@@ -145,29 +93,9 @@ export function AppShell() {
     };
   }, [access?.userId, reportPresence]);
 
-  const isLogisticsLead = Boolean(access?.areas.some((area) => area.slug === "logistica"));
-  const isBusinessLead = Boolean(!access?.isMember && access?.areas.some((area) => area.slug === "business"));
-  const baseNavigation = access?.isAdmin ? access.isTeamLeader ? [...adminNavigation, inventoryNavigation, sponsorNavigation, ordersNavigation, budgetNavigation] : adminNavigation : access?.isMember ? [
-    {to:"/membri",label:"Bacheca",icon:Megaphone,end:true},
-    {to:"/membri/adesione",label:"Modulo di adesione",icon:FileText},
-    {to:"/merchandising",label:"Merchandising",icon:ShoppingBag},
-    ...(access.areas.some((area) => area.slug === "logistica") ? [inventoryNavigation] : []),
-    ...(access.areas.some((area) => area.slug === "logistica") ? [sponsorNavigation] : []),
-    ...(access.areas.some((area) => area.slug === "logistica") ? [ordersNavigation] : []),
-  ] : (() => {
-    const items = isLogisticsLead ? [...areaNavigation] : areaNavigation.filter((item) => item.to !== "/merchandising");
-      if (isLogisticsLead) items.push(inventoryNavigation);
-      if (isLogisticsLead) items.push(sponsorNavigation);
-      if (isLogisticsLead) items.push(ordersNavigation);
-    if (isBusinessLead) items.push(budgetNavigation);
-    if ((openApplicationAreas.data?.length ?? 0) > 0) {
-      const merchIndex = items.findIndex((item) => item.to === "/merchandising");
-      items.splice(merchIndex < 0 ? items.length : merchIndex, 0,
-        { to: "/area/candidature", label: "Candidature", icon: FileText });
-    }
-    return items;
-  })();
-  const navigation = [...baseNavigation, notificationsNavigation];
+  const navigationGroups = access
+    ? buildNavigation(access, { hasOpenApplications: (openApplicationAreas.data?.length ?? 0) > 0 })
+    : [];
   const unreadNotifications = unreadNotificationQuery.data ?? 0;
   const unreadAnnouncements = unreadQuery.data ?? 0;
   const areaLabel = access?.isAdmin
@@ -266,27 +194,32 @@ export function AppShell() {
         </div>
 
         <nav className="sidebar__nav" aria-label="Navigazione principale">
-          {navigation.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              onClick={() => setMobileOpen(false)}
-              className={({ isActive }) => `nav-item ${isActive ? "nav-item--active" : ""}`}
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-              {label === "Bacheca" && !access?.isMember && unreadAnnouncements > 0 && (
-                <span className="nav-badge" aria-label={`${unreadAnnouncements} comunicazioni non lette`}>
-                  {unreadAnnouncements}
-                </span>
-              )}
-              {label === "Notifiche" && unreadNotifications > 0 && (
-                <span className="nav-badge" aria-label={`${unreadNotifications} notifiche non lette`}>
-                  {unreadNotifications}
-                </span>
-              )}
-            </NavLink>
+          {navigationGroups.map((group) => (
+            <div className="nav-group" role="group" aria-labelledby={`nav-group-${group.id}`} key={group.id}>
+              <p className="nav-group__title" id={`nav-group-${group.id}`}>{group.title}</p>
+              {group.items.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  onClick={() => setMobileOpen(false)}
+                  className={({ isActive }) => `nav-item ${isActive ? "nav-item--active" : ""}`}
+                >
+                  <Icon size={19} />
+                  <span>{label}</span>
+                  {label === "Bacheca" && !access?.isMember && unreadAnnouncements > 0 && (
+                    <span className="nav-badge" aria-label={`${unreadAnnouncements} comunicazioni non lette`}>
+                      {unreadAnnouncements}
+                    </span>
+                  )}
+                  {label === "Notifiche" && unreadNotifications > 0 && (
+                    <span className="nav-badge" aria-label={`${unreadNotifications} notifiche non lette`}>
+                      {unreadNotifications}
+                    </span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 

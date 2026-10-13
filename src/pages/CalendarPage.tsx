@@ -125,9 +125,11 @@ export function CalendarPage() {
             Calendario
           </button>
         </div>
-        <button className="button button--secondary" aria-label="Settimana precedente" onClick={() => setDate(dateShift(first, -7))}>←</button>
-        <button className="button button--secondary" onClick={() => setDate(today())}>Oggi</button>
-        <button className="button button--secondary" aria-label="Settimana successiva" onClick={() => setDate(dateShift(first, 7))}>→</button>
+        <div className="calendar-nav">
+          <button className="button button--secondary" aria-label="Settimana precedente" onClick={() => setDate(dateShift(first, -7))}>←</button>
+          <button className="button button--secondary" onClick={() => setDate(today())}>Oggi</button>
+          <button className="button button--secondary" aria-label="Settimana successiva" onClick={() => setDate(dateShift(first, 7))}>→</button>
+        </div>
         <label>
           Settimana del
           <input

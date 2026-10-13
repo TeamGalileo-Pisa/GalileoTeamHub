@@ -34,7 +34,7 @@ function exportOrders(rows: PurchaseOrder[]) {
 export function TeamOrdersPage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica"));
+  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica" || area.slug === "business"));
   const [draft, setDraft] = useState<(Draft & { id?: string }) | null>(null);
   const [queryText, setQueryText] = useState("");
   const [filter, setFilter] = useState("all");
@@ -80,7 +80,7 @@ export function TeamOrdersPage() {
   const spent = (orders.data ?? []).filter((order) => order.status !== "cancelled").reduce((sum, order) => sum + Number(order.amount), 0);
   const error = orders.error ?? audit.error ?? save.error ?? uploadInvoice.error;
 
-  if (!canManage) return <div className="page-container"><PageHeader title="Ordini" eyebrow="Accesso riservato" description="Sezione disponibile a Logistica, Capo Logistica e Team Leader." /></div>;
+  if (!canManage) return <div className="page-container"><PageHeader title="Ordini" eyebrow="Accesso riservato" description="Sezione disponibile a Logistica, Business, ai rispettivi capi area e al Team Leader." /></div>;
   return <div className="page-container team-orders-page">
     <PageHeader title="Ordini" eyebrow="Acquisti del team" description="Tieni insieme acquisti, stato e fatture." />
     {error && <p className="form-error" role="alert">{error instanceof Error ? error.message : "Operazione non riuscita."}</p>}

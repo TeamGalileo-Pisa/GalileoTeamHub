@@ -75,7 +75,7 @@ export function SponsorsPage() {
   const due = rows.filter((r) => r.next_follow_up && r.next_follow_up <= new Date().toISOString().slice(0,10)).length;
   const error = query.error ?? interactions.error ?? save.error ?? addInteraction.error ?? archive.error;
 
-  if (!canManage) return <div className="page-container"><PageHeader title="Sponsor" eyebrow="Accesso riservato" description="Questa sezione è disponibile a Logistica, Capo Logistica e Team Leader." /></div>;
+  if (!canManage) return <div className="page-container"><PageHeader title="Sponsor" eyebrow="Accesso riservato" description="Questa sezione è disponibile ai membri Logistica, al Capo Logistica e al Team Leader." /></div>;
 
   return <div className="page-container sponsor-page">
     <PageHeader title="Sponsor" eyebrow="Logistica · Capo Logistica · Team Leader" description="Gestisci contatti, contributi e prossime azioni." />
