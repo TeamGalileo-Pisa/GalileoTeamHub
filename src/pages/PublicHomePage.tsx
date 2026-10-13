@@ -16,7 +16,7 @@ export function PublicHomePage() {
   return (
     <main className="public-info-page">
       <header className="public-info-header">
-        <a className="public-info-brand" href="/" aria-label="GalileoHub, pagina iniziale">
+        <a className="public-info-brand" href="/info" aria-label="GalileoHub, pagina iniziale">
           <img src="/icons/galileohub-192-v2.png" alt="" width="44" height="44" />
           <span>GalileoHub</span>
         </a>

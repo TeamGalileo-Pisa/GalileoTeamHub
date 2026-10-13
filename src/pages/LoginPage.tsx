@@ -27,17 +27,29 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
+  // Keep the page the user was trying to reach (e.g. the message of a tapped notification).
+  const requestedFrom = (location.state as { from?: string } | null)?.from;
+  const requestedPath =
+    typeof requestedFrom === "string" &&
+    requestedFrom.startsWith("/") &&
+    !requestedFrom.startsWith("//") &&
+    !requestedFrom.startsWith("/login")
+      ? requestedFrom
+      : null;
+
   if (access) {
-    return <Navigate to={access.isAdmin ? "/admin" : access.isMember ? "/membri" : "/area"} replace />;
+    return (
+      <Navigate
+        to={requestedPath ?? (access.isAdmin ? "/admin" : access.isMember ? "/membri" : "/area")}
+        replace
+      />
+    );
   }
 
   const onSubmit = async (values: LoginInput) => {
     setSubmitError(null);
     try {
       await signIn(values.username, values.password);
-      const requestedPath = (
-        location.state as { from?: string } | null
-      )?.from;
       navigate(requestedPath || "/", { replace: true });
     } catch (caughtError) {
       setSubmitError(

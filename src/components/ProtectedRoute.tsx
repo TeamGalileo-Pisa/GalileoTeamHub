@@ -9,7 +9,7 @@ export function ProtectedRoute({ adminOnly = false, staffOnly = false, memberOnl
   if (loading) return <LoadingScreen label="Verifica accesso" />;
 
   if (!access) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
   }
 
   if (staffOnly && access.isMember) return <Navigate to="/membri" replace />;
