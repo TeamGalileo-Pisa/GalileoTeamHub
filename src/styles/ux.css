@@ -1541,3 +1541,43 @@ textarea::placeholder {
     transform: none;
   }
 }
+
+/* ---- Schermata "Attiva le notifiche" (primo accesso) ---- */
+.push-required-page { min-height:100dvh; display:grid; grid-template-rows:auto 1fr; justify-items:center; align-items:start; gap:24px; padding:28px 16px 40px; }
+.push-required-brand { width:min(100%,520px); }
+.push-required-card { width:min(100%,520px); display:grid; gap:14px; padding:clamp(22px,5vw,34px); border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--navy-glass); box-shadow:var(--shadow); }
+.push-required-card h1 { margin:0; font-size:clamp(26px,6vw,34px); line-height:1.15; }
+.push-required-card .eyebrow { margin:0; }
+.push-required-icon { display:grid; place-items:center; width:52px; height:52px; border-radius:16px; color:#8fd3ff; background:rgba(43,141,204,.16); border:1px solid var(--border-strong); }
+.push-required-copy { margin:0; color:var(--muted-strong); }
+.push-required-note { display:grid; gap:4px; padding:13px 15px; border-radius:var(--radius-sm); border:1px solid var(--border); background:rgba(43,141,204,.08); font-size:14px; }
+.push-required-note span { color:var(--muted-strong); }
+.push-required-help { margin:0; color:var(--muted); font-size:14px; }
+.push-required-status { margin:0; color:var(--muted-strong); font-size:14px; }
+.push-required-error { margin:0; padding:11px 13px; border-radius:var(--radius-sm); color:#ffd3d6; background:rgba(240,112,120,.12); border:1px solid rgba(240,112,120,.4); font-size:14px; }
+.push-required-action { width:100%; min-height:48px; justify-content:center; }
+.push-required-signout { justify-self:center; padding:10px 14px; border:0; border-radius:var(--radius-sm); color:var(--muted-strong); background:transparent; font:inherit; font-size:14px; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.push-required-signout:hover { color:var(--white); }
+
+/* ---- Utilità usate dai componenti ma mai definite ---- */
+.sr-only { position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+.muted { color:var(--muted); }
+.button--ghost { background:transparent; border-color:transparent; color:var(--muted-strong); }
+.button--ghost:hover { background:rgba(151,180,214,.12); color:var(--white); }
+.page-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 14px; }
+
+/* ---- Budget: i due grafici partono alla stessa altezza ---- */
+.budget-chart-grid { align-items:stretch; }
+.budget-chart-grid>.panel { margin-top:0; }
+
+/* ---- Editor taglie e scorte (Merchandising) ---- */
+.variant-editor { display:grid; gap:10px; margin:0; padding:14px; border:1px solid var(--border); border-radius:var(--radius-md); background:rgba(2,13,34,.55); min-width:0; }
+.variant-editor legend { padding:0 6px; font-weight:700; }
+.variant-editor__hint { margin:0; color:var(--muted); font-size:13px; }
+.variant-editor__presets { display:flex; flex-wrap:wrap; gap:8px; }
+.variant-editor__rows { display:grid; gap:8px; }
+.variant-editor__head,.variant-editor__row { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 40px; gap:8px; align-items:center; }
+.variant-editor__head { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+.variant-editor .icon-button { width:40px; height:40px; }
+.variant-editor>.button { justify-self:start; }
+@media (max-width:480px) { .variant-editor__head,.variant-editor__row { grid-template-columns:minmax(0,1fr) 96px 40px; } }

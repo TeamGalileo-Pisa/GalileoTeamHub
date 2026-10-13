@@ -81,7 +81,8 @@ export function WarehousePage() {
   const [warehouseFilter, setWarehouseFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [operatorName, setOperatorName] = useState("");
+  const [operatorName, setOperatorNameState] = useState(() => { try { return localStorage.getItem("galileo-warehouse-operator") ?? ""; } catch { return ""; } });
+  const setOperatorName = (value: string) => { setOperatorNameState(value); try { localStorage.setItem("galileo-warehouse-operator", value); } catch { /* facoltativo */ } };
   const [backupState, setBackupState] = useState<"syncing" | "saved" | "error" | "idle">("idle");
   const [backupError, setBackupError] = useState("");
 

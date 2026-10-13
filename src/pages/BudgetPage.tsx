@@ -1,3 +1,4 @@
+import { useModalBehavior } from "../hooks/useModalBehavior";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeEuro, BarChart3, Check, CirclePlus, Clock3, Download, FileText, History, Paperclip, Save, X } from "lucide-react";
@@ -34,6 +35,7 @@ export function BudgetPage() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filter, setFilter] = useState("all");
   const [historyId, setHistoryId] = useState<string | null>(null);
+  useModalBehavior(Boolean(draft), () => setDraft(null));
   const areas = useQuery({ queryKey: ["budget-areas"], enabled: canManage, queryFn: async () => {
     const { data, error } = await supabase.from("areas").select("id,name,slug").eq("active", true).order("name");
     if (error) throw error; return data as Area[];
