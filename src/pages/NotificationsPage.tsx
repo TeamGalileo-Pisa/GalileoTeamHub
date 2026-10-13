@@ -1,11 +1,10 @@
-import { useEffect } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Check, Megaphone } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
-import { formatDateTime } from "../lib/dates";
 import { listNotifications, markNotificationRead } from "../lib/data";
 
 function safeRoute(value: unknown): string | null {
@@ -37,27 +36,38 @@ export function NotificationsPage() {
   });
   const { mutate: markNotificationAsRead, isPending: markingRead } = markRead;
 
+  const thread = useMemo(
+    () => [...(notifications.data ?? [])].sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime()),
+    [notifications.data],
+  );
+
   useEffect(() => {
-    if (!selectedId || !notifications.data) return;
-    const selected = notifications.data.find((item) => item.id === selectedId);
-    if (!selected) return;
-    document.getElementById(`notification-${selected.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (!selected.readAt && !markingRead) markNotificationAsRead(selected.id);
+    if (!notifications.data) return;
+    const selected = selectedId ? notifications.data.find((item) => item.id === selectedId) : null;
+    if (selected) {
+      document.getElementById(`notification-${selected.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!selected.readAt && !markingRead) markNotificationAsRead(selected.id);
+    } else {
+      document.getElementById("chat-end")?.scrollIntoView({ block: "end" });
+    }
   }, [selectedId, notifications.data, markingRead, markNotificationAsRead]);
+
+  const dayLabel = (iso: string) =>
+    new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long" }).format(new Date(iso));
 
   return (
     <div className="page-container">
       <PageHeader
         eyebrow="Centro messaggi"
         title="Notifiche"
-        description="Qui trovi il testo completo delle comunicazioni e degli aggiornamenti ricevuti. Aprendo una notifica la contrassegni come letta."
+        description="I messaggi che ricevi, come in una chat: in basso i più recenti. Aprendo un messaggio lo segni come letto."
       />
       {notifications.error && <div className="form-error" role="alert">{notifications.error.message}</div>}
       {notifications.isLoading ? (
         <div className="panel table-loading">Caricamento notifiche…</div>
-      ) : notifications.data?.length ? (
-        <section className="notifications-list notifications-page-list" aria-label="Messaggi ricevuti" aria-live="polite">
-          {notifications.data.map((notification) => {
+      ) : thread.length ? (
+        <section className="chat-thread" aria-label="Messaggi ricevuti" aria-live="polite">
+          {thread.map((notification, index) => {
             const announcementId = typeof notification.data.announcement_id === "string"
               ? notification.data.announcement_id
               : null;
@@ -70,40 +80,42 @@ export function NotificationsPage() {
               : null;
             const destination = boardRoute ?? safeRoute(notification.data.route);
             const selected = notification.id === selectedId;
+            const newDay = index === 0 || dayLabel(thread[index - 1].createdAt) !== dayLabel(notification.createdAt);
             return (
-              <article
-                className={`panel notification-message ${notification.readAt ? "" : "notification-message--unread"} ${selected ? "notification-message--selected" : ""}`}
-                id={`notification-${notification.id}`}
-                key={notification.id}
-              >
-                <div className="notification-message__header">
-                  <span className="notification-message__icon"><BellRing size={18} /></span>
-                  <div className="notification-message__heading">
-                    <h2>{notification.title}</h2>
-                    <time>{formatDateTime(notification.createdAt)}</time>
-                  </div>
-                  {!notification.readAt && <span className="notification-unread-label">Nuova</span>}
-                </div>
-                <p className="notification-message__body">{notification.body}</p>
-                <div className="notification-message__actions">
-                  {destination && <Link className="button button--secondary button--small" to={destination}>
-                    <Megaphone size={15} /> {announcementId ? "Apri messaggio in Bacheca" : "Apri sezione"}
-                  </Link>}
-                  {!notification.readAt && <button
-                    className="button button--secondary button--small"
-                    type="button"
-                    disabled={markRead.isPending}
-                    onClick={() => markRead.mutate(notification.id)}
-                  ><Check size={15} /> Segna come letto</button>}
-                </div>
-              </article>
+              <Fragment key={notification.id}>
+                {newDay && <p className="chat-day">{dayLabel(notification.createdAt)}</p>}
+                <article
+                  className={`chat-bubble ${notification.readAt ? "" : "chat-bubble--unread"} ${selected ? "chat-bubble--selected" : ""}`}
+                  id={`notification-${notification.id}`}
+                >
+                  <h2 className="chat-bubble__title">{notification.title}</h2>
+                  <p className="chat-bubble__body">{notification.body}</p>
+                  {(destination || !notification.readAt) && (
+                    <div className="chat-bubble__actions">
+                      {destination && <Link className="button button--secondary button--small" to={destination}>
+                        <Megaphone size={15} /> {announcementId ? "Apri in Bacheca" : "Apri sezione"}
+                      </Link>}
+                      {!notification.readAt && <button
+                        className="button button--secondary button--small"
+                        type="button"
+                        disabled={markRead.isPending}
+                        onClick={() => markRead.mutate(notification.id)}
+                      ><Check size={15} /> Segna come letto</button>}
+                    </div>
+                  )}
+                  <time className="chat-bubble__time" dateTime={notification.createdAt}>
+                    {new Intl.DateTimeFormat("it-IT", { hour: "2-digit", minute: "2-digit" }).format(new Date(notification.createdAt))}
+                    {notification.readAt ? " ✓✓" : ""}
+                  </time>
+                </article>
+              </Fragment>
             );
           })}
+          <div id="chat-end" />
         </section>
       ) : (
-        <div className="panel panel__body"><EmptyState icon={BellRing} title="Nessuna notifica" description="Quando riceverai un aggiornamento, troverai qui il messaggio completo." /></div>
+        <div className="panel panel__body"><EmptyState icon={BellRing} title="Nessuna notifica" description="Quando riceverai un aggiornamento, lo troverai qui come messaggio." /></div>
       )}
     </div>
   );
 }
-
