@@ -48,7 +48,7 @@ const budget = item("/budget", "Budget", Wallet);
 
 /**
  * Menu laterale organizzato per sezioni. Ogni account vede solo le funzioni a cui ha accesso:
- * - Team Leader: tutto
+ * - Team Leader: tutto (Merchandising, Magazzino, Ordini, Budget e Sponsor stanno in Amministrazione)
  * - Amministrazione: gestione colloqui e team (più Merchandising)
  * - Capo Logistica e membri Logistica: Merchandising, Magazzino, Sponsor, Ordini
  * - Capo Business e membri Business: Budget e Ordini
@@ -83,15 +83,11 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         ],
       },
       {
-        id: "logistica",
-        title: "Logistica",
-        items: access.isTeamLeader ? [merchandising, inventory, sponsors, orders] : [merchandising],
-      },
-      { id: "business", title: "Business", items: access.isTeamLeader ? [budget] : [] },
-      {
         id: "amministrazione",
         title: "Amministrazione",
         items: [
+          merchandising,
+          ...(access.isTeamLeader ? [inventory, orders, budget, sponsors] : []),
           item("/admin/aree", "Aree", PanelsTopLeft),
           item("/admin/account", "Account", UsersRound),
           item("/admin/legal", "Termini e Privacy", FileText),
