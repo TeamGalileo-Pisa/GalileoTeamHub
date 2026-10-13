@@ -1,6 +1,8 @@
 // Il logo del modulo PDF e' un file pubblico del sito (public/membership-logo.png):
 // non va incorporato nella funzione. Se non e' raggiungibile il PDF viene generato senza logo.
-const appUrl = () => (Deno.env.get("PUBLIC_APP_URL") ?? "https://galileohub.info-teamgalileo.workers.dev").replace(/\/$/, "");
+// Questo file e' condiviso con il frontend (tsc non conosce Deno): lo si legge da globalThis.
+type DenoLike = { env: { get(name: string): string | undefined } };
+const appUrl = () => ((globalThis as { Deno?: DenoLike }).Deno?.env.get("PUBLIC_APP_URL") ?? "https://galileohub.info-teamgalileo.workers.dev").replace(/\/$/, "");
 
 export async function membershipLogoBytes(): Promise<Uint8Array | null> {
   try {
