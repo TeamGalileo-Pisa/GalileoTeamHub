@@ -1,3 +1,4 @@
+import { useModalBehavior } from "../hooks/useModalBehavior";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Building2, CalendarClock, CirclePlus, History, Mail, Phone, Save, Search, UsersRound, X } from "lucide-react";
@@ -35,6 +36,7 @@ export function SponsorsPage() {
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("all");
   const [draft, setDraft] = useState<SponsorDraft | null>(null);
+  useModalBehavior(Boolean(draft), () => setDraft(null));
   const [selected, setSelected] = useState<string | null>(null);
   const [interactionType, setInteractionType] = useState("email");
   const [interactionText, setInteractionText] = useState("");

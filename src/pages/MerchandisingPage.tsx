@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../components/PageHeader";
 import { Modal } from "../components/Modal";
+import { VariantStockEditor } from "../components/VariantStockEditor";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
 import { downloadMerchOrdersExport } from "../lib/merch-orders-export";
@@ -320,7 +321,7 @@ export function MerchandisingPage() {
         <label className="form-field">Prezzo (€)<input className="input" name="price" type="number" min="0.01" step="0.01" required defaultValue={editing ? (editing.price_cents / 100).toFixed(2) : ""} /></label>
         <label className="form-field">Visibile a<select className="input" name="visibility" defaultValue={editing?.visibility ?? "everyone"}><option value="team_leader">Solo Team Leader</option><option value="team_leader_and_area_leads">Team Leader e capi area</option><option value="everyone">Tutti</option></select></label>
         <label className="form-field--full">Descrizione<textarea className="input" name="description" rows={3} maxLength={3000} defaultValue={editing?.description ?? ""} /></label>
-        <label className="form-field--full">Taglie/varianti e scorte (una per riga, formato <code>taglia:quantità</code>; lascia vuoto dopo i due punti per disponibilità illimitata). Per l’abbigliamento usa S, M, L, XL, 2XL e 3XL.<textarea className="input" name="variants" rows={6} defaultValue={editing ? editing.variants.filter((v) => v.active).map((v) => `${v.label}:${v.stock ?? ""}`).join("\n") : "S:\nM:\nL:\nXL:\n2XL:\n3XL:"} /></label>
+        <VariantStockEditor name="variants" initial={editing ? editing.variants.filter((v) => v.active).map((v) => ({ label: v.label, stock: v.stock })) : undefined} />
         <label className="form-field--full">Foto prodotto (JPG, PNG o WebP; massimo 5 MB)<input className="input" name="image" type="file" accept="image/jpeg,image/png,image/webp" /></label>
         <div className="form-field--full"><button className="button button--primary">{editing ? "Salva modifiche" : "Aggiungi prodotto"}</button> {editing && <button className="button button--secondary" type="button" onClick={() => setEditing(null)}>Annulla</button>}</div>
       </form>
