@@ -1581,3 +1581,12 @@ textarea::placeholder {
 .variant-editor .icon-button { width:40px; height:40px; }
 .variant-editor>.button { justify-self:start; }
 @media (max-width:480px) { .variant-editor__head,.variant-editor__row { grid-template-columns:minmax(0,1fr) 96px 40px; } }
+
+/* ---- Editor varianti: scelta Per tutti / Uomo e donna ---- */
+.variant-editor__mode { display:inline-flex; gap:6px; padding:4px; width:fit-content; border:1px solid var(--border); border-radius:12px; background:rgba(1,7,17,.5); }
+.variant-editor__mode .button { border-color:transparent; background:transparent; }
+.variant-editor__mode .button[aria-pressed="true"] { background:var(--azure); border-color:var(--azure-light); color:#fff; }
+.variant-editor__group { display:grid; gap:8px; }
+.variant-editor__group+.variant-editor__group { margin-top:8px; padding-top:14px; border-top:1px solid var(--border); }
+.variant-editor__group h4 { margin:0; font-size:15px; color:#8fd3ff; }
+.variant-editor__group>.button { justify-self:start; }

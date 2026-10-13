@@ -116,6 +116,8 @@ export function MerchandisingPage() {
       if (!(visibility in visibilityLabels)) throw new Error("Scegli chi può vedere il prodotto.");
       const variants = parseStock(String(form.get("variants") ?? "S:\nM:\nL:\nXL:\n2XL:\n3XL:"));
       if (!variants.length) throw new Error("Aggiungi almeno una taglia o variante.");
+      const duplicate = variants.find((variant, index) => variants.findIndex((other) => other.label.toLocaleLowerCase() === variant.label.toLocaleLowerCase()) !== index);
+      if (duplicate) throw new Error(`La variante “${duplicate.label}” è inserita più volte.`);
       let imageUrl = editing?.image_url ?? null;
       const image = form.get("image");
       if (image instanceof File && image.size) {
