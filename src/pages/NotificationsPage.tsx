@@ -13,6 +13,18 @@ function safeRoute(value: unknown): string | null {
     : null;
 }
 
+// Toglie dal telefono (barra delle notifiche) il messaggio appena letto.
+async function dismissSystemNotification(id: string) {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    const shown = (await registration?.getNotifications({ tag: id })) ?? [];
+    shown.forEach((item) => item.close());
+  } catch {
+    /* best effort: la notifica di sistema puo' restare finche' l'utente non la chiude */
+  }
+}
+
 export function NotificationsPage() {
   const { access } = useAuth();
   const [searchParams] = useSearchParams();
@@ -27,7 +39,8 @@ export function NotificationsPage() {
   });
   const markRead = useMutation({
     mutationFn: markNotificationRead,
-    onSuccess: async () => {
+    onSuccess: async (_data, id) => {
+      void dismissSystemNotification(id);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["system-notifications", access?.userId] }),
         queryClient.invalidateQueries({ queryKey: ["unread-notifications", access?.userId] }),
@@ -36,10 +49,12 @@ export function NotificationsPage() {
   });
   const { mutate: markNotificationAsRead, isPending: markingRead } = markRead;
 
-  const thread = useMemo(
-    () => [...(notifications.data ?? [])].sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime()),
-    [notifications.data],
-  );
+  // Aprendo una notifica (dal telefono o dall'elenco) si vede solo quel messaggio:
+  // lo storico completo resta su /notifiche, senza il parametro.
+  const thread = useMemo(() => {
+    const sorted = [...(notifications.data ?? [])].sort((x, y) => new Date(x.createdAt).getTime() - new Date(y.createdAt).getTime());
+    return selectedId ? sorted.filter((item) => item.id === selectedId) : sorted;
+  }, [notifications.data, selectedId]);
 
   useEffect(() => {
     if (!notifications.data) return;
@@ -60,7 +75,9 @@ export function NotificationsPage() {
       <PageHeader
         eyebrow="Centro messaggi"
         title="Notifiche"
-        description="I messaggi che ricevi, come in una chat: in basso i più recenti. Aprendo un messaggio lo segni come letto."
+        description={selectedId
+          ? "Messaggio ricevuto: aprendolo lo hai segnato come letto."
+          : "I messaggi che ricevi, come in una chat: in basso i più recenti. Aprendo un messaggio lo segni come letto."}
       />
       {notifications.error && <div className="form-error" role="alert">{notifications.error.message}</div>}
       {notifications.isLoading ? (
@@ -114,7 +131,18 @@ export function NotificationsPage() {
           <div id="chat-end" />
         </section>
       ) : (
-        <div className="panel panel__body"><EmptyState icon={BellRing} title="Nessuna notifica" description="Quando riceverai un aggiornamento, lo troverai qui come messaggio." /></div>
+        <div className="panel panel__body"><EmptyState
+          icon={BellRing}
+          title={selectedId ? "Messaggio non disponibile" : "Nessuna notifica"}
+          description={selectedId
+            ? "Questo messaggio non è più tra le tue notifiche recenti."
+            : "Quando riceverai un aggiornamento, lo troverai qui come messaggio."}
+        /></div>
+      )}
+      {selectedId && (
+        <div className="chat-bubble__actions">
+          <Link className="button button--secondary button--small" to="/notifiche">Vedi tutte le notifiche</Link>
+        </div>
       )}
     </div>
   );
