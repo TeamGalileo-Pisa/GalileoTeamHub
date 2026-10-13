@@ -31,7 +31,7 @@ function exportBudget(rows: BudgetEntry[], areas: Area[]) {
 export function BudgetPage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((a) => a.slug === "business"));
+  const canManage = Boolean(access?.isAdmin || access?.isTeamLeader || access?.areas.some((a) => a.slug === "business"));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filter, setFilter] = useState("all");
   const [historyId, setHistoryId] = useState<string | null>(null);

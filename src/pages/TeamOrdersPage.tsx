@@ -34,7 +34,7 @@ function exportOrders(rows: PurchaseOrder[]) {
 export function TeamOrdersPage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica" || area.slug === "business"));
+  const canManage = Boolean(access?.isAdmin || access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica" || area.slug === "business"));
   const [draft, setDraft] = useState<(Draft & { id?: string }) | null>(null);
   const [queryText, setQueryText] = useState("");
   const [filter, setFilter] = useState("all");

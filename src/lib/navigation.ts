@@ -87,7 +87,10 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         title: "Amministrazione",
         items: [
           merchandising,
-          ...(access.isTeamLeader ? [inventory, orders, budget, sponsors] : []),
+          inventory,
+          orders,
+          budget,
+          sponsors,
           item("/admin/aree", "Aree", PanelsTopLeft),
           item("/admin/account", "Account", UsersRound),
           item("/admin/legal", "Termini e Privacy", FileText),
