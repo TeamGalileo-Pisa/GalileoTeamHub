@@ -31,7 +31,7 @@ function exportBudget(rows: BudgetEntry[], areas: Area[]) {
 export function BudgetPage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canManage = Boolean(access?.isTeamLeader || (!access?.isMember && access?.areas.some((a) => a.slug === "business")));
+  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((a) => a.slug === "business"));
   const [draft, setDraft] = useState<Draft | null>(null);
   const [filter, setFilter] = useState("all");
   const [historyId, setHistoryId] = useState<string | null>(null);
@@ -107,10 +107,10 @@ export function BudgetPage() {
   const paymentScale = Math.max(1, ...paymentMonths.flatMap((month) => [month.expenses, month.income]));
   const error = areas.error ?? entries.error ?? audit.error ?? save.error ?? approve.error ?? setPayment.error ?? attach.error;
 
-  if (!canManage) return <div className="page-container"><PageHeader title="Budget" eyebrow="Accesso riservato" description="Questa sezione è disponibile al Team Leader e al Capo Business." /></div>;
+  if (!canManage) return <div className="page-container"><PageHeader title="Budget" eyebrow="Accesso riservato" description="Questa sezione è disponibile al Team Leader, al Capo Business e ai membri Business." /></div>;
 
   return <div className="page-container budget-page">
-    <PageHeader title="Budget" eyebrow="Team Leader · Capo Business" description="Monitora preventivi, spese reali, approvazioni, pagamenti e documenti in un registro con storico delle modifiche." />
+    <PageHeader title="Budget" eyebrow="Business · Capo Business · Team Leader" description="Monitora preventivi, spese reali, approvazioni, pagamenti e documenti in un registro con storico delle modifiche." />
     {error && <p className="form-error" role="alert">{error instanceof Error ? error.message : "Operazione non riuscita."}</p>}
     <div className="budget-stats"><article className="budget-stat"><span>Preventivato · uscite</span><strong>{euro.format(planned)}</strong></article><article className="budget-stat"><span>Consuntivo approvato</span><strong>{euro.format(actual)}</strong></article><article className="budget-stat budget-stat--due"><span>Da saldare</span><strong>{euro.format(unpaid)}</strong></article></div>
     <section className="budget-chart-grid" aria-label="Grafici di andamento del budget">
