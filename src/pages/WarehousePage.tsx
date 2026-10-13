@@ -68,7 +68,7 @@ function downloadLedger(rows: InventoryEvent[]) {
 export function WarehousePage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canUse = Boolean(access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica"));
+  const canUse = Boolean(access?.isAdmin || access?.isTeamLeader || access?.areas.some((area) => area.slug === "logistica"));
   const [warehouseDraft, setWarehouseDraft] = useState({ id: "", name: "", location: "", notes: "" });
   const [showWarehouseForm, setShowWarehouseForm] = useState(false);
   const [itemDraft, setItemDraft] = useState(emptyItem);

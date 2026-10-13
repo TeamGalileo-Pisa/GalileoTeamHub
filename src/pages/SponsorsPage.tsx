@@ -32,7 +32,7 @@ function exportSponsors(rows: Sponsor[]) {
 export function SponsorsPage() {
   const { access } = useAuth();
   const cache = useQueryClient();
-  const canManage = Boolean(access?.isTeamLeader || access?.areas.some((a) => a.slug === "logistica"));
+  const canManage = Boolean(access?.isAdmin || access?.isTeamLeader || access?.areas.some((a) => a.slug === "logistica"));
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("all");
   const [draft, setDraft] = useState<SponsorDraft | null>(null);

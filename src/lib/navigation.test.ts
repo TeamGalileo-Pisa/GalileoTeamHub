@@ -23,10 +23,9 @@ describe("buildNavigation", () => {
     );
   });
 
-  it("Amministrazione (senza Team Leader) vede solo il Merchandising tra le funzioni operative", () => {
+  it("Amministrazione (senza Team Leader) vede anche Merchandising, Magazzino, Ordini, Budget e Sponsor", () => {
     const all = links({ isAdmin: true, isTeamLeader: false, isMember: false, areas: [] });
-    expect(all).toContain("/merchandising");
-    for (const hidden of ["/magazzino", "/sponsor", "/ordini", "/budget"]) expect(all).not.toContain(hidden);
+    for (const shown of ["/merchandising", "/magazzino", "/sponsor", "/ordini", "/budget"]) expect(all).toContain(shown);
   });
 
   it.each([
