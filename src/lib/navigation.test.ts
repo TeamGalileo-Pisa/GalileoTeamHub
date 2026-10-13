@@ -12,8 +12,6 @@ describe("buildNavigation", () => {
       "Panoramica",
       "Colloqui",
       "Recruitment e adesioni",
-      "Logistica",
-      "Business",
       "Amministrazione",
     ]);
     expect(links(access)).toEqual(
@@ -25,7 +23,7 @@ describe("buildNavigation", () => {
     );
   });
 
-  it("Amministrazione non vede Logistica e Business a parte il Merchandising", () => {
+  it("Amministrazione (senza Team Leader) vede solo il Merchandising tra le funzioni operative", () => {
     const all = links({ isAdmin: true, isTeamLeader: false, isMember: false, areas: [] });
     expect(all).toContain("/merchandising");
     for (const hidden of ["/magazzino", "/sponsor", "/ordini", "/budget"]) expect(all).not.toContain(hidden);
