@@ -145,8 +145,6 @@ export async function processPush(client: SupabaseClient) {
           JSON.stringify(payload),
           {
             TTL: 3600,
-            // "high" evita che Android in risparmio energetico (Doze) ritardi la notifica.
-            urgency: "high",
             timeout: 8000,
             vapidDetails: {
               subject: "mailto:info.teamgalileo@gmail.com",

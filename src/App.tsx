@@ -5,7 +5,6 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { PasswordGate } from "./components/PasswordGate";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { PwaControls } from "./components/PwaControls";
-import { NotificationDeepLinks } from "./components/NotificationDeepLinks";
 import { RootRedirect } from "./components/RootRedirect";
 
 const PublicHomePage = lazy(() =>
@@ -84,7 +83,6 @@ export default function App() {
   return (
     <>
       <PwaControls />
-      <NotificationDeepLinks />
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
