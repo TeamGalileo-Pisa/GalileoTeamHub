@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BellRing, Check, Megaphone } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState";
+import { PushDiagnostics } from "../components/PushDiagnostics";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { formatDateTime } from "../lib/dates";
@@ -103,6 +104,7 @@ export function NotificationsPage() {
       ) : (
         <div className="panel panel__body"><EmptyState icon={BellRing} title="Nessuna notifica" description="Quando riceverai un aggiornamento, troverai qui il messaggio completo." /></div>
       )}
+      <PushDiagnostics />
     </div>
   );
 }

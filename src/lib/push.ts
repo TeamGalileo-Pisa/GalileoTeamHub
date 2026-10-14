@@ -177,3 +177,19 @@ export async function disablePush() {
   }
 }
 
+
+export type TestPushResult = { ok: boolean; status?: number | null; reason?: string };
+
+/** Chiede al server di inviare una push di prova a questo dispositivo, passando dal servizio push reale. */
+export async function sendTestPush(): Promise<TestPushResult> {
+  const registration = await navigator.serviceWorker.getRegistration();
+  const subscription = await registration?.pushManager.getSubscription();
+  if (!subscription) {
+    throw new Error("Questo dispositivo non ha una registrazione push: usa «Reimposta notifiche».");
+  }
+  const { data, error } = await supabase.functions.invoke("push-device", {
+    body: { action: "test", address: subscription.endpoint },
+  });
+  if (error) throw new Error("Invio della prova non riuscito. Riprova tra poco.");
+  return data as TestPushResult;
+}
