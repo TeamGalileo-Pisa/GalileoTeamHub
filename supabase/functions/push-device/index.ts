@@ -1,3 +1,4 @@
+import webpush from "npm:web-push@3.6.7";
 import { requireActor } from "../_shared/actor.ts";
 import { webPushConfig } from "../_shared/web-push-config.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
@@ -17,6 +18,36 @@ Deno.serve(async (request) => {
       return jsonResponse(request, {
         publicKey: (await webPushConfig(client)).publicKey,
       });
+    }
+    if (body.action === "test") {
+      // Invia una push di prova solo a un dispositivo dell'utente che la chiede.
+      if (typeof body.address !== "string" || body.address.length > 2000) throw new Error("INVALID_DATA");
+      const { data: device } = await client.from("push_devices").select("platform,subscription")
+        .eq("user_id", user.id).eq("address", body.address).maybeSingle();
+      if (!device || device.platform !== "web" || !device.subscription) {
+        return jsonResponse(request, { ok: false, reason: "NOT_REGISTERED" });
+      }
+      const { publicKey, privateKey } = await webPushConfig(client);
+      try {
+        const result = await webpush.sendNotification(
+          device.subscription,
+          JSON.stringify({
+            title: "Prova GalileoHub",
+            body: "Se vedi questa notifica, le push arrivano su questo dispositivo.",
+            id: crypto.randomUUID(),
+            url: "/notifiche",
+          }),
+          {
+            TTL: 3600,
+            timeout: 8000,
+            vapidDetails: { subject: "mailto:info.teamgalileo@gmail.com", publicKey, privateKey },
+          },
+        );
+        return jsonResponse(request, { ok: true, status: result.statusCode });
+      } catch (error) {
+        const status = (error as { statusCode?: number })?.statusCode ?? null;
+        return jsonResponse(request, { ok: false, status, reason: "PUSH_SERVICE_REFUSED" });
+      }
     }
     if (body.action === "remove") {
       const { error } = await client.from("push_devices").delete().eq(

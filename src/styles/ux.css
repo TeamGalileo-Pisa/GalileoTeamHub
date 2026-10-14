@@ -1623,3 +1623,19 @@ textarea::placeholder {
 .chat-bubble__body { margin:0; color:var(--white); font-size:15px; line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; }
 .chat-bubble__actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 .chat-bubble__time { display:block; margin-top:4px; color:var(--muted); font-size:11px; text-align:right; }
+
+/* Diagnostica notifiche */
+.push-diagnostics { margin-top:24px; padding:0; }
+.push-diagnostics > summary { cursor:pointer; padding:14px 16px; font-weight:600; }
+.push-diagnostics__body { padding:0 16px 16px; display:flex; flex-direction:column; gap:12px; }
+.push-diagnostics__body p { margin:0; color:var(--muted); font-size:14px; line-height:1.5; }
+.push-diagnostics__list { margin:0; display:flex; flex-direction:column; gap:6px; }
+.push-diagnostics__row { display:grid; grid-template-columns:minmax(120px, 38%) 1fr; gap:10px; font-size:14px; line-height:1.4; }
+.push-diagnostics__row dt { color:var(--muted); }
+.push-diagnostics__row dd { margin:0; font-weight:600; }
+.push-diagnostics__row--ok dd::before { content:"✓ "; }
+.push-diagnostics__row--warn dd::before { content:"! "; }
+.push-diagnostics__row--error dd::before { content:"✗ "; }
+.push-diagnostics__message { color:var(--white); }
+.push-diagnostics__actions { display:flex; flex-wrap:wrap; gap:8px; }
+.push-diagnostics__hint { font-size:12px; }
