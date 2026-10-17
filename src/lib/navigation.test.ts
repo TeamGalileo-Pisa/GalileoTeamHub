@@ -59,6 +59,14 @@ describe("buildNavigation", () => {
     ]);
   });
 
+  it("Riunione è visibile a Team Leader, Amministrazione e a tutti i Capi Area, non ai membri semplici", () => {
+    expect(links({ isAdmin: true, isTeamLeader: true, isMember: false, areas: [] })).toContain("/riunione");
+    expect(links({ isAdmin: true, isTeamLeader: false, isMember: false, areas: [] })).toContain("/riunione");
+    expect(links({ isAdmin: false, isMember: false, areas: [{ slug: "software" }] })).toContain("/riunione");
+    expect(links({ isAdmin: false, isMember: false, areas: [{ slug: "logistica" }] })).toContain("/riunione");
+    expect(links({ isAdmin: false, isMember: true, areas: [{ slug: "software" }] })).not.toContain("/riunione");
+  });
+
   it("le voci non sono mai duplicate e non ci sono sezioni vuote", () => {
     for (const access of [
       { isAdmin: true, isTeamLeader: true, isMember: false, areas: [] },
