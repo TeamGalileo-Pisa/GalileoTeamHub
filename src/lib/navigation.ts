@@ -2,6 +2,7 @@ import {
   CalendarDays,
   CalendarRange,
   ClipboardList,
+  DoorOpen,
   FileText,
   Handshake,
   HelpCircle,
@@ -45,6 +46,7 @@ const inventory = item("/magazzino", "Magazzino", Warehouse);
 const sponsors = item("/sponsor", "Sponsor", Handshake);
 const orders = item("/ordini", "Ordini", ShoppingCart);
 const budget = item("/budget", "Budget", Wallet);
+const meetings = item("/riunione", "Riunione", DoorOpen);
 
 /**
  * Menu laterale organizzato per sezioni. Ogni account vede solo le funzioni a cui ha accesso:
@@ -52,6 +54,7 @@ const budget = item("/budget", "Budget", Wallet);
  * - Amministrazione: gestione colloqui e team (più Merchandising)
  * - Capo Logistica e membri Logistica: Merchandising, Magazzino, Sponsor, Ordini
  * - Capo Business e membri Business: Budget e Ordini
+ * - Riunione (aule e slot da 30 minuti): Team Leader, Amministrazione e tutti i Capi Area
  */
 export function buildNavigation(access: NavAccess, options: { hasOpenApplications?: boolean } = {}): NavGroup[] {
   const hasArea = (slug: string) => access.areas.some((area) => area.slug === slug);
@@ -91,6 +94,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
           orders,
           budget,
           sponsors,
+          meetings,
           item("/admin/aree", "Aree", PanelsTopLeft),
           item("/admin/account", "Account", UsersRound),
           item("/admin/legal", "Termini e Privacy", FileText),
@@ -121,6 +125,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         title: "Panoramica",
         items: [item("/area", "Dashboard", LayoutDashboard, true), item("/area/bacheca", "Bacheca", Megaphone), notifications],
       },
+      { id: "riunione", title: "Riunione", items: [meetings] },
       {
         id: "colloqui",
         title: "Colloqui",
