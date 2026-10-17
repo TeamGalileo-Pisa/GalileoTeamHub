@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, ChevronLeft, ChevronRight, DoorOpen, Plus, Trash2, Users } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { appConfig } from "../lib/config";
@@ -21,9 +21,14 @@ const shiftDay = (day: string, delta: number) => {
 };
 const longDay = (day: string) =>
   new Intl.DateTimeFormat("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
-const daysBetween = (from: string, to: string) => {
+export type Repeat = "none" | "daily" | "weekly";
+const MAX_RANGE_DAYS = 366;
+/** Giorni in cui inserire la fascia: solo quello scelto, ogni giorno o ogni settimana (stesso giorno della settimana) fino alla data finale. */
+const occurrenceDays = (from: string, repeat: Repeat, until: string) => {
+  if (repeat === "none") return [from];
   const days: string[] = [];
-  for (let d = from; d <= to && days.length < 92; d = shiftDay(d, 1)) days.push(d);
+  const step = repeat === "weekly" ? 7 : 1;
+  for (let d = from; d <= until && days.length < MAX_RANGE_DAYS; d = shiftDay(d, step)) days.push(d);
   return days;
 };
 
@@ -36,7 +41,8 @@ export function MeetingRoomsPage() {
   const [selection, setSelection] = useState<{ roomId: string; starts: string[] } | null>(null);
   const [title, setTitle] = useState("");
   const [roomDraft, setRoomDraft] = useState({ name: "", location: "", capacity: "" });
-  const [windowDraft, setWindowDraft] = useState({ roomId: "", from: "09:00", to: "13:00", until: "" });
+  const [windowDraft, setWindowDraft] = useState<{ roomId: string; from: string; to: string; repeat: Repeat; until: string }>({ roomId: "", from: "09:00", to: "13:00", repeat: "none", until: "" });
+  const [editing, setEditing] = useState<{ id: string; from: string; to: string } | null>(null);
 
   const rooms = useQuery({
     queryKey: ["meeting-rooms"], enabled: canUse,
@@ -91,11 +97,27 @@ export function MeetingRoomsPage() {
       const roomId = windowDraft.roomId || rooms.data?.[0]?.id;
       if (!roomId) throw new Error("Aggiungi prima un'aula.");
       if (windowDraft.to <= windowDraft.from) throw new Error("L'orario di fine deve essere dopo quello di inizio.");
-      const until = windowDraft.until && windowDraft.until >= day ? windowDraft.until : day;
-      const rows = daysBetween(day, until).map((d) => ({
+      if (windowDraft.repeat !== "none" && (!windowDraft.until || windowDraft.until < day)) throw new Error("Indica fino a quando ripetere la disponibilità.");
+      const rows = occurrenceDays(day, windowDraft.repeat, windowDraft.until).map((d) => ({
         room_id: roomId, day: d, start_time: `${windowDraft.from}:00`, end_time: `${windowDraft.to}:00`, created_by: access?.userId,
       }));
       const { error } = await supabase.from("meeting_room_availability").insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: refresh,
+  });
+  const updateWindow = useMutation({
+    mutationFn: async () => {
+      if (!editing) return;
+      if (editing.to <= editing.from) throw new Error("L'orario di fine deve essere dopo quello di inizio.");
+      const { error } = await supabase.from("meeting_room_availability").update({ start_time: `${editing.from}:00`, end_time: `${editing.to}:00` }).eq("id", editing.id);
+      if (error) throw error;
+    },
+    onSuccess: () => { setEditing(null); refresh(); },
+  });
+  const clearDay = useMutation({
+    mutationFn: async (roomId: string) => {
+      const { error } = await supabase.from("meeting_room_availability").delete().eq("room_id", roomId).eq("day", day);
       if (error) throw error;
     },
     onSuccess: refresh,
@@ -144,7 +166,7 @@ export function MeetingRoomsPage() {
     });
   };
 
-  const error = rooms.error ?? availability.error ?? bookings.error ?? addRoom.error ?? removeRoom.error ?? addWindow.error ?? removeWindow.error ?? book.error ?? cancel.error;
+  const error = rooms.error ?? availability.error ?? bookings.error ?? addRoom.error ?? removeRoom.error ?? addWindow.error ?? updateWindow.error ?? clearDay.error ?? removeWindow.error ?? book.error ?? cancel.error;
 
   if (!canUse) {
     return <div className="page-container"><PageHeader title="Riunione" eyebrow="Accesso riservato" description="Questa sezione è disponibile a Team Leader, Amministrazione e Capi Area." /></div>;
@@ -182,7 +204,14 @@ export function MeetingRoomsPage() {
             </label>
             <label className="form-field">Dalle<input className="input" type="time" step={1800} required value={windowDraft.from} onChange={(e) => setWindowDraft({ ...windowDraft, from: e.target.value })} /></label>
             <label className="form-field">Alle<input className="input" type="time" step={1800} required value={windowDraft.to} onChange={(e) => setWindowDraft({ ...windowDraft, to: e.target.value })} /></label>
-            <label className="form-field">Ripeti fino al (facoltativo)<input className="input" type="date" min={day} value={windowDraft.until} onChange={(e) => setWindowDraft({ ...windowDraft, until: e.target.value })} /></label>
+            <label className="form-field">Ripetizione
+              <select className="input" value={windowDraft.repeat} onChange={(e) => setWindowDraft({ ...windowDraft, repeat: e.target.value as Repeat })}>
+                <option value="none">Solo questo giorno</option>
+                <option value="daily">Ogni giorno</option>
+                <option value="weekly">Ogni settimana (stesso giorno)</option>
+              </select>
+            </label>
+            {windowDraft.repeat !== "none" && <label className="form-field">Ripeti fino al *<input className="input" type="date" required min={day} value={windowDraft.until} onChange={(e) => setWindowDraft({ ...windowDraft, until: e.target.value })} /></label>}
             <button className="button button--primary" disabled={addWindow.isPending || !rooms.data?.length}><Plus size={16} /> Aggiungi disponibilità per {longDay(day).split(" ").slice(0, 3).join(" ")}</button>
           </form>
         </section>
@@ -204,11 +233,25 @@ export function MeetingRoomsPage() {
 
             {slots.length === 0 ? <p className="meeting-room__none">Nessuna disponibilità in questo giorno.</p> : (
               <>
-                <p className="meeting-room__hours"><CalendarCheck size={14} /> Disponibile: {windows.map((w) => (
-                  <span key={w.id} className="meeting-chip">{hhmm(w.start_time)}–{hhmm(w.end_time)}
-                    {canManage && <button type="button" className="meeting-chip__remove" aria-label={`Elimina fascia ${hhmm(w.start_time)}–${hhmm(w.end_time)}`} onClick={() => removeWindow.mutate(w.id)}>×</button>}
-                  </span>
-                ))}</p>
+                <div className="meeting-room__hours"><CalendarCheck size={14} /> Disponibile:
+                  {windows.map((w) => editing?.id === w.id ? (
+                    <form key={w.id} className="meeting-chip meeting-chip--edit" onSubmit={(e) => { e.preventDefault(); updateWindow.mutate(); }}>
+                      <input className="input" type="time" step={1800} required aria-label="Inizio fascia" value={editing.from} onChange={(e) => setEditing({ ...editing, from: e.target.value })} />
+                      –
+                      <input className="input" type="time" step={1800} required aria-label="Fine fascia" value={editing.to} onChange={(e) => setEditing({ ...editing, to: e.target.value })} />
+                      <button className="button button--primary button--small" disabled={updateWindow.isPending}>Salva</button>
+                      <button className="button button--secondary button--small" type="button" onClick={() => setEditing(null)}>Annulla</button>
+                    </form>
+                  ) : (
+                    <span key={w.id} className="meeting-chip">{hhmm(w.start_time)}–{hhmm(w.end_time)}
+                      {canManage && <>
+                        <button type="button" className="meeting-chip__remove" aria-label={`Modifica fascia ${hhmm(w.start_time)}–${hhmm(w.end_time)}`} onClick={() => setEditing({ id: w.id, from: hhmm(w.start_time), to: hhmm(w.end_time) })}><Pencil size={13} /></button>
+                        <button type="button" className="meeting-chip__remove" aria-label={`Elimina fascia ${hhmm(w.start_time)}–${hhmm(w.end_time)}`} onClick={() => removeWindow.mutate(w.id)}>×</button>
+                      </>}
+                    </span>
+                  ))}
+                  {canManage && <button className="button button--secondary button--small" type="button" onClick={() => { if (window.confirm(`Eliminare tutta la disponibilità di ${room.name} per questo giorno?`)) clearDay.mutate(room.id); }}><Trash2 size={14} /> Elimina disponibilità del giorno</button>}
+                </div>
                 <div className="meeting-slots" role="group" aria-label={`Slot di ${room.name}`}>
                   {slots.map((start) => {
                     const taken = booked.get(start);

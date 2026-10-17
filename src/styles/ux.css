@@ -1669,3 +1669,5 @@ button.meeting-slot--free:disabled { opacity: .45; cursor: not-allowed; }
 .meeting-book p { display: flex; align-items: center; gap: 6px; margin: 0; flex-basis: 100%; }
 .meeting-book .input { flex: 1; min-width: 200px; }
 .meeting-empty { display: grid; gap: 6px; justify-items: center; text-align: center; }
+.meeting-chip--edit { flex-wrap: wrap; border-radius: 12px; }
+.meeting-chip--edit .input { width: auto; padding: 4px 8px; }
