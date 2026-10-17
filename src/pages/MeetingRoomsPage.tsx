@@ -4,7 +4,7 @@ import { CalendarCheck, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { appConfig } from "../lib/config";
-import { describeSlotRanges, hhmm, meetingErrorMessage, slotEnd, slotsFromWindows } from "../lib/meetings";
+import { TIME_OPTIONS, describeSlotRanges, hhmm, meetingErrorMessage, slotEnd, slotsFromWindows } from "../lib/meetings";
 import { supabase } from "../lib/supabase";
 
 interface Room { id: string; name: string; location: string; capacity: number | null; notes: string; active: boolean }
@@ -202,8 +202,8 @@ export function MeetingRoomsPage() {
                 {(rooms.data ?? []).map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}
               </select>
             </label>
-            <label className="form-field">Dalle<input className="input" type="time" step={1800} required value={windowDraft.from} onChange={(e) => setWindowDraft({ ...windowDraft, from: e.target.value })} /></label>
-            <label className="form-field">Alle<input className="input" type="time" step={1800} required value={windowDraft.to} onChange={(e) => setWindowDraft({ ...windowDraft, to: e.target.value })} /></label>
+            <label className="form-field">Dalle<select className="input" required value={windowDraft.from} onChange={(e) => setWindowDraft({ ...windowDraft, from: e.target.value })}>{TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+            <label className="form-field">Alle<select className="input" required value={windowDraft.to} onChange={(e) => setWindowDraft({ ...windowDraft, to: e.target.value })}>{TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
             <label className="form-field">Ripetizione
               <select className="input" value={windowDraft.repeat} onChange={(e) => setWindowDraft({ ...windowDraft, repeat: e.target.value as Repeat })}>
                 <option value="none">Solo questo giorno</option>
@@ -236,9 +236,9 @@ export function MeetingRoomsPage() {
                 <div className="meeting-room__hours"><CalendarCheck size={14} /> Disponibile:
                   {windows.map((w) => editing?.id === w.id ? (
                     <form key={w.id} className="meeting-chip meeting-chip--edit" onSubmit={(e) => { e.preventDefault(); updateWindow.mutate(); }}>
-                      <input className="input" type="time" step={1800} required aria-label="Inizio fascia" value={editing.from} onChange={(e) => setEditing({ ...editing, from: e.target.value })} />
+                      <select className="input" aria-label="Inizio fascia" required value={editing.from} onChange={(e) => setEditing({ ...editing, from: e.target.value })}>{TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}</select>
                       –
-                      <input className="input" type="time" step={1800} required aria-label="Fine fascia" value={editing.to} onChange={(e) => setEditing({ ...editing, to: e.target.value })} />
+                      <select className="input" aria-label="Fine fascia" required value={editing.to} onChange={(e) => setEditing({ ...editing, to: e.target.value })}>{TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}</select>
                       <button className="button button--primary button--small" disabled={updateWindow.isPending}>Salva</button>
                       <button className="button button--secondary button--small" type="button" onClick={() => setEditing(null)}>Annulla</button>
                     </form>

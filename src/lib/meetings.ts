@@ -24,6 +24,9 @@ export function slotsFromWindows(windows: MeetingWindow[]): string[] {
   return [...starts].sort();
 }
 
+/** Orari selezionabili per inizio/fine fascia: ogni 30 minuti, 00:00–23:30. */
+export const TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => fromMinutes(i * SLOT_MINUTES));
+
 export const slotEnd = (start: string) => fromMinutes(toMinutes(start) + SLOT_MINUTES);
 
 /** Raggruppa orari di inizio consecutivi in intervalli leggibili: ["09:00","09:30","10:30"] → ["09:00–10:00","10:30–11:00"]. */
@@ -48,6 +51,8 @@ export function describeSlotRanges(starts: string[]): string[] {
 export function meetingErrorMessage(error: unknown): string {
   const text = error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : "";
   const known: Record<string, string> = {
+    meeting_room_availability_start_time_check: "Gli orari devono essere ogni 30 minuti (es. 09:00 o 09:30).",
+    meeting_room_availability_end_time_check: "Gli orari devono essere ogni 30 minuti (es. 13:00 o 13:30).",
     MEETING_NOT_ALLOWED: "Non hai i permessi per prenotare le aule.",
     MEETING_NO_SLOTS: "Seleziona almeno uno slot.",
     MEETING_TITLE_REQUIRED: "Indica il motivo della riunione.",
