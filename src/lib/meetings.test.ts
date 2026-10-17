@@ -23,3 +23,14 @@ describe("slot di riunione", () => {
     expect(meetingErrorMessage(new Error("MEETING_SLOT_TAKEN"))).toMatch(/prenotato/);
   });
 });
+
+describe("arrotondamento orari", () => {
+  it("porta gli orari alla mezz'ora più vicina", async () => {
+    const { snapToHalfHour } = await import("./meetings");
+    expect(snapToHalfHour("13:15")).toBe("13:30");
+    expect(snapToHalfHour("13:14")).toBe("13:00");
+    expect(snapToHalfHour("09:45")).toBe("10:00");
+    expect(snapToHalfHour("23:59")).toBe("23:30");
+    expect(snapToHalfHour("09:00")).toBe("09:00");
+  });
+});

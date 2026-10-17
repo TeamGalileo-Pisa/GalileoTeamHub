@@ -24,8 +24,12 @@ export function slotsFromWindows(windows: MeetingWindow[]): string[] {
   return [...starts].sort();
 }
 
-/** Orari selezionabili per inizio/fine fascia: ogni 30 minuti, 00:00–23:30. */
-export const TIME_OPTIONS: string[] = Array.from({ length: 48 }, (_, i) => fromMinutes(i * SLOT_MINUTES));
+/** Arrotonda un orario "HH:MM" alla mezz'ora più vicina (il selettore a orologio dei telefoni ammette minuti qualsiasi). */
+export function snapToHalfHour(value: string): string {
+  if (!/^\d{2}:\d{2}/.test(value)) return value;
+  const rounded = Math.min(Math.round(toMinutes(value) / SLOT_MINUTES) * SLOT_MINUTES, 23 * 60 + 30);
+  return fromMinutes(rounded);
+}
 
 export const slotEnd = (start: string) => fromMinutes(toMinutes(start) + SLOT_MINUTES);
 
