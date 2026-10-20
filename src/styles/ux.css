@@ -1671,3 +1671,14 @@ button.meeting-slot--free:disabled { opacity: .45; cursor: not-allowed; }
 .meeting-empty { display: grid; gap: 6px; justify-items: center; text-align: center; }
 .meeting-chip--edit { flex-wrap: wrap; border-radius: 12px; }
 .meeting-chip--edit .input { width: auto; padding: 4px 8px; }
+
+/* Magazzino a schede (Inventario, Tecnico, Analisi, Posizioni, Movimenti, Acquisti) */
+.warehouse-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.warehouse-tab { flex: 0 0 auto; min-height: 40px; padding: 0 16px; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--muted-strong); font: inherit; cursor: pointer; }
+.warehouse-tab:hover { color: var(--white); }
+.warehouse-tab--active { border-color: #8bd1ff; background: rgba(139, 209, 255, .14); color: var(--white); font-weight: 600; }
+.warehouse-sheet td, .warehouse-sheet th { vertical-align: top; }
+.warehouse-sheet td small { display: block; color: var(--muted); font-size: 12px; }
+.warehouse-sheet__actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.warehouse-form small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.warehouse-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
