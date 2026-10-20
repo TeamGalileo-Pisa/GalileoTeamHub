@@ -41,5 +41,8 @@ jobs:
       - name: Community database regression tests
         run: node scripts/test-community-database.mjs
 
+      - name: Warehouse database tests
+        run: node scripts/test-warehouse-database.mjs
+
       - name: Production build
         run: pnpm build

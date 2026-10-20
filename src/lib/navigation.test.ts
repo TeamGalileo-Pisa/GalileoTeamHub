@@ -40,17 +40,24 @@ describe("buildNavigation", () => {
   it.each([
     ["Capo Business", { isAdmin: false, isMember: false, areas: [{ slug: "business" }] }],
     ["membro Business", { isAdmin: false, isMember: true, areas: [{ slug: "business" }] }],
-  ])("%s ha Budget e Ordini ma non Magazzino e Sponsor", (_name, access) => {
+  ])("%s ha Budget e Ordini ma non Sponsor", (_name, access) => {
     const all = links(access);
     expect(all).toContain("/budget");
     expect(all).toContain("/ordini");
-    expect(all).not.toContain("/magazzino");
     expect(all).not.toContain("/sponsor");
   });
 
-  it("un capo area di un'altra area non vede Logistica né Business", () => {
+  it("un capo area di un'altra area non vede Logistica né Business, ma consulta il Magazzino", () => {
     const all = links({ isAdmin: false, isMember: false, areas: [{ slug: "software" }] });
-    for (const hidden of ["/merchandising", "/magazzino", "/sponsor", "/ordini", "/budget"]) expect(all).not.toContain(hidden);
+    for (const hidden of ["/merchandising", "/sponsor", "/ordini", "/budget"]) expect(all).not.toContain(hidden);
+    expect(all).toContain("/magazzino");
+  });
+
+  it("il Magazzino è visibile a tutti i Capi Area, al Team Leader e all'Amministrazione, non ai membri di altre aree", () => {
+    expect(links({ isAdmin: true, isTeamLeader: true, isMember: false, areas: [] })).toContain("/magazzino");
+    expect(links({ isAdmin: true, isTeamLeader: false, isMember: false, areas: [] })).toContain("/magazzino");
+    expect(links({ isAdmin: false, isMember: false, areas: [{ slug: "business" }] })).toContain("/magazzino");
+    expect(links({ isAdmin: false, isMember: true, areas: [{ slug: "software" }] })).not.toContain("/magazzino");
   });
 
   it("un membro semplice vede Bacheca, Modulo di adesione e Merchandising", () => {
