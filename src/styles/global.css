@@ -2472,7 +2472,7 @@ p {
 /* Multiple sizes per product in the public checkout. */
 .merch-size-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 112px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.55fr);
   align-items: end;
   gap: 10px;
   padding: 12px;
@@ -2487,16 +2487,13 @@ p {
 
 .merch-size-remove {
   min-height: 42px;
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 @media (max-width: 620px) {
   .merch-size-row {
     grid-template-columns: minmax(0, 1fr) 92px;
-  }
-
-  .merch-size-remove {
-    grid-column: 1 / -1;
-    justify-self: start;
   }
 }
 
