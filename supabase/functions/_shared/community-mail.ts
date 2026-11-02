@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.112.4";
 import { sendGmailMessage } from "./email.ts";
 import { membershipPdf } from "./membership-pdf.ts";
-const escape = (s: string) =>
+const PAYPAL_ME_URL = "https://www.paypal.com/paypalme/galileopisa";
+const escape =(s: string) =>
   s.replace(
     /[&<>"']/g,
     (c) => ({
@@ -61,18 +62,32 @@ export async function processCommunityMail(client: SupabaseClient) {
           content: await membershipPdf(row.payload),
         }];
       } else if (row.kind === "merch_order") {
-        const lines = Array.isArray(row.payload.items) ? row.payload.items : [];
-        const total = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" })
-          .format(Number(row.payload.totalCents) / 100);
-        const itemText = lines.map((item: Record<string, unknown>) =>
-          `• ${String(item.productName)} · ${String(item.variantLabel)} × ${Number(item.quantity)} — ${new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(item.lineTotalCents) / 100)}`
+        const lines: Record<string, unknown>[] = Array.isArray(row.payload.items) ? row.payload.items : [];
+        const euro = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+        const total = euro.format(Number(row.payload.totalCents) / 100);
+        // Numero ordine ANNO/PROGRESSIVO (es. 2026/1). Gli ordini precedenti
+        // alla numerazione non hanno numero e ricadono sull'identificativo interno.
+        let orderNumber = typeof row.payload.orderNumber === "string" ? row.payload.orderNumber : "";
+        if (!orderNumber) {
+          const { data: numbered } = await client.from("merch_orders")
+            .select("order_number").eq("id", row.payload.orderId).maybeSingle();
+          orderNumber = numbered?.order_number ?? String(row.payload.orderId);
+        }
+        // Articolo e colore sono nel nome prodotto (es. "T-Shirt Bordeaux"), la taglia è la variante.
+        const itemLabel = (item: Record<string, unknown>) =>
+          `${String(item.productName)} · ${String(item.variantLabel)} × ${Number(item.quantity)}`;
+        const itemText = lines.map((item) =>
+          `• ${itemLabel(item)} — ${euro.format(Number(item.lineTotalCents) / 100)}`
         ).join("\n");
-        const itemHtml = lines.map((item: Record<string, unknown>) =>
-          `<li style="margin:0 0 8px 0">${escape(String(item.productName))} · ${escape(String(item.variantLabel))} × ${Number(item.quantity)} — ${new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(Number(item.lineTotalCents) / 100)}</li>`
+        const itemHtml = lines.map((item) =>
+          `<li style="margin:0 0 8px 0">${escape(itemLabel(item))} — ${euro.format(Number(item.lineTotalCents) / 100)}</li>`
         ).join("");
+        const buyerName = `${String(row.payload.firstName ?? "")} ${String(row.payload.lastName ?? "")}`.trim();
+        // Testo da incollare nella descrizione del pagamento PayPal.
+        const paypalNote = `${buyerName} - Ordine ${orderNumber} - ${lines.map(itemLabel).join("; ")}`;
         subject = "Richiesta ordine merchandising · Team Galileo";
-        text = `Ciao ${row.payload.firstName},\n\nAbbiamo ricevuto la tua richiesta di ordine merchandising.\nNumero richiesta: ${row.payload.orderId}\n\n${itemText}\n\nTotale: ${total}\n\nLa logistica è in copia e ti confermerà la disponibilità e le modalità di ritiro.\n\nTeam Galileo`;
-        html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;color:#242424"><p>Ciao ${escape(String(row.payload.firstName))},</p><p>Abbiamo ricevuto la tua richiesta di ordine merchandising.</p><p><strong>Numero richiesta:</strong> ${escape(String(row.payload.orderId))}</p><ul style="padding-left:22px">${itemHtml}</ul><p><strong>Totale:</strong> ${total}</p><p>La logistica è in copia e ti confermerà la disponibilità e le modalità di ritiro.</p><p>Team Galileo</p></div>`;
+        text = `Ciao ${row.payload.firstName},\n\nAbbiamo ricevuto il tuo ordine di merchandising.\nNumero ordine: ${orderNumber}\n\n${itemText}\n\nTotale: ${total}\n\nCome pagare\nL'ordine deve essere pagato tramite PayPal: ${PAYPAL_ME_URL}\nNella descrizione del pagamento PayPal inserisci:\n• nome e cognome;\n• numero dell'ordine (${orderNumber});\n• dettagli dell'ordine come riportati in questa email (articolo, colore e taglia).\n\nDescrizione da copiare e incollare in PayPal:\n${paypalNote}\n\nLa logistica è in copia e ti confermerà la disponibilità e le modalità di ritiro.\n\nTeam Galileo`;
+        html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.5;color:#242424"><p>Ciao ${escape(String(row.payload.firstName))},</p><p>Abbiamo ricevuto il tuo ordine di merchandising.</p><p><strong>Numero ordine:</strong> ${escape(orderNumber)}</p><ul style="padding-left:22px">${itemHtml}</ul><p><strong>Totale:</strong> ${total}</p><p><strong>Come pagare</strong><br>L'ordine deve essere pagato tramite <a href="${PAYPAL_ME_URL}" style="color:#0563c1;text-decoration:underline">PayPal</a>.<br>Nella descrizione del pagamento PayPal inserisci:</p><ul style="padding-left:22px"><li style="margin:0 0 6px 0">nome e cognome;</li><li style="margin:0 0 6px 0">numero dell'ordine (<strong>${escape(orderNumber)}</strong>);</li><li style="margin:0 0 6px 0">dettagli dell'ordine come riportati in questa email (articolo, colore e taglia).</li></ul><p>Descrizione da copiare e incollare in PayPal:<br><strong>${escape(paypalNote)}</strong></p><p>La logistica è in copia e ti confermerà la disponibilità e le modalità di ritiro.</p><p>Team Galileo</p></div>`;
         cc = "logistica.teamgalileo@gmail.com";
       } else {
         subject = "[Team Galileo] - Grazie per il tuo interesse!";
