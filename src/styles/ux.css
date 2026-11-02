@@ -543,10 +543,28 @@ textarea::placeholder {
 
 .merch-product-options {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.48fr);
-  align-items: end;
+  /* Ogni selezione taglia/quantità deve occupare tutta la larghezza della scheda.
+     Quattro card desktop non devono comprimere le due etichette una sull'altra. */
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: 12px;
   margin-top: 12px;
+}
+
+.merch-size-row {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.merch-option-field {
+  min-width: 0;
+}
+
+.merch-option-field > span {
+  display: block;
+  line-height: 1.35;
+  white-space: normal;
 }
 
 .merch-option-field {
