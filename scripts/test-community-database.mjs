@@ -96,55 +96,55 @@ create policy merch_variants_visible on public.merch_variants for select to auth
   using(active or private.can_manage_merchandising());
 `);
 await db.exec(await readFile(
-  "supabase/migrations/20261004075202_merch_product_visibility_and_order_notifications.sql",
+  "supabase/migrations/20261004080021_merch_product_visibility_and_order_notifications.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004101000_merch_hide_inactive_products_for_buyers.sql",
+  "supabase/migrations/20261004080929_merch_hide_inactive_products_for_buyers.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004113000_membership_questionnaire_drafts_and_export.sql",
+  "supabase/migrations/20261004083204_membership_questionnaire_drafts_and_export.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004123000_membership_adhesion_indexes.sql",
+  "supabase/migrations/20261004083601_membership_adhesion_indexes.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004130000_member_adhesion_service_policy.sql",
+  "supabase/migrations/20261004083724_member_adhesion_service_policy.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004150000_shared_public_membership_link.sql",
+  "supabase/migrations/20261004105548_shared_public_membership_link.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004170000_public_merch_and_application_review.sql",
+  "supabase/migrations/20261004114755_public_merch_and_application_review.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004180000_mobile_only_push.sql",
+  "supabase/migrations/20261004114801_mobile_only_push.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004190000_recipient_notifications_and_push_reuse.sql",
+  "supabase/migrations/20261004122135_recipient_notifications_and_push_reuse.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004193000_board_audience_controls.sql",
+  "supabase/migrations/20261004143017_board_audience_controls.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004200000_team_leader_notification_fanout.sql",
+  "supabase/migrations/20261004143018_team_leader_notification_fanout.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261004160000_application_notifications_without_logistics.sql",
+  "supabase/migrations/20261004144635_application_notifications_without_logistics.sql",
   "utf8",
 ));
 await db.exec(await readFile(
-  "supabase/migrations/20261005170000_enable_web_push_all_devices.sql",
+  "supabase/migrations/20261005140156_enable_web_push_all_devices.sql",
   "utf8",
 ));
 await db.exec(
@@ -627,7 +627,7 @@ assert.equal(await scalar("select count(*)::int from push_jobs j join notificati
 assert.equal(await scalar("select count(*)::int from push_jobs j join notifications n on n.id=j.notification_id join push_devices d on d.id=j.device_id where n.type='application.received' and d.device_class='desktop'"), 1, "application pushes also queue for desktop subscriptions");
 await db.query("select set_config('test.uid',$1,false)", [areaLeadId]);
 assert.equal(await scalar("select count(*)::int from list_my_open_application_areas() where area_id=$1", [area]), 1, "assigned area lead sees the candidatures menu while the form is open");
-await db.exec(await readFile("supabase/migrations/20261005200000_sponsor_budget_management.sql", "utf8"));
+await db.exec(await readFile("supabase/migrations/20261005154920_sponsor_budget_management.sql", "utf8"));
 const businessLeadId = "99999999-9999-4999-8999-999999999999";
 const logisticsMemberId = "aaaaaaaa-9999-4999-8999-999999999999";
 await db.query("insert into profiles(id,username,display_name) values($1,'business-lead','Business Lead'),($2,'logistics-member','Logistics Member')", [businessLeadId, logisticsMemberId]);
@@ -661,7 +661,7 @@ await db.query("update budget_entries set actual_amount=12.5 where id=$1", [budg
 assert.equal(await scalar("select approval_status='pending' and approved_by is null from budget_entries where id=$1", [budgetId]), true, "editing an approved budget figure requires a new approval");
 await assert.rejects(db.query("update budget_entries set payment_status='paid' where id=$1", [budgetId]), /BUDGET_ENTRY_NOT_APPROVED/);
 assert.equal(await scalar("select count(*)::int from budget_audit_log where entry_id=$1 and event_type='created'", [budgetId]), 1, "budget creation is audited");
-await db.exec(await readFile("supabase/migrations/20261005210000_team_purchase_orders.sql", "utf8"));
+await db.exec(await readFile("supabase/migrations/20261005154929_team_purchase_orders.sql", "utf8"));
 await db.query("select set_config('test.uid',$1,false)", [leaderId]);
 assert.equal(await scalar("select private.can_manage_team_orders()"), true, "Team Leader can manage purchase orders");
 await db.query("select set_config('test.uid',$1,false)", [logisticsId]);

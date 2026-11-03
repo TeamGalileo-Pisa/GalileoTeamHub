@@ -31,15 +31,15 @@ const adminAwareManage = `create or replace function private.can_manage_logistic
 $$;
 `;
 const migration = (file) => readFile(`supabase/migrations/${file}`, "utf8");
-await db.exec(await migration("20261005042617_logistics_inventory_ledger.sql"));
+await db.exec(await migration("20261005044042_logistics_inventory_ledger.sql"));
 // Stessa regola della migration 20261013110000: il Team Leader, l'Amministrazione e Logistica gestiscono il magazzino.
 await db.exec(adminAwareManage);
-await db.exec(await migration("20261005044433_inventory_audit_backup.sql"));
+await db.exec(await migration("20261005044458_inventory_audit_backup.sql"));
 // Il blocco DO iniziale di operator_identity "patcha" funzioni già aggiornate nel file del ledger (non rigiocabile da zero):
 // qui si carica solo la parte con le funzioni wrapper.
-const identity = await migration("20261005044700_inventory_operator_identity.sql");
+const identity = await migration("20261005045435_inventory_operator_identity.sql");
 await db.exec("begin;" + identity.slice(identity.indexOf("create or replace function public.inventory_create_warehouse(")));
-await db.exec(await migration("20261014190000_fix_inventory_ambiguous_overloads.sql"));
+await db.exec(await migration("20261014190846_fix_inventory_ambiguous_overloads.sql"));
 await db.exec(await migration("20261020100000_warehouse_sheets_model.sql"));
 
 try {
