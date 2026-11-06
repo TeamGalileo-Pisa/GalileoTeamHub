@@ -523,9 +523,15 @@ p {
 }
 
 .button--danger {
-  border-color: rgba(240, 112, 120, 0.3);
-  color: #ffb6bb;
-  background: rgba(240, 112, 120, 0.1);
+  border-color: #c0392b;
+  color: #fff;
+  background: #c0392b;
+}
+
+.button--success {
+  border-color: #1e8e4a;
+  color: #fff;
+  background: #1e8e4a;
 }
 
 .button--small {

@@ -591,7 +591,7 @@ textarea::placeholder {
 .merch-order { padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--page-raised); }
 .merch-order__top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .merch-order__status { display: inline-flex; align-items: center; padding: 5px 9px; border: 1px solid transparent; border-radius: 999px; font-size: 12px; font-weight: 700; }
-.merch-order__status--ordered { color: #a53434; background: #fff0f0; border-color: #edb2b2; }
+.merch-order__status--ordered { color: #9a4b00; background: #fff1de; border-color: #f0b765; }
 .merch-order__status--paid { color: #176b45; background: #e9f8ef; border-color: #a7ddbb; }
 .merch-order__status--pending { color: #845a0a; background: #fff7df; border-color: #ead28e; }
 .merch-order__status--cancelled,

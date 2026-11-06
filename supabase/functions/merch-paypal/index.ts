@@ -54,9 +54,10 @@ async function queueOrderEmail(service: ReturnType<typeof createServiceClient>, 
     await service.rpc("cancel_merch_order", { p_order: order.order_id });
     throw new Error("EMAIL_QUEUE_FAILED");
   }
-  // The mail is the request. Do not leave an unpaid PayPal reservation holding stock.
-  const { error: cancelError } = await service.rpc("cancel_merch_order", { p_order: order.order_id });
-  if (cancelError) console.error("[Merch email request] reservation cleanup deferred", order.order_id);
+  // The mail is the request: the order stays "ordered" (stock reserved) until logistics
+  // marks it paid or cancelled by hand.
+  const { error: orderedError } = await service.rpc("mark_merch_order_ordered", { p_order: order.order_id });
+  if (orderedError) console.error("[Merch email request] could not mark order as ordered", order.order_id);
   return { submitted: true };
 }
 
