@@ -376,11 +376,11 @@ export function MerchandisingPage() {
         <span>{order.buyer_first_name ? `${order.buyer_first_name} ${order.buyer_last_name}` : "Cliente"}{order.buyer_email ? ` · ${order.buyer_email}` : ""}</span>
         <span>{new Date(order.created_at).toLocaleString("it-IT")} · Totale {euro(order.total_cents)}</span>
         <ul>{order.items.map((item, i) => <li key={`${order.id}-${i}`}>{item.product_name} · {item.variant_label} × {item.quantity} — {euro(item.line_total_cents)}</li>)}</ul>
-        {order.payment_method === "paypal_manual" && order.status === "ordered" && <button className="button button--primary button--small" type="button" onClick={() => void setOrderPaid(order, true)}>Segna come pagato</button>}
+        {order.payment_method === "paypal_manual" && order.status === "ordered" && <button className="button button--success button--small" type="button" onClick={() => void setOrderPaid(order, true)}>Pagato</button>}
         {order.payment_method === "paypal_manual" && order.status === "paid" && <button className="button button--secondary button--small" type="button" onClick={() => void setOrderPaid(order, false)}>Riporta a non pagato</button>}
         {order.payment_method === "paypal_manual" && ["ordered", "paid"].includes(order.status) && <div className="merch-order__actions">
           <button className="button button--secondary button--small" type="button" onClick={() => startOrderEdit(order)}>Modifica ordine</button>
-          <button className="button button--danger button--small" type="button" onClick={() => { setCancellingOrder(order); setConfirmRefund(false); }}>Annulla ordine</button>
+          <button className="button button--danger button--small" type="button" onClick={() => { setCancellingOrder(order); setConfirmRefund(false); }}>Annullato</button>
         </div>}
         {order.status === "pending" && <p className="muted">Ordine in pagamento PayPal: le modifiche sono disabilitate finché il pagamento è in corso.</p>}
       </article>)}</div> : <p>Nessuna richiesta d’ordine registrata.</p>}

@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 const db = new PGlite();
 await db.exec(`
-  create role anon; create role authenticated;
+  create role anon; create role authenticated; create role service_role;
   create schema auth; create schema private;
   create function auth.uid() returns uuid language sql as $$
     select nullif(current_setting('test.uid', true), '')::uuid
@@ -45,6 +45,8 @@ await db.exec(`
 // Stesso ordine di produzione: gestione ordini (1005) e poi allineamento dello schema.
 await db.exec(await readFile("supabase/migrations/20261005125919_merch_order_management.sql", "utf8"));
 await db.exec(await readFile("supabase/migrations/20261102190000_merch_order_schema_alignment.sql", "utf8"));
+
+await db.exec(await readFile("supabase/migrations/20261106200000_merch_order_manual_payment.sql", "utf8"));
 
 const manager = "11111111-1111-4111-8111-111111111111";
 const orderId = "22222222-2222-4222-8222-222222222222";
@@ -112,7 +114,22 @@ await assert.rejects(db.query(
   [onlineId, JSON.stringify([{ variantId: smallId, quantity: 1 }])],
 ), /ORDER_STATUS_LOCKED/);
 
+// Richiesta via mail: pending -> ordered (servizio), poi pagato/non pagato a mano.
+const mailId = "88888888-8888-4888-8888-888888888888";
+await db.query(`insert into merch_orders(id,buyer_first_name,buyer_last_name,status,total_cents)
+  values($1,'Alan','Turing','pending',1000)`, [mailId]);
+await db.query("select mark_merch_order_ordered($1)", [mailId]);
+const st = async () => (await db.query("select status, paid_at from merch_orders where id=$1", [mailId])).rows[0];
+assert.equal((await st()).status, "ordered");
+await db.query("select set_merch_order_paid($1,true)", [mailId]);
+assert.equal((await st()).status, "paid");
+assert.ok((await st()).paid_at);
+await db.query("select set_merch_order_paid($1,false)", [mailId]);
+assert.equal((await st()).status, "ordered");
+await assert.rejects(db.query("select set_merch_order_paid($1,true)", [onlineId]), /ORDER_STATUS_LOCKED/);
+
 await db.query("select set_config('test.can_manage','false',false)");
+await assert.rejects(db.query("select set_merch_order_paid($1,true)", [mailId]), /FORBIDDEN/);
 await assert.rejects(update([{ itemId: orderItemId, quantity: 1 }]), /FORBIDDEN/);
 await db.close();
 console.log("Order management SQL checks passed.");
