@@ -3,6 +3,7 @@ import { createServiceClient } from "../_shared/service-client.ts";
 import { createSharedAccount } from "../_shared/shared-accounts.ts";
 import { membershipExcel, type MembershipExportRow } from "../_shared/membership-excel.ts";
 import { applicationExcel, type ApplicationExportRow } from "../_shared/application-excel.ts";
+import { merchOrdersExcel, type MerchOrderExportRow } from "../_shared/merch-orders-excel.ts";
 import { requireActor } from "../_shared/actor.ts";
 import {
   applicationChoices,
@@ -254,6 +255,67 @@ Deno.serve(async (request) => {
         ...corsHeaders(request),
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": 'attachment; filename="adesioni-team-galileo.xlsx"',
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      }});
+    }
+    if (body.action === "export_merch_orders_excel") {
+      // Stessi permessi della gestione ordini: admin, Team Leader o Capo Area Logistica.
+      const { client: adminClient, user } = await requireActor(request, false);
+      const { data: roles, error: rolesError } = await adminClient.from("system_roles")
+        .select("role").eq("user_id", user.id).in("role", ["admin", "team_leader"]);
+      if (rolesError) throw new Error("SAVE_FAILED");
+      let allowed = Boolean(roles?.length);
+      if (!allowed) {
+        const { data: lead, error: leadError } = await adminClient.from("area_memberships")
+          .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
+          .eq("role", "area_lead").is("ended_at", null)
+          .eq("areas.slug", "logistica").eq("areas.active", true).limit(1);
+        if (leadError) throw new Error("SAVE_FAILED");
+        allowed = Boolean(lead?.length);
+      }
+      if (!allowed) throw new Error("FORBIDDEN");
+      const rows: MerchOrderExportRow[] = [];
+      const pageSize = 500;
+      for (let offset = 0; offset < 50000; offset += pageSize) {
+        const { data, error } = await adminClient.from("merch_orders")
+          .select("id,request_number,status,payment_method,total_cents,created_at,paid_at,buyer_user_id,buyer_first_name,buyer_last_name,buyer_email,items:merch_order_items(product_name,variant_label,quantity,unit_price_cents,line_total_cents)")
+          .order("created_at", { ascending: true }).order("id", { ascending: true })
+          .range(offset, offset + pageSize - 1);
+        if (error) throw new Error("SAVE_FAILED");
+        // Ordini dei membri: il nome viene dal profilo.
+        const memberIds = [...new Set((data ?? []).filter((o) => !o.buyer_first_name && o.buyer_user_id).map((o) => o.buyer_user_id as string))];
+        const memberNames = new Map<string, string>();
+        if (memberIds.length) {
+          const { data: profiles, error: profileError } = await adminClient.from("profiles").select("id,display_name").in("id", memberIds);
+          if (profileError) throw new Error("SAVE_FAILED");
+          for (const profile of profiles ?? []) memberNames.set(profile.id, profile.display_name ?? "");
+        }
+        for (const order of data ?? []) rows.push({
+          orderNumber: order.request_number ?? "",
+          status: order.status,
+          paymentMethod: order.payment_method ?? "",
+          createdAt: order.created_at,
+          paidAt: order.paid_at,
+          firstName: order.buyer_first_name ?? memberNames.get(order.buyer_user_id ?? "") ?? "",
+          lastName: order.buyer_last_name ?? "",
+          email: order.buyer_email ?? "",
+          totalCents: order.total_cents,
+          items: (order.items ?? []).map((item: Record<string, unknown>) => ({
+            productName: String(item.product_name ?? ""),
+            variantLabel: String(item.variant_label ?? ""),
+            quantity: Number(item.quantity ?? 0),
+            unitPriceCents: Number(item.unit_price_cents ?? 0),
+            lineTotalCents: Number(item.line_total_cents ?? 0),
+          })),
+        });
+        if (!data || data.length < pageSize) break;
+        if (offset + pageSize >= 50000) throw new Error("SAVE_FAILED");
+      }
+      return new Response(merchOrdersExcel(rows), { status: 200, headers: {
+        ...corsHeaders(request),
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": 'attachment; filename="ordini-merchandising-team-galileo.xlsx"',
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       }});
