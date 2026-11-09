@@ -260,7 +260,7 @@ Deno.serve(async (request) => {
       }});
     }
     if (body.action === "export_merch_orders_excel") {
-      // Stessi permessi della gestione ordini: admin, Team Leader, Capo e membri Logistica, Capo e account Business.
+      // Stessi permessi della gestione ordini: admin, Team Leader, Capo e membri Logistica, Capo Business.
       const { client: adminClient, user } = await requireActor(request, false);
       const { data: roles, error: rolesError } = await adminClient.from("system_roles")
         .select("role").eq("user_id", user.id).in("role", ["admin", "team_leader"]);
@@ -285,7 +285,7 @@ Deno.serve(async (request) => {
         if (!allowed) {
           const { data: shared, error: sharedError } = await adminClient.from("area_shared_accounts")
             .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
-            .in("areas.slug", ["logistica", "business"]).eq("areas.active", true).limit(1);
+            .eq("areas.slug", "logistica").eq("areas.active", true).limit(1);
           if (sharedError) throw new Error("SAVE_FAILED");
           allowed = Boolean(shared?.length);
         }
