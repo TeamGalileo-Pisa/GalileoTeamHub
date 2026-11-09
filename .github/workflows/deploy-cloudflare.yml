@@ -41,7 +41,14 @@ jobs:
           VITE_AUTH_EMAIL_DOMAIN: ${{ vars.VITE_AUTH_EMAIL_DOMAIN || 'auth.teamgalileo.local' }}
           VITE_APP_TIMEZONE: ${{ vars.VITE_APP_TIMEZONE || 'Europe/Rome' }}
 
+      - name: Explain deployment is waiting for Cloudflare credentials
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' || secrets.CLOUDFLARE_ACCOUNT_ID == '' }}
+        run: |
+          echo "::notice title=Deploy non eseguito::Build completata. Pubblicazione Cloudflare in attesa dei segreti CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID."
+          echo "Build completata; deploy Cloudflare saltato perché mancano le credenziali richieste."
+
       - name: Deploy to Cloudflare Workers
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
         run: pnpm dlx wrangler deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
