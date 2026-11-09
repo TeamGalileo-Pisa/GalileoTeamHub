@@ -260,7 +260,7 @@ Deno.serve(async (request) => {
       }});
     }
     if (body.action === "export_merch_orders_excel") {
-      // Stessi permessi della gestione ordini: admin, Team Leader, Capo e membri Logistica.
+      // Stessi permessi della gestione ordini: admin, Team Leader, Capo e membri Logistica, Capo e account Business.
       const { client: adminClient, user } = await requireActor(request, false);
       const { data: roles, error: rolesError } = await adminClient.from("system_roles")
         .select("role").eq("user_id", user.id).in("role", ["admin", "team_leader"]);
@@ -270,13 +270,22 @@ Deno.serve(async (request) => {
         const { data: lead, error: leadError } = await adminClient.from("area_memberships")
           .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
           .is("ended_at", null)
-          .eq("areas.slug", "logistica").eq("areas.active", true).limit(1);
+          .in("areas.slug", ["logistica"]).eq("areas.active", true).limit(1);
         if (leadError) throw new Error("SAVE_FAILED");
         allowed = Boolean(lead?.length);
         if (!allowed) {
+          // Il Capo Business gestisce il merchandising come la Logistica.
+          const { data: business, error: businessError } = await adminClient.from("area_memberships")
+            .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
+            .eq("role", "area_lead").is("ended_at", null)
+            .eq("areas.slug", "business").eq("areas.active", true).limit(1);
+          if (businessError) throw new Error("SAVE_FAILED");
+          allowed = Boolean(business?.length);
+        }
+        if (!allowed) {
           const { data: shared, error: sharedError } = await adminClient.from("area_shared_accounts")
             .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
-            .eq("areas.slug", "logistica").eq("areas.active", true).limit(1);
+            .in("areas.slug", ["logistica", "business"]).eq("areas.active", true).limit(1);
           if (sharedError) throw new Error("SAVE_FAILED");
           allowed = Boolean(shared?.length);
         }
