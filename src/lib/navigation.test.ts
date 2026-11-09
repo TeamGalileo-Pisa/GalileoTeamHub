@@ -47,6 +47,10 @@ describe("buildNavigation", () => {
     expect(all).not.toContain("/sponsor");
   });
 
+  it("il Merchandising nel menu Business compare per il Capo, non per i membri come voce di gestione", () => {
+    expect(links({ isAdmin: false, isMember: false, areas: [{ slug: "business" }] })).toContain("/merchandising");
+  });
+
   it("un capo area di un'altra area non vede Logistica né Business, ma consulta il Magazzino", () => {
     const all = links({ isAdmin: false, isMember: false, areas: [{ slug: "software" }] });
     for (const hidden of ["/merchandising", "/sponsor", "/ordini", "/budget"]) expect(all).not.toContain(hidden);
