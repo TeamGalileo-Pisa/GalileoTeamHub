@@ -53,7 +53,7 @@ const meetings = item("/riunione", "Riunione", DoorOpen);
  * - Team Leader: tutto (Merchandising, Magazzino, Ordini, Budget e Sponsor stanno in Amministrazione)
  * - Amministrazione: gestione colloqui e team (più Merchandising)
  * - Capo Logistica e membri Logistica: Merchandising, Magazzino, Sponsor, Ordini
- * - Capo Business e membri Business: Budget e Ordini
+ * - Capo Business: Merchandising, Budget e Ordini; membri Business: Budget e Ordini
  * - Magazzino: Logistica, Team Leader e Amministrazione lo gestiscono; ogni altro Capo Area lo consulta, registra i movimenti e chiede acquisti
  * - Riunione (aule e slot da 30 minuti): Team Leader, Amministrazione e tutti i Capi Area
  */
@@ -143,7 +143,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         items: options.hasOpenApplications ? [item("/area/candidature", "Candidature", FileText)] : [],
       },
       { id: "logistica", title: "Logistica", items: hasArea("logistica") ? [merchandising, inventory, sponsors, orders] : [] },
-      { id: "business", title: "Business", items: hasArea("business") ? [budget, orders] : [] },
+      { id: "business", title: "Business", items: hasArea("business") ? [merchandising, budget, orders] : [] },
       { id: "magazzino", title: "Magazzino", items: [inventory] },
       { id: "aiuto", title: "Aiuto", items: [item("/area/assistenza", "Assistenza", HelpCircle)] },
     );
