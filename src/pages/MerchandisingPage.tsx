@@ -59,7 +59,7 @@ async function orderRequest<T>(body: Record<string, unknown>): Promise<T> {
 export function MerchandisingPage() {
   const { access } = useAuth();
   const queryClient = useQueryClient();
-  const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica"));
+  const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica" || area.slug === "business"));
   const canPurchase = (product: Product) => product.visibility === "everyone" ||
     Boolean(access?.isAdmin) ||
     (product.visibility === "team_leader_and_area_leads" && Boolean(access?.areas.length && !access.isMember));
