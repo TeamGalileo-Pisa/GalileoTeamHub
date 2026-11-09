@@ -41,15 +41,16 @@ jobs:
           VITE_AUTH_EMAIL_DOMAIN: ${{ vars.VITE_AUTH_EMAIL_DOMAIN || 'auth.teamgalileo.local' }}
           VITE_APP_TIMEZONE: ${{ vars.VITE_APP_TIMEZONE || 'Europe/Rome' }}
 
-      - name: Explain deployment is waiting for Cloudflare credentials
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' || secrets.CLOUDFLARE_ACCOUNT_ID == '' }}
-        run: |
-          echo "::notice title=Deploy non eseguito::Build completata. Pubblicazione Cloudflare in attesa dei segreti CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID."
-          echo "Build completata; deploy Cloudflare saltato perché mancano le credenziali richieste."
-
       - name: Deploy to Cloudflare Workers
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
-        run: pnpm dlx wrangler deploy
+        shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -z "$CLOUDFLARE_API_TOKEN" || -z "$CLOUDFLARE_ACCOUNT_ID" ]]; then
+            echo "::notice title=Deploy in attesa::Build completata. Configurare CLOUDFLARE_API_TOKEN e CLOUDFLARE_ACCOUNT_ID nei segreti GitHub per pubblicare."
+            echo "Deploy saltato: mancano le credenziali Cloudflare."
+            exit 0
+          fi
+
+          pnpm dlx wrangler deploy
