@@ -23,7 +23,7 @@ const longDay = (day: string) =>
 
 /** Pagina pubblica: per ogni aula e slot mostra solo se è libera, non disponibile o già occupata. Nessun nome, nessun motivo. */
 export function PublicMeetingRoomsPage() {
-  const today = useMemo(todayInRome, []);
+  const today = useMemo(() => todayInRome(), []);
   const last = shiftDay(today, MAX_DAYS_AHEAD);
   const [day, setDay] = useState(today);
 
