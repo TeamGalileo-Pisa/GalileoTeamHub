@@ -1700,3 +1700,23 @@ button.meeting-slot--free:disabled { opacity: .45; cursor: not-allowed; }
 .warehouse-sheet__actions { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
 .warehouse-form small { color: var(--muted); font-size: 12px; font-weight: 400; }
 .warehouse-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+/* Pagina pubblica: disponibilità aule (solo libera / non disponibile / già occupata) */
+.public-rooms { width: min(960px, 100%); margin: 0 auto; padding: 8px 16px 40px; display: grid; gap: 16px; }
+.public-rooms h1 { margin: 0; }
+.public-rooms__intro, .public-rooms__note, .public-rooms__empty { margin: 0; opacity: .8; }
+.public-rooms__daybar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.public-rooms__day { display: flex; align-items: center; gap: 12px; flex: 1; flex-wrap: wrap; text-transform: capitalize; }
+.public-rooms__day .input { width: auto; }
+.public-rooms__legend { display: flex; gap: 16px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; }
+.public-rooms__legend li { display: inline-flex; align-items: center; gap: 8px; }
+.public-room { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--page-raised); }
+.public-room h2 { margin: 0; }
+.public-room header p, .public-room__closed { margin: 4px 0 0; opacity: .85; display: flex; align-items: center; gap: 8px; }
+.public-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.public-slot { display: grid; gap: 2px; padding: 10px; border-radius: 10px; border: 1px solid transparent; }
+.public-slot span { font-size: .85em; }
+.public-slot--free { background: #e3f6ea; border-color: #7fd0a0; color: #0d5a2d; }
+.public-slot--busy { background: #fde7e5; border-color: #ef9a93; color: #8a1c14; }
+.public-slot--unavailable { background: #eceef2; border-color: #c4c9d2; color: #4a5160; }
+.public-rooms__legend .public-slot, .public-room__closed .public-slot { display: inline-block; width: 16px; height: 16px; padding: 0; border-radius: 4px; }
