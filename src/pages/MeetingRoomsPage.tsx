@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarCheck, ChevronLeft, ChevronRight, DoorOpen, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { CalendarCheck, Check, ChevronLeft, ChevronRight, DoorOpen, Link2, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import { appConfig } from "../lib/config";
@@ -42,6 +42,13 @@ export function MeetingRoomsPage() {
   const [title, setTitle] = useState("");
   const [roomDraft, setRoomDraft] = useState({ name: "", location: "", capacity: "" });
   const [windowDraft, setWindowDraft] = useState<{ roomId: string; from: string; to: string; repeat: Repeat; until: string }>({ roomId: "", from: "09:00", to: "13:00", repeat: "none", until: "" });
+  const [linkCopied, setLinkCopied] = useState(false);
+  const copyPublicLink = async () => {
+    const url = `${window.location.origin}/aule`;
+    try { await navigator.clipboard.writeText(url); } catch { window.prompt("Copia il link pubblico:", url); return; }
+    setLinkCopied(true);
+    window.setTimeout(() => setLinkCopied(false), 2500);
+  };
   const [editing, setEditing] = useState<{ id: string; from: string; to: string } | null>(null);
 
   const rooms = useQuery({
@@ -185,6 +192,9 @@ export function MeetingRoomsPage() {
         </div>
         <button className="icon-button" type="button" aria-label="Giorno successivo" onClick={() => { setDay(shiftDay(day, 1)); setSelection(null); }}><ChevronRight size={18} /></button>
         <button className="button button--secondary button--small" type="button" onClick={() => { setDay(today); setSelection(null); }}>Oggi</button>
+        <button className="button button--secondary button--small" type="button" onClick={() => void copyPublicLink()} title="Pagina pubblica con solo libera / non disponibile / già occupata">
+          {linkCopied ? <><Check size={14} /> Link copiato</> : <><Link2 size={14} /> Copia link pubblico</>}
+        </button>
       </section>
 
       {canManage && (

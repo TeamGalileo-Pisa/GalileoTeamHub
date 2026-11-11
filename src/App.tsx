@@ -73,6 +73,7 @@ const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.M
 const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m=>({default:m.NotificationsPage})));
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
+const PublicMeetingRoomsPage = lazy(() => import('./pages/PublicMeetingRoomsPage').then(m=>({default:m.PublicMeetingRoomsPage})));
 const PublicMerchPage = lazy(() => import('./pages/PublicMerchPage').then(m=>({default:m.PublicMerchPage})));
 const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage').then(m=>({default:m.ApplicationsReviewPage})));
 const WarehousePage = lazy(() => import('./pages/WarehousePage').then(m=>({default:m.WarehousePage})));
@@ -91,6 +92,7 @@ export default function App() {
           <Route path="/privacy" element={<PublicLegalPage documentKey="privacy" />} />
           <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
           <Route path="/candidature" element={<ApplicationPage />} />
+          <Route path="/aule" element={<PublicMeetingRoomsPage />} />
           <Route path="/merchandising/ordine" element={<PublicMerchPage />} />
           <Route path="/adesione" element={<MembershipPage />} />
           <Route path="/adesione/:token" element={<MembershipPage />} />
