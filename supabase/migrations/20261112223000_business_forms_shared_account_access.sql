@@ -18,7 +18,7 @@ as $$
   );
 $$;
 
--- Il Team Leader (e l'Amministrazione) gestisce i form ma non risponde: possono compilare
+-- Team Leader, Amministrazione e Capo Business gestiscono i form ma non rispondono: possono compilare
 -- solo i Capi Area, e chi ha un ruolo di sistema non compare in "Chi manca".
 create or replace function private.can_answer_business_forms()
 returns boolean language sql stable security definer set search_path = ''
@@ -26,6 +26,9 @@ as $$
   select private.staff_ready() and not private.is_admin() and exists (
     select 1 from public.area_memberships m join public.areas a on a.id = m.area_id
     where m.user_id = auth.uid() and m.role = 'area_lead' and m.ended_at is null and a.active
+  ) and not exists (
+    select 1 from public.area_memberships m join public.areas a on a.id = m.area_id
+    where m.user_id = auth.uid() and m.ended_at is null and a.slug = 'business' and a.active
   );
 $$;
 
