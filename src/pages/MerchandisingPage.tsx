@@ -1,3 +1,4 @@
+import { PublicMerchPage } from "./PublicMerchPage";
 import { useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "../components/PageHeader";
@@ -56,7 +57,7 @@ async function orderRequest<T>(body: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export function MerchandisingPage() {
+function MerchandisingWorkspace() {
   const { access } = useAuth();
   const queryClient = useQueryClient();
   const canManage = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica" || (area.slug === "business" && !access.isMember)));
@@ -420,4 +421,13 @@ export function MerchandisingPage() {
       <div className="form-actions"><button className="button button--secondary" type="button" disabled={busy} onClick={() => { setCancellingOrder(null); setConfirmRefund(false); }}>Indietro</button><button className="button button--danger" type="button" disabled={busy || (cancellingOrder.status === "paid" && !confirmRefund)} onClick={() => void confirmOrderCancellation()}>{busy ? "Annullamento…" : "Conferma annullamento"}</button></div>
     </Modal>}
   </div>;
+}
+
+// Gli account membri vedono il catalogo esattamente come nel link pubblico; chi gestisce (Team Leader,
+// Logistica, Capo Business) e i Capi Area mantengono la vista completa.
+export function MerchandisingPage() {
+  const { access } = useAuth();
+  const manages = Boolean(access?.isAdmin || access?.areas.some((area) => area.slug === "logistica" || (area.slug === "business" && !access.isMember)));
+  if (access?.isMember && !manages) return <PublicMerchPage embedded />;
+  return <MerchandisingWorkspace />;
 }
