@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp, Check, Download, Link2, Pencil, Plus, Search, Trash
 import { PageHeader } from "../components/PageHeader";
 import { useAuth } from "../hooks/useAuth";
 import {
-  businessFormErrorMessage, formatAnswer, hasOptions, isEmptyAnswer, KIND_LABELS, publicFormLink, questionsWithAnswers, summarizeQuestion,
+  answerFor, buildColumns, businessFormErrorMessage, formatAnswer, hasOptions, isEmptyAnswer, KIND_LABELS, publicFormLink, summarizeColumn,
   type BusinessForm, type FormQuestion, type FormResponse, type QuestionKind,
 } from "../lib/business-forms";
 import { downloadBusinessFormExport } from "../lib/business-forms-export";
@@ -145,7 +145,7 @@ export function BusinessFormsPage() {
   const exportExcel = useMutation({ mutationFn: () => downloadBusinessFormExport(selectedId!) });
 
   const activeQuestions = useMemo(() => (questions.data ?? []).filter((q) => !q.archived_at), [questions.data]);
-  const summaryQuestions = useMemo(() => questionsWithAnswers(questions.data ?? [], responses.data ?? []), [questions.data, responses.data]);
+  const columns = useMemo(() => buildColumns(responses.data ?? [], questions.data ?? []), [questions.data, responses.data]);
   const visibleResponses = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("it");
     return (responses.data ?? []).filter((r) => !needle || `${r.respondent_name} ${r.area_names}`.toLocaleLowerCase("it").includes(needle));
@@ -308,11 +308,11 @@ export function BusinessFormsPage() {
                 <div className="bf-stat"><strong>{respondents}</strong><span>Capi Area hanno risposto</span></div>
                 <div className="bf-stat"><strong>{pending.data?.length ?? 0}</strong><span>non hanno ancora risposto{leadTotal ? ` (su ${leadTotal})` : ""}</span></div>
               </div>
-              {(responses.data?.length ?? 0) === 0 ? <p>Ancora nessuna risposta: condividi il link con i Capi Area.</p> : summaryQuestions.map((q) => {
-                const summary = summarizeQuestion(q, responses.data ?? []);
+              {(responses.data?.length ?? 0) === 0 ? <p>Ancora nessuna risposta: condividi il link con i Capi Area.</p> : columns.map((q) => {
+                const summary = summarizeColumn(q, responses.data ?? []);
                 return (
-                  <article key={q.id} className="bf-summary-card">
-                    <h3>{q.label}{q.archived_at && <small> (domanda eliminata)</small>}</h3>
+                  <article key={q.key} className="bf-summary-card">
+                    <h3>{q.label}{!q.current && <small> (domanda cambiata o eliminata)</small>}</h3>
                     <p className="bf-hint">{summary.answered} {summary.answered === 1 ? "risposta" : "risposte"}</p>
                     {summary.kind === "choice" && (
                       <ul className="bf-bars">
@@ -359,8 +359,9 @@ export function BusinessFormsPage() {
                 <details key={response.id} className="bf-response">
                   <summary><strong>{response.respondent_name}</strong> <span>{response.area_names ? `Capo ${response.area_names}` : ""} · {stamp(response.created_at)}</span></summary>
                   <dl className="bf-answers">
-                    {summaryQuestions.map((q) => {
-                      const value = response.answers?.[q.id];
+                    {(response.questions ?? []).map((q) => {
+                      const column = columns.find((c) => c.id === q.id && c.label === q.label && c.kind === q.kind);
+                      const value = column ? answerFor(column, response) : response.answers?.[q.id];
                       if (isEmptyAnswer(value)) return null;
                       return <div key={q.id}><dt>{q.label}</dt><dd>{formatAnswer(q, value)}</dd></div>;
                     })}

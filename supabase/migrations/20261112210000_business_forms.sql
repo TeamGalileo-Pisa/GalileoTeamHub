@@ -60,6 +60,8 @@ create table public.business_form_responses (
   respondent_username text not null default '',
   area_names text not null default '',
   answers jsonb not null default '{}'::jsonb,
+  -- Domande così come erano al momento della compilazione: il form può cambiare nel tempo.
+  questions jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
 create index business_form_responses_form_idx on public.business_form_responses(form_id, created_at desc);
@@ -120,7 +122,7 @@ declare
   v_raw jsonb;
   v_clean jsonb := '{}'::jsonb;
   v_name text; v_username text; v_areas text; v_id uuid;
-  v_text text; v_max integer;
+  v_text text; v_max integer; v_snapshot jsonb;
 begin
   if not private.can_answer_business_forms() then raise exception 'BUSINESS_FORM_FORBIDDEN'; end if;
   if p_answers is null or jsonb_typeof(p_answers) <> 'object' then raise exception 'BUSINESS_FORM_INVALID'; end if;
@@ -167,13 +169,16 @@ begin
     end if;
   end loop;
 
+  select coalesce(jsonb_agg(jsonb_build_object('id', q.id, 'label', q.label, 'kind', q.kind, 'options', q.options) order by q.position, q.created_at), '[]'::jsonb)
+    into v_snapshot from public.business_form_questions q where q.form_id = v_form.id and q.archived_at is null;
+
   select coalesce(p.display_name, 'Utente'), p.username::text into v_name, v_username from public.profiles p where p.id = auth.uid();
   select coalesce(string_agg(a.name, ', ' order by a.name), '') into v_areas
     from public.area_memberships m join public.areas a on a.id = m.area_id
     where m.user_id = auth.uid() and m.role = 'area_lead' and m.ended_at is null and a.active;
 
-  insert into public.business_form_responses(form_id, respondent_id, respondent_name, respondent_username, area_names, answers)
-    values (v_form.id, auth.uid(), coalesce(v_name, 'Utente'), coalesce(v_username, ''), v_areas, v_clean)
+  insert into public.business_form_responses(form_id, respondent_id, respondent_name, respondent_username, area_names, answers, questions)
+    values (v_form.id, auth.uid(), coalesce(v_name, 'Utente'), coalesce(v_username, ''), v_areas, v_clean, v_snapshot)
     returning id into v_id;
   return v_id;
 end; $$;

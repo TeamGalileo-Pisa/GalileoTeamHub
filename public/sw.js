@@ -1,4 +1,4 @@
-const APP_VERSION = "2026-11-12T19:03:51.626Z";
+const APP_VERSION = "2026-11-12T19:06:20.858Z";
 
 self.addEventListener("install", () => {
   // Do not activate over an app that is already open. The user chooses when to update.

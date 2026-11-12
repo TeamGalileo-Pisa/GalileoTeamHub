@@ -293,12 +293,13 @@ Deno.serve(async (request) => {
       const responses: BusinessFormResponseRow[] = [];
       for (let offset = 0; offset < 50000; offset += 500) {
         const { data, error } = await adminClient.from("business_form_responses")
-          .select("respondent_name,respondent_username,area_names,answers,created_at").eq("form_id", formId)
+          .select("respondent_name,respondent_username,area_names,answers,questions,created_at").eq("form_id", formId)
           .order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
         if (error) throw new Error("SAVE_FAILED");
         for (const row of data ?? []) responses.push({
           respondentName: row.respondent_name, respondentUsername: row.respondent_username,
           areaNames: row.area_names, createdAt: row.created_at, answers: (row.answers ?? {}) as Record<string, unknown>,
+          questions: (Array.isArray(row.questions) ? row.questions : []) as BusinessFormResponseRow["questions"],
         });
         if (!data || data.length < 500) break;
       }

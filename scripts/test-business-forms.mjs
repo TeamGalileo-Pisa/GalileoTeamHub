@@ -73,7 +73,7 @@ await assert.rejects(submit({ [qText]: "x", [qChoice]: "In linea" }), /BUSINESS_
 
 // Chi gestisce vede le risposte, l'account e le risposte registrate; chi risponde no (RLS fuori da PGlite, controllo funzionale).
 await as("tl", true);
-const rows = (await db.query("select respondent_name, area_names, answers from business_form_responses order by created_at, id")).rows;
+const rows = (await db.query("select respondent_name, area_names, answers, questions from business_form_responses order by created_at, id")).rows;
 assert.equal(rows.length, 3);
 assert.equal(rows[0].respondent_name, "geoLead");
 assert.equal(rows[0].area_names, "Geologia");
@@ -82,10 +82,31 @@ assert.equal(rows[0].answers.extra, undefined, "chiavi sconosciute scartate");
 assert.deepEqual(rows[0].answers[qMulti], ["Budget", "Persone"]);
 assert.equal(rows[0].answers[qNum], 12.5);
 
+// Le domande possono cambiare tra una compilazione e l'altra: ogni risposta conserva le domande com'erano.
+assert.equal(rows[0].questions.length, 6);
+assert.equal(rows[0].questions[0].label, "Come va l'area?");
+await as("bizLead");
+await db.query("update business_form_questions set label='Come procede l''area questo mese?' where id=$1", [qText]);
+await db.query("update business_forms set is_open=true where id=$1", [form.id]);
+const qNew = await q("Novità del mese", "short_text", [], false, 6);
+await as("geoLead");
+await submit({ [qText]: "Meglio", [qChoice]: "In linea", [qNew]: "Nuovo sponsor" });
+await as("tl", true);
+const history = (await db.query("select questions, answers from business_form_responses order by created_at, id")).rows;
+assert.equal(history.length, 4);
+assert.equal(history[0].questions[0].label, "Come va l'area?", "la prima risposta resta con la domanda originale");
+assert.equal(history[3].questions[0].label, "Come procede l'area questo mese?");
+assert.equal(history[3].questions.length, 7);
+assert.equal(history[3].answers[qNew], "Nuovo sponsor");
+assert.equal(history[0].answers[qNew], undefined);
+await as("bizLead");
+await db.query("update business_forms set is_open=false where id=$1", [form.id]);
+await as("tl", true);
+
 // Domanda archiviata: le vecchie risposte restano, il form non la mostra più.
 await db.query("update business_form_questions set archived_at=now() where id=$1", [qNum]);
 await as("geoLead");
-assert.equal((await db.query("select business_form_for_response($1) f", [form.share_token])).rows[0].f.questions.length, 5);
+assert.equal((await db.query("select business_form_for_response($1) f", [form.share_token])).rows[0].f.questions.length, 6);
 await as("tl", true);
 assert.equal((await db.query("select answers from business_form_responses order by created_at limit 1")).rows[0].answers[qNum], 12.5);
 

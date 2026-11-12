@@ -10,13 +10,20 @@ export type BusinessFormQuestion = {
   archived_at: string | null;
 };
 
+export type SnapshotQuestion = { id: string; label: string; kind: string; options?: string[] };
+
 export type BusinessFormResponseRow = {
   respondentName: string;
   respondentUsername: string;
   areaNames: string;
   createdAt: string;
   answers: Record<string, unknown>;
+  // Domande così come erano al momento della compilazione (il form può cambiare nel tempo).
+  questions: SnapshotQuestion[];
 };
+
+type Column = { key: string; id: string; label: string; kind: string; options: string[]; current: boolean };
+const columnKey = (q: SnapshotQuestion) => `${q.id}|${q.kind}|${q.label}`;
 
 const rome = new Intl.DateTimeFormat("it-IT", {
   timeZone: "Europe/Rome", day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -77,11 +84,26 @@ export function businessFormExcel(
   questions: BusinessFormQuestion[],
   responses: BusinessFormResponseRow[],
 ) {
-  // Domande attive, più le archiviate che hanno ancora risposte.
-  const columns = questions.filter((q) =>
-    !q.archived_at || responses.some((r) => !isEmpty(r.answers?.[q.id]))
-  );
-  const label = (q: BusinessFormQuestion) => q.archived_at ? `${q.label} (domanda eliminata)` : q.label;
+  // Una colonna per ogni domanda "come è stata posta": id + testo. Se il testo cambia nel tempo nasce
+  // una nuova colonna, così le vecchie risposte restano associate alla domanda originale.
+  const active = questions.filter((q) => !q.archived_at);
+  const order = new Map(active.map((q, index) => [q.id, index]));
+  const byKey = new Map<string, Column>();
+  const oldestFirst = [...responses].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  for (const response of oldestFirst) {
+    for (const q of response.questions ?? []) {
+      const key = columnKey(q);
+      const existing = byKey.get(key);
+      if (existing) existing.options = [...new Set([...existing.options, ...(q.options ?? [])])];
+      else byKey.set(key, { key, id: q.id, label: q.label, kind: q.kind, options: [...(q.options ?? [])], current: active.some((c) => c.id === q.id && c.label === q.label) });
+    }
+  }
+  const columns = [...byKey.values()]
+    .map((column, index) => ({ column, index }))
+    .sort((a, b) => (order.get(a.column.id) ?? Infinity) - (order.get(b.column.id) ?? Infinity) || a.index - b.index)
+    .map((entry) => entry.column);
+  const label = (c: Column) => c.current ? c.label : `${c.label} (domanda cambiata o eliminata)`;
+  const asked = (r: BusinessFormResponseRow, c: Column) => (r.questions ?? []).some((q) => columnKey(q) === c.key);
 
   const answers: unknown[][] = [
     ["Data e ora", "Account", "Username", "Area (Capo di)", ...columns.map(label)],
@@ -90,45 +112,46 @@ export function businessFormExcel(
       r.respondentName,
       r.respondentUsername,
       r.areaNames,
-      ...columns.map((q) => {
-        const value = r.answers?.[q.id];
-        return q.kind === "number" && typeof value === "number" ? value : displayAnswer(q.kind, value);
+      ...columns.map((c) => {
+        if (!asked(r, c)) return "";
+        const value = r.answers?.[c.id];
+        return c.kind === "number" && typeof value === "number" ? value : displayAnswer(c.kind, value);
       }),
     ]),
   ];
 
   const summary: unknown[][] = [["Domanda", "Risposta", "Numero risposte", "Percentuale (%)"]];
-  for (const q of columns) {
-    const given = responses.map((r) => r.answers?.[q.id]).filter((v) => !isEmpty(v));
-    if (["single_choice", "multiple_choice", "yes_no", "rating"].includes(q.kind)) {
-      const labels = q.kind === "yes_no" ? ["Sì", "No"] : q.kind === "rating" ? ["5", "4", "3", "2", "1"] : q.options;
+  for (const c of columns) {
+    const given = responses.filter((r) => asked(r, c)).map((r) => r.answers?.[c.id]).filter((v) => !isEmpty(v));
+    if (["single_choice", "multiple_choice", "yes_no", "rating"].includes(c.kind)) {
+      const labels = c.kind === "yes_no" ? ["Sì", "No"] : c.kind === "rating" ? ["5", "4", "3", "2", "1"] : c.options;
       const tally = new Map<string, number>(labels.map((l) => [l, 0]));
       for (const value of given) {
-        const picked = q.kind === "yes_no"
+        const picked = c.kind === "yes_no"
           ? [value === true ? "Sì" : "No"]
           : Array.isArray(value) ? value.map(String) : [String(value)];
         for (const option of picked) tally.set(option, (tally.get(option) ?? 0) + 1);
       }
       for (const [option, count] of tally) {
-        summary.push([label(q), option, count, given.length ? Math.round((count / given.length) * 100) : 0]);
+        summary.push([label(c), option, count, given.length ? Math.round((count / given.length) * 100) : 0]);
       }
-      if (q.kind === "rating") {
+      if (c.kind === "rating") {
         const numbers = given.map(Number).filter(Number.isFinite);
-        if (numbers.length) summary.push([label(q), "Media", Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 10) / 10, ""]);
+        if (numbers.length) summary.push([label(c), "Media", Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 10) / 10, ""]);
       }
-    } else if (q.kind === "number") {
+    } else if (c.kind === "number") {
       const numbers = given.map(Number).filter(Number.isFinite);
       if (numbers.length) {
-        summary.push([label(q), "Media", Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 100) / 100, ""]);
-        summary.push([label(q), "Minimo", Math.min(...numbers), ""]);
-        summary.push([label(q), "Massimo", Math.max(...numbers), ""]);
+        summary.push([label(c), "Media", Math.round((numbers.reduce((a, b) => a + b, 0) / numbers.length) * 100) / 100, ""]);
+        summary.push([label(c), "Minimo", Math.min(...numbers), ""]);
+        summary.push([label(c), "Massimo", Math.max(...numbers), ""]);
       }
     } else {
-      summary.push([label(q), "Risposte testuali", given.length, ""]);
+      summary.push([label(c), "Risposte testuali", given.length, ""]);
     }
   }
 
-  const sheet1 = sheetXml(answers, [18, 24, 20, 24, ...columns.map((q) => Math.min(48, Math.max(20, Math.ceil(label(q).length * 0.9))))], 2);
+  const sheet1 = sheetXml(answers, [18, 24, 20, 24, ...columns.map((c) => Math.min(48, Math.max(20, Math.ceil(label(c).length * 0.9))))], 2);
   const sheet2 = sheetXml(summary, [48, 30, 18, 14]);
   const files: Record<string, Uint8Array> = {
     "[Content_Types].xml": strToU8(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`),
