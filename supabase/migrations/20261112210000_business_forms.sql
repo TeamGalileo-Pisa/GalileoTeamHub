@@ -183,6 +183,34 @@ begin
   return v_id;
 end; $$;
 
+-- Notifica al Capo Business, ai membri Business e all'account condiviso Business
+-- quando arriva una risposta. Nessun contenuto delle risposte nel testo.
+create or replace function private.notify_business_form_response()
+returns trigger language plpgsql security definer set search_path = ''
+as $$
+declare v_title text;
+begin
+  select title into v_title from public.business_forms where id = new.form_id;
+  insert into public.notifications(recipient_user_id, type, title, body, data)
+  select r.user_id, 'business_form.response', 'Nuova risposta · ' || coalesce(v_title, 'Form Business'),
+    new.respondent_name || ' ha compilato il form. Apri Form Business per vedere le risposte.',
+    jsonb_build_object('form_id', new.form_id, 'response_id', new.id, 'route', '/form-business')
+  from (
+    select m.user_id from public.area_memberships m join public.areas a on a.id = m.area_id
+      where a.slug = 'business' and a.active and m.ended_at is null
+    union
+    select s.user_id from public.area_shared_accounts s join public.areas a on a.id = s.area_id
+      where a.slug = 'business' and a.active
+  ) r
+  join public.profiles p on p.id = r.user_id
+  where p.status = 'active' and not p.must_change_password
+    and r.user_id is distinct from new.respondent_id;
+  return new;
+end; $$;
+create trigger business_form_responses_notify after insert on public.business_form_responses
+  for each row execute function private.notify_business_form_response();
+revoke all on function private.notify_business_form_response() from public, anon, authenticated;
+
 -- Capi Area che non hanno ancora compilato il form (per chi gestisce).
 create or replace function public.business_form_pending_leads(p_form uuid)
 returns table(user_id uuid, name text, area_names text)

@@ -9,7 +9,8 @@ await db.exec(`
   create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
   create function private.staff_ready() returns boolean language sql as $$ select auth.uid() is not null $$;
   create function private.is_admin() returns boolean language sql as $$ select coalesce(current_setting('test.admin', true), 'false') = 'true' $$;
-  create table public.profiles(id uuid primary key, display_name text, username text, status text default 'active');
+  create table public.profiles(id uuid primary key, display_name text, username text, status text default 'active', must_change_password boolean default false);
+  create table public.notifications(id serial primary key, recipient_user_id uuid, type text, title text, body text, data jsonb);
   create table public.areas(id uuid primary key, name text, slug text, active boolean default true);
   create table public.area_memberships(user_id uuid, area_id uuid, role text, ended_at timestamptz);
   create table public.area_shared_accounts(area_id uuid, user_id uuid);
@@ -128,5 +129,12 @@ await db.query("select reorder_business_form_questions($1,$2::uuid[])", [form.id
 const order = (await db.query("select id from business_form_questions where form_id=$1 and archived_at is null order by position, created_at", [form.id])).rows.map((r) => r.id);
 assert.equal(order[0], qChoice);
 assert.equal(order[1], qText);
+// Notifiche: Capo Business, membri/account Business ricevono la risposta; chi risponde no.
+{
+  const n = (await db.query("select recipient_user_id r from notifications where type='business_form.response'")).rows.map((r) => r.r).sort();
+  assert.ok(n.length >= 2, "notifiche create");
+  assert.ok(n.includes(ids.bizLead) && n.includes(ids.bizMember), "capo e membri business notificati");
+  assert.ok(!n.includes(ids.geoLead) && !n.includes(ids.roverLead), "i capi area non business non sono notificati");
+}
 await db.close();
 console.log("Business forms SQL checks passed.");
