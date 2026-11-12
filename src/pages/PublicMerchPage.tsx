@@ -30,7 +30,7 @@ async function request<T>(body: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export function PublicMerchPage() {
+export function PublicMerchPage({ embedded = false }: { embedded?: boolean } = {}) {
   const catalog = useQuery({
     queryKey: ["public-merch-catalog"],
     queryFn: () => request<Product[]>({ action: "public-catalog" }),
@@ -74,8 +74,8 @@ export function PublicMerchPage() {
   }
 
   return <div className="page-container">
-    <PageHeader title="Ordina il merchandising" eyebrow="Team Galileo · Link pubblico" description="Scegli prodotti, taglie e quantità, poi inserisci i tuoi dati. Riceverai via email la richiesta d’ordine con la logistica in copia." />
-    <p><Link to="/">Torna a GalileoHub</Link></p>
+    <PageHeader title="Ordina il merchandising" eyebrow={embedded ? "Team Galileo" : "Team Galileo · Link pubblico"} description="Scegli prodotti, taglie e quantità, poi inserisci i tuoi dati. Riceverai via email la richiesta d’ordine con la logistica in copia." />
+    {!embedded && <p><Link to="/">Torna a GalileoHub</Link></p>}
     {error && <p className="form-error" role="alert">{error}</p>}
     {notice && <p className="form-success" role="status">{notice}</p>}
     {busy && <p role="status">Invio della richiesta in corso…</p>}
