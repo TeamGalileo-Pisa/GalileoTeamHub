@@ -3,6 +3,7 @@ import { createServiceClient } from "../_shared/service-client.ts";
 import { createSharedAccount } from "../_shared/shared-accounts.ts";
 import { membershipExcel, type MembershipExportRow } from "../_shared/membership-excel.ts";
 import { applicationExcel, type ApplicationExportRow } from "../_shared/application-excel.ts";
+import { businessFormExcel, type BusinessFormQuestion, type BusinessFormResponseRow } from "../_shared/business-forms-excel.ts";
 import { merchOrdersExcel, type MerchOrderExportRow } from "../_shared/merch-orders-excel.ts";
 import { requireActor } from "../_shared/actor.ts";
 import {
@@ -255,6 +256,57 @@ Deno.serve(async (request) => {
         ...corsHeaders(request),
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "Content-Disposition": 'attachment; filename="adesioni-team-galileo.xlsx"',
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      }});
+    }
+    if (body.action === "export_business_form_excel") {
+      // Gestione form Business: admin/Team Leader, Capo Business e membri Business.
+      const { client: adminClient, user } = await requireActor(request, false);
+      const { data: roles, error: rolesError } = await adminClient.from("system_roles")
+        .select("role").eq("user_id", user.id).in("role", ["admin", "team_leader"]);
+      if (rolesError) throw new Error("SAVE_FAILED");
+      let allowed = Boolean(roles?.length);
+      if (!allowed) {
+        const { data: member, error: memberError } = await adminClient.from("area_memberships")
+          .select("user_id,areas!inner(slug,active)").eq("user_id", user.id).is("ended_at", null)
+          .eq("areas.slug", "business").eq("areas.active", true).limit(1);
+        if (memberError) throw new Error("SAVE_FAILED");
+        allowed = Boolean(member?.length);
+        if (!allowed) {
+          const { data: shared, error: sharedError } = await adminClient.from("area_shared_accounts")
+            .select("user_id,areas!inner(slug,active)").eq("user_id", user.id)
+            .eq("areas.slug", "business").eq("areas.active", true).limit(1);
+          if (sharedError) throw new Error("SAVE_FAILED");
+          allowed = Boolean(shared?.length);
+        }
+      }
+      if (!allowed) throw new Error("FORBIDDEN");
+      const formId = typeof body.formId === "string" ? body.formId : "";
+      if (!/^[0-9a-f-]{36}$/i.test(formId)) throw new Error("INVALID_DATA");
+      const { data: form, error: formError } = await adminClient.from("business_forms").select("id,title").eq("id", formId).maybeSingle();
+      if (formError) throw new Error("SAVE_FAILED");
+      if (!form) throw new Error("INVALID_DATA");
+      const { data: questions, error: questionsError } = await adminClient.from("business_form_questions")
+        .select("id,label,kind,options,archived_at").eq("form_id", formId).order("position").order("created_at");
+      if (questionsError) throw new Error("SAVE_FAILED");
+      const responses: BusinessFormResponseRow[] = [];
+      for (let offset = 0; offset < 50000; offset += 500) {
+        const { data, error } = await adminClient.from("business_form_responses")
+          .select("respondent_name,respondent_username,area_names,answers,created_at").eq("form_id", formId)
+          .order("created_at", { ascending: true }).order("id", { ascending: true }).range(offset, offset + 499);
+        if (error) throw new Error("SAVE_FAILED");
+        for (const row of data ?? []) responses.push({
+          respondentName: row.respondent_name, respondentUsername: row.respondent_username,
+          areaNames: row.area_names, createdAt: row.created_at, answers: (row.answers ?? {}) as Record<string, unknown>,
+        });
+        if (!data || data.length < 500) break;
+      }
+      const slug = String(form.title).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "form";
+      return new Response(businessFormExcel(form.title, (questions ?? []) as BusinessFormQuestion[], responses), { status: 200, headers: {
+        ...corsHeaders(request),
+        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="risposte-${slug}.xlsx"`,
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
       }});

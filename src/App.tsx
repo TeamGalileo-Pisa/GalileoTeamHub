@@ -73,6 +73,8 @@ const MemberPage = lazy(() => import('./pages/MemberPage').then(m=>({default:m.M
 const MemberAdhesionPage = lazy(() => import('./pages/MemberAdhesionPage').then(m=>({default:m.MemberAdhesionPage})));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m=>({default:m.NotificationsPage})));
 const MerchandisingPage = lazy(() => import('./pages/MerchandisingPage').then(m=>({default:m.MerchandisingPage})));
+const BusinessFormsPage = lazy(() => import('./pages/BusinessFormsPage').then(m=>({default:m.BusinessFormsPage})));
+const BusinessFormFillPage = lazy(() => import('./pages/BusinessFormFillPage').then(m=>({default:m.BusinessFormFillPage})));
 const PublicMeetingRoomsPage = lazy(() => import('./pages/PublicMeetingRoomsPage').then(m=>({default:m.PublicMeetingRoomsPage})));
 const PublicMerchPage = lazy(() => import('./pages/PublicMerchPage').then(m=>({default:m.PublicMerchPage})));
 const ApplicationsReviewPage = lazy(() => import('./pages/ApplicationsReviewPage').then(m=>({default:m.ApplicationsReviewPage})));
@@ -113,6 +115,8 @@ export default function App() {
                 <Route path="/magazzino" element={<WarehousePage />} />
                 <Route path="/sponsor" element={<SponsorsPage />} />
                 <Route path="/budget" element={<BudgetPage />} />
+                <Route path="/form-business" element={<BusinessFormsPage />} />
+                <Route path="/form/:token" element={<BusinessFormFillPage />} />
                 <Route path="/ordini" element={<TeamOrdersPage />} />
                 <Route element={<ProtectedRoute staffOnly />}>
                 <Route path="/riunione" element={<MeetingRoomsPage />} />

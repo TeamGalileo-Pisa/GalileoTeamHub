@@ -7,6 +7,7 @@ import {
   Handshake,
   HelpCircle,
   LayoutDashboard,
+  ListChecks,
   Megaphone,
   PanelsTopLeft,
   ShoppingBag,
@@ -46,6 +47,7 @@ const inventory = item("/magazzino", "Magazzino", Warehouse);
 const sponsors = item("/sponsor", "Sponsor", Handshake);
 const orders = item("/ordini", "Ordini", ShoppingCart);
 const budget = item("/budget", "Budget", Wallet);
+const businessForms = item("/form-business", "Form Business", ListChecks);
 const meetings = item("/riunione", "Riunione", DoorOpen);
 
 /**
@@ -53,7 +55,8 @@ const meetings = item("/riunione", "Riunione", DoorOpen);
  * - Team Leader: tutto (Merchandising, Magazzino, Ordini, Budget e Sponsor stanno in Amministrazione)
  * - Amministrazione: gestione colloqui e team (più Merchandising)
  * - Capo Logistica e membri Logistica: Merchandising, Magazzino, Sponsor, Ordini
- * - Capo Business: Merchandising, Budget e Ordini; membri Business: Budget e Ordini
+ * - Capo Business: Merchandising, Budget, Ordini e Form Business; membri Business: Budget, Ordini e Form Business
+ * - Form Business (form dinamici per i Capi Area): Team Leader, Capo e membri Business; il link /form/:token lo compilano i Capi Area
  * - Magazzino: Logistica, Team Leader e Amministrazione lo gestiscono; ogni altro Capo Area lo consulta, registra i movimenti e chiede acquisti
  * - Riunione (aule e slot da 30 minuti): Team Leader, Amministrazione e tutti i Capi Area
  */
@@ -94,6 +97,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
           inventory,
           orders,
           budget,
+          businessForms,
           sponsors,
           meetings,
           item("/admin/aree", "Aree", PanelsTopLeft),
@@ -117,7 +121,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         ],
       },
       { id: "logistica", title: "Logistica", items: logistics ? [merchandising, inventory, sponsors, orders] : [] },
-      { id: "business", title: "Business", items: hasArea("business") ? [budget, orders] : [] },
+      { id: "business", title: "Business", items: hasArea("business") ? [budget, orders, businessForms] : [] },
     );
   } else {
     groups.push(
@@ -143,7 +147,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
         items: options.hasOpenApplications ? [item("/area/candidature", "Candidature", FileText)] : [],
       },
       { id: "logistica", title: "Logistica", items: hasArea("logistica") ? [merchandising, inventory, sponsors, orders] : [] },
-      { id: "business", title: "Business", items: hasArea("business") ? [merchandising, budget, orders] : [] },
+      { id: "business", title: "Business", items: hasArea("business") ? [merchandising, budget, orders, businessForms] : [] },
       { id: "magazzino", title: "Magazzino", items: [inventory] },
       { id: "aiuto", title: "Aiuto", items: [item("/area/assistenza", "Assistenza", HelpCircle)] },
     );
