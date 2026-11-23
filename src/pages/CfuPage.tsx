@@ -12,7 +12,7 @@ import { supabase } from "../lib/supabase";
 interface AreaOption { id: string; name: string; enabled: boolean }
 type Draft = Omit<CfuMember, "id" | "evaluated_at"> & { id?: string };
 const blank: Draft = {
-  first_name: "", last_name: "", student_number: "", degree: "", department: "", area_id: null, division: "", team_role: "",
+  first_name: "", last_name: "", student_number: "", degree: "", department: "", professor_name: "", professor_email: "", area_id: null, division: "", team_role: "",
   period_from: null, period_to: null, description: "", ratings: {},
 };
 
@@ -83,7 +83,7 @@ export function CfuPage() {
     mutationFn: async (value: Draft) => {
       const row = {
         first_name: value.first_name.trim(), last_name: value.last_name.trim(), student_number: value.student_number.trim(),
-        degree: value.degree.trim(), department: value.department.trim(), area_id: value.area_id || null, division: value.division.trim(),
+        degree: value.degree.trim(), department: value.department.trim(), professor_name: value.professor_name.trim(), professor_email: value.professor_email.trim(), area_id: value.area_id || null, division: value.division.trim(),
         team_role: value.team_role.trim(), period_from: value.period_from || null, period_to: value.period_to || null,
         description: value.description, ratings: value.ratings,
       };
@@ -186,6 +186,8 @@ export function CfuPage() {
             <label className="form-field">Cognome<input className="input" required value={draft.last_name} onChange={(e) => set("last_name", e.target.value)} /></label>
             <label className="form-field">Matricola<input className="input" value={draft.student_number} onChange={(e) => set("student_number", e.target.value)} /></label>
             <label className="form-field">Corso di Studi<input className="input" value={draft.degree} onChange={(e) => set("degree", e.target.value)} /></label>
+            <label className="form-field">Docente del Corso di Laurea<input className="input" value={draft.professor_name} onChange={(e) => set("professor_name", e.target.value)} /></label>
+            <label className="form-field">Mail del docente<input className="input" type="email" value={draft.professor_email} onChange={(e) => set("professor_email", e.target.value)} /></label>
             <label className="form-field">Dipartimento / Area<input className="input" value={draft.department} onChange={(e) => set("department", e.target.value)} /></label>
             <label className="form-field">Divisione / Settore (testo sulla scheda)<input className="input" value={draft.division} onChange={(e) => set("division", e.target.value)} /></label>
             <label className="form-field">Ruolo ricoperto nel Team<input className="input" value={draft.team_role} onChange={(e) => set("team_role", e.target.value)} /></label>
