@@ -117,24 +117,14 @@ export async function cfuPdf(member: CfuMember, options: { areaName?: string; da
     rule(x, x + 70, y - 2, 0.5); text(formatDate(member.period_to), x + 1, y, 11);
   });
 
-  // 2. Parere dei responsabili
-  heading("2. PARERE VINCOLANTE DEI RESPONSABILI");
-  paragraph("Il presente modulo viene compilato d'intesa con il Direttore Tecnico e Responsabile d'Area di riferimento.", 11, regular, 4);
-  ensure(20);
-  text("Parere del Responsabile di Divisione:", LEFT, y, 11, bold);
-  let x = LEFT + widthOf("Parere del Responsabile di Divisione:", 11, bold) + 10;
-  checkbox(x, y, true); x += 14; text("Favorevole", x, y, 11); x += widthOf("Favorevole", 11) + 24;
-  checkbox(x, y, false); x += 14; text("Contrario", x, y, 11);
-  y -= 24;
-
-  // 3. Descrizione
-  heading("3. DESCRIZIONE DETTAGLIATA DEI COMPITI E DELLE ATTIVITÀ SVOLTE");
+  // 2. Descrizione
+  heading("2. DESCRIZIONE DETTAGLIATA DEI COMPITI E DELLE ATTIVITÀ SVOLTE");
   paragraph("(Indicare le mansioni specifiche, i progetti seguiti e le responsabilità assunte dal membro all'interno della propria divisione durante l'anno)", 10, italic, 6);
   paragraph(member.description.trim() || " ", 11, regular, 12);
 
-  // 4. Matrice (nuova pagina, come newpage nel LaTeX)
+  // 3. Matrice (nuova pagina, come newpage nel LaTeX)
   newPage();
-  heading("4. MATRICE DI VALUTAZIONE TRASVERSALE DELLE COMPETENZE NEL TEAM");
+  heading("3. MATRICE DI VALUTAZIONE TRASVERSALE DELLE COMPETENZE NEL TEAM");
   paragraph("Indicare con una crocetta (×) il livello di giudizio assegnato per ciascun criterio:", 11, italic, 8);
 
   const labelWidth = 190;
@@ -162,8 +152,8 @@ export async function cfuPdf(member: CfuMember, options: { areaName?: string; da
   rule(LEFT, RIGHT, y + 4, 1.2);
   y -= 24;
 
-  // 5. Giudizio sintetico
-  heading("5. GIUDIZIO SINTETICO E PROPOSTA AL CORSO DI LAUREA");
+  // 4. Giudizio sintetico
+  heading("4. GIUDIZIO SINTETICO E PROPOSTA AL CORSO DI LAUREA");
   paragraph("Il sottoscritto Team Leader, visti i risultati conseguiti nell'ambito delle attività associative, esprime parere:", 11, regular, 6);
   ensure(48);
   checkbox(LEFT, y, verdict === "favorevole");
