@@ -19,13 +19,23 @@ export const CFU_CRITERIA = [
   { id: "comunicazione", label: "Comunicazione, proattività e spirito d'iniziativa" },
   { id: "sicurezza", label: "Rispetto delle norme di sicurezza e regolamenti" },
   { id: "documentazione", label: "Qualità della documentazione e dei report" },
+  { id: "applicazione", label: "Applicazione delle conoscenze del corso di studi ad attività pratiche" },
+  { id: "coordinamento", label: "Capacità di coordinare, guidare e supportare altri membri" },
+  { id: "innovazione", label: "Creatività e proposta di soluzioni innovative" },
+  { id: "risorse", label: "Cura e corretto utilizzo di materiali, strumenti e risorse del Team" },
+  { id: "divulgazione", label: "Partecipazione a eventi, divulgazione e promozione del Team" },
+  { id: "relazioni_esterne", label: "Capacità di relazione con docenti, aziende ed enti esterni" },
+  { id: "feedback", label: "Capacità di accogliere feedback e di migliorare il proprio operato" },
+  { id: "correttezza", label: "Correttezza, etica professionale e rispetto dei ruoli all'interno del Team" },
 ] as const;
 
 export type CfuCriterionId = (typeof CFU_CRITERIA)[number]["id"];
 export type CfuRatings = Partial<Record<CfuCriterionId, CfuLevelId>>;
 
-export const CFU_PASS_SCORE = 18;
+/** Il punteggio grezzo (16 criteri x 4 = 64) viene riportato su una scala di 32 punti. */
 export const CFU_MAX_SCORE = CFU_CRITERIA.length * 4;
+export const CFU_SCALE_POINTS = 32;
+export const CFU_PASS_SCORE = 18;
 
 export function levelPoints(level: CfuLevelId | undefined): number {
   return CFU_LEVELS.find((entry) => entry.id === level)?.points ?? 0;
@@ -48,11 +58,17 @@ export function cfuScore(ratings: CfuRatings): number {
 
 export const isCfuComplete = (ratings: CfuRatings) => CFU_CRITERIA.every((criterion) => Boolean(ratings[criterion.id]));
 
-/** Favorevole se il punteggio totale è almeno 18, altrimenti contrario. */
-export const cfuVerdict = (score: number): "favorevole" | "contrario" => (score >= CFU_PASS_SCORE ? "favorevole" : "contrario");
+/** Punteggio grezzo riportato su 32 punti (per difetto). */
+export const cfuScaledScore = (score: number): number => Math.floor((score * CFU_SCALE_POINTS) / CFU_MAX_SCORE);
 
-/** Valutazione finale in trentesimi: il punteggio stesso, e oltre 30 si scrive 30LODE. */
-export const cfuFinalGrade = (score: number): string => `${score > 30 ? "30LODE" : score}/30`;
+/** Favorevole se il punteggio riportato su 32 è almeno 18, altrimenti contrario. */
+export const cfuVerdict = (score: number): "favorevole" | "contrario" => (cfuScaledScore(score) >= CFU_PASS_SCORE ? "favorevole" : "contrario");
+
+/** Valutazione finale in trentesimi: punteggio riportato su 32, oltre 30 si scrive 30LODE. */
+export const cfuFinalGrade = (score: number): string => {
+  const scaled = cfuScaledScore(score);
+  return `${scaled > 30 ? "30LODE" : scaled}/30`;
+};
 
 export interface CfuMember {
   id: string;
@@ -61,6 +77,8 @@ export interface CfuMember {
   student_number: string;
   degree: string;
   department: string;
+  professor_name: string;
+  professor_email: string;
   area_id: string | null;
   division: string;
   team_role: string;
