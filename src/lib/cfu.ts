@@ -86,5 +86,7 @@ export function cfuErrorMessage(error: unknown): string {
   if (text.includes("CFU_CLOSED")) return "La compilazione CFU non è attiva per la tua area.";
   if (text.includes("CFU_NOT_FOUND")) return "Membro non trovato.";
   if (text.includes("CFU_INVALID")) return "Dati non validi.";
+  if (text.includes("CFU_REQUESTS_CLOSED")) return "Le richieste di riconoscimento CFU sono chiuse.";
+  if (text.includes("CFU_DUPLICATE")) return "Esiste già una richiesta con questa matricola.";
   return text || "Operazione non riuscita.";
 }
