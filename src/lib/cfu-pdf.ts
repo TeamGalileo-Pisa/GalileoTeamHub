@@ -105,6 +105,7 @@ export async function cfuPdf(member: CfuMember, options: { areaName?: string; da
   const row = (build: () => void) => { ensure(20); build(); y -= 20; };
   row(() => field("Cognome e Nome:", `${member.last_name} ${member.first_name}`.trim(), LEFT, 230));
   row(() => { const end = field("Matricola:", member.student_number, LEFT, 100); field("Corso di Studi:", member.degree, end + 12, RIGHT - end - 12 - 85); });
+  row(() => field("Docente del CdL:", [member.professor_name, member.professor_email && "(" + member.professor_email + ")"].filter(Boolean).join(" "), LEFT, 300));
   row(() => field("Dipartimento / Area:", member.department || options.areaName || "", LEFT, 200));
   row(() => field("Divisione / Settore di appartenenza:", member.division || options.areaName || "", LEFT, 150));
   row(() => field("Ruolo ricoperto nel Team:", member.team_role, LEFT, 200));
