@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildNavigation, type NavAccess } from "./navigation";
 
-const links = (access: NavAccess, options?: { hasOpenApplications?: boolean }) =>
+const links = (access: NavAccess, options?: { hasOpenApplications?: boolean; hasCfuAccess?: boolean }) =>
   buildNavigation(access, options).flatMap((group) => group.items.map((entry) => entry.to));
 const titles = (access: NavAccess) => buildNavigation(access).map((group) => group.title);
 
@@ -101,5 +101,18 @@ describe("buildNavigation", () => {
     const lead = { isAdmin: false, isMember: false, areas: [{ slug: "software" }] };
     expect(links(lead)).not.toContain("/area/candidature");
     expect(links(lead, { hasOpenApplications: true })).toContain("/area/candidature");
+  });
+});
+
+describe("voce CFU", () => {
+  it("il Team Leader la vede in Amministrazione", () => {
+    expect(links({ isAdmin: true, isTeamLeader: true, isMember: false, areas: [] })).toContain("/admin/cfu");
+    expect(links({ isAdmin: true, isTeamLeader: false, isMember: false, areas: [] })).not.toContain("/admin/cfu");
+  });
+
+  it("il Capo Area la vede solo se la sua area è abilitata", () => {
+    const lead = { isAdmin: false, isMember: false, areas: [{ slug: "mobility" }] };
+    expect(links(lead)).not.toContain("/area/cfu");
+    expect(links(lead, { hasCfuAccess: true })).toContain("/area/cfu");
   });
 });
