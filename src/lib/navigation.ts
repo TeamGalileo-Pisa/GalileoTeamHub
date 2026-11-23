@@ -4,6 +4,7 @@ import {
   ClipboardList,
   DoorOpen,
   FileText,
+  GraduationCap,
   Handshake,
   HelpCircle,
   LayoutDashboard,
@@ -49,6 +50,7 @@ const orders = item("/ordini", "Ordini", ShoppingCart);
 const budget = item("/budget", "Budget", Wallet);
 const businessForms = item("/form-business", "Form Business", ListChecks);
 const meetings = item("/riunione", "Riunione", DoorOpen);
+const cfu = item("/admin/cfu", "CFU", GraduationCap);
 
 /**
  * Menu laterale organizzato per sezioni. Ogni account vede solo le funzioni a cui ha accesso:
@@ -100,6 +102,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
           businessForms,
           sponsors,
           meetings,
+          ...(access.isTeamLeader ? [cfu] : []),
           item("/admin/aree", "Aree", PanelsTopLeft),
           item("/admin/account", "Account", UsersRound),
           item("/admin/legal", "Termini e Privacy", FileText),
