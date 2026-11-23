@@ -11,13 +11,13 @@ describe("punteggi CFU", () => {
   it("somma i punti dei criteri", () => {
     expect(cfuScore({ competenza: "ottimo", autonomia: "buono", costanza: "insufficiente" })).toBe(6);
     expect(cfuScore(all("ottimo"))).toBe(CFU_MAX_SCORE);
-    expect(CFU_MAX_SCORE).toBe(32);
+    expect(CFU_MAX_SCORE).toBe(64);
   });
 
   it("è favorevole da 18 punti in su, contrario sotto", () => {
-    expect(cfuVerdict(18)).toBe("favorevole");
-    expect(cfuVerdict(32)).toBe("favorevole");
-    expect(cfuVerdict(17)).toBe("contrario");
+    expect(cfuVerdict(36)).toBe("favorevole");
+    expect(cfuVerdict(64)).toBe("favorevole");
+    expect(cfuVerdict(35)).toBe("contrario");
     expect(cfuVerdict(0)).toBe("contrario");
   });
 
@@ -29,10 +29,10 @@ describe("punteggi CFU", () => {
   });
 
   it("valutazione finale in trentesimi, con lode oltre il 30", () => {
-    expect(cfuFinalGrade(18)).toBe("18/30");
-    expect(cfuFinalGrade(30)).toBe("30/30");
-    expect(cfuFinalGrade(31)).toBe("30LODE/30");
-    expect(cfuFinalGrade(32)).toBe("30LODE/30");
-    expect(cfuFinalGrade(12)).toBe("12/30");
+    expect(cfuFinalGrade(36)).toBe("18/30");
+    expect(cfuFinalGrade(60)).toBe("30/30");
+    expect(cfuFinalGrade(62)).toBe("30LODE/30");
+    expect(cfuFinalGrade(64)).toBe("30LODE/30");
+    expect(cfuFinalGrade(24)).toBe("12/30");
   });
 });
