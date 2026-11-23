@@ -83,6 +83,7 @@ const SponsorsPage = lazy(() => import('./pages/SponsorsPage').then(m=>({default
 const BudgetPage = lazy(() => import('./pages/BudgetPage').then(m=>({default:m.BudgetPage})));
 const TeamOrdersPage = lazy(() => import('./pages/TeamOrdersPage').then(m=>({default:m.TeamOrdersPage})));
 const MeetingRoomsPage = lazy(() => import('./pages/MeetingRoomsPage').then(m=>({default:m.MeetingRoomsPage})));
+const CfuPage = lazy(() => import('./pages/CfuPage').then(m=>({default:m.CfuPage})));
 export default function App() {
   return (
     <>
@@ -132,6 +133,7 @@ export default function App() {
                 </Route>
                 <Route element={<ProtectedRoute adminOnly />}>
                   <Route path="/admin/candidature" element={<CommunityAdminPage />} />
+                  <Route path="/admin/cfu" element={<CfuPage />} />
                   <Route path="/admin" element={<DashboardPage />} />
                   <Route path="/admin/disponibilita" element={<AvailabilityPage />} />
                   <Route path="/admin/calendario" element={<CalendarPage />} />
