@@ -83,6 +83,8 @@ const SponsorsPage = lazy(() => import('./pages/SponsorsPage').then(m=>({default
 const BudgetPage = lazy(() => import('./pages/BudgetPage').then(m=>({default:m.BudgetPage})));
 const TeamOrdersPage = lazy(() => import('./pages/TeamOrdersPage').then(m=>({default:m.TeamOrdersPage})));
 const MeetingRoomsPage = lazy(() => import('./pages/MeetingRoomsPage').then(m=>({default:m.MeetingRoomsPage})));
+const CfuRequestPage = lazy(() => import('./pages/CfuRequestPage').then(m=>({default:m.CfuRequestPage})));
+const CfuLeadPage = lazy(() => import('./pages/CfuLeadPage').then(m=>({default:m.CfuLeadPage})));
 const CfuPage = lazy(() => import('./pages/CfuPage').then(m=>({default:m.CfuPage})));
 export default function App() {
   return (
@@ -96,6 +98,7 @@ export default function App() {
           <Route path="/terms" element={<PublicLegalPage documentKey="terms" />} />
           <Route path="/candidature" element={<ApplicationPage />} />
           <Route path="/aule" element={<PublicMeetingRoomsPage />} />
+          <Route path="/richiesta-cfu" element={<CfuRequestPage />} />
           <Route path="/merchandising/ordine" element={<PublicMerchPage />} />
           <Route path="/adesione" element={<MembershipPage />} />
           <Route path="/adesione/:token" element={<MembershipPage />} />
@@ -129,6 +132,7 @@ export default function App() {
                 <Route path="/area/bacheca" element={<AnnouncementsPage />} />
                 <Route path="/area/assistenza" element={<HelpPage />} />
                 <Route path="/area/candidature" element={<ApplicationsReviewPage />} />
+                <Route path="/area/cfu" element={<CfuLeadPage />} />
 
                 </Route>
                 <Route element={<ProtectedRoute adminOnly />}>

@@ -1,130 +1,214 @@
-import { Printer } from "lucide-react";
+import { useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Download, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { CfuEvaluationFields } from "../components/CfuEvaluationFields";
+import { Modal } from "../components/Modal";
 import { PageHeader } from "../components/PageHeader";
+import { useAuth } from "../hooks/useAuth";
+import { cfuErrorMessage, cfuFinalGrade, cfuScore, cfuVerdict, isCfuComplete, normalizeRatings, type CfuMember } from "../lib/cfu";
+import { cfuPdf, cfuPdfFileName } from "../lib/cfu-pdf";
+import { supabase } from "../lib/supabase";
 
-const LEVELS = ["Ottimo", "Discreto", "Buono", "Sufficiente", "Insufficiente"] as const;
+interface AreaOption { id: string; name: string; enabled: boolean }
+type Draft = Omit<CfuMember, "id" | "evaluated_at"> & { id?: string };
+const blank: Draft = {
+  first_name: "", last_name: "", student_number: "", degree: "", department: "", professor_name: "", professor_email: "", area_id: null, division: "", team_role: "",
+  period_from: null, period_to: null, description: "", ratings: {},
+};
 
-// Criterio -> indice del livello segnato (0 = Ottimo ... 4 = Insufficiente), come nel modulo LaTeX.
-const MATRIX: { criterio: string; scelta: number }[] = [
-  { criterio: "Competenza e rigore tecnico-scientifico/analitico", scelta: 2 },
-  { criterio: "Autonomia operativa e rispetto delle scadenze", scelta: 2 },
-  { criterio: "Problem solving e gestione degli imprevisti", scelta: 0 },
-  { criterio: "Costanza, presenza e gestione del tempo", scelta: 4 },
-  { criterio: "Capacità di lavoro in team multidisciplinare", scelta: 4 },
-  { criterio: "Comunicazione, proattività e spirito d'iniziativa", scelta: 1 },
-  { criterio: "Rispetto delle norme di sicurezza e regolamenti", scelta: 0 },
-  { criterio: "Qualità della documentazione e dei report", scelta: 4 },
-];
-
-const Line = ({ w = "7cm" }: { w?: string }) => (
-  <span style={{ display: "inline-block", width: w, borderBottom: "1px solid currentColor", verticalAlign: "bottom" }} />
-);
-const Box = ({ checked = false }: { checked?: boolean }) => (
-  <span aria-label={checked ? "selezionato" : "non selezionato"} style={{ fontWeight: checked ? 700 : 400 }}>
-    {checked ? "☒" : "☐"}
-  </span>
-);
+const download = (bytes: Uint8Array, name: string) => {
+  const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = name; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
 export function CfuPage() {
-  const today = new Date().toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
+  const { access } = useAuth();
+  const cache = useQueryClient();
+  const canManage = Boolean(access?.isTeamLeader);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const areas = useQuery({
+    queryKey: ["cfu-areas"], enabled: canManage,
+    queryFn: async () => {
+      const [{ data: list, error: e1 }, { data: settings, error: e2 }] = await Promise.all([
+        supabase.from("areas").select("id,name").eq("active", true).order("name"),
+        supabase.from("cfu_area_settings").select("area_id,enabled"),
+      ]);
+      if (e1) throw e1;
+      if (e2) throw e2;
+      const on = new Map((settings ?? []).map((row) => [row.area_id as string, Boolean(row.enabled)]));
+      return (list ?? []).map((row) => ({ id: row.id as string, name: String(row.name), enabled: on.get(row.id as string) ?? false })) as AreaOption[];
+    },
+  });
+
+  const fail = (e: unknown) => setError(cfuErrorMessage(e));
+
+  const settings = useQuery({
+    queryKey: ["cfu-settings"], enabled: canManage,
+    queryFn: async () => {
+      const { data, error: e } = await supabase.from("cfu_settings").select("requests_open").maybeSingle();
+      if (e) throw e;
+      return Boolean(data?.requests_open);
+    },
+  });
+  const toggleRequests = useMutation({
+    mutationFn: async (open: boolean) => { const { error: e } = await supabase.from("cfu_settings").update({ requests_open: open }).eq("id", true); if (e) throw e; },
+    onSuccess: () => void cache.invalidateQueries({ queryKey: ["cfu-settings"] }), onError: fail,
+  });
+
+  const members = useQuery({
+    queryKey: ["cfu-members"], enabled: canManage,
+    queryFn: async () => {
+      const { data, error: e } = await supabase.from("cfu_members").select("*").order("last_name").order("first_name");
+      if (e) throw e;
+      return (data ?? []).map((row) => ({ ...row, ratings: normalizeRatings(row.ratings) })) as CfuMember[];
+    },
+  });
+
+  const refresh = () => void cache.invalidateQueries({ queryKey: ["cfu-members"] });
+
+  const toggleArea = useMutation({
+    mutationFn: async ({ id, enabled }: { id: string; enabled: boolean }) => {
+      const { error: e } = await supabase.from("cfu_area_settings").upsert({ area_id: id, enabled, updated_at: new Date().toISOString() });
+      if (e) throw e;
+    },
+    onSuccess: () => void cache.invalidateQueries({ queryKey: ["cfu-areas"] }), onError: fail,
+  });
+
+  const saveMember = useMutation({
+    mutationFn: async (value: Draft) => {
+      const row = {
+        first_name: value.first_name.trim(), last_name: value.last_name.trim(), student_number: value.student_number.trim(),
+        degree: value.degree.trim(), department: value.department.trim(), professor_name: value.professor_name.trim(), professor_email: value.professor_email.trim(), area_id: value.area_id || null, division: value.division.trim(),
+        team_role: value.team_role.trim(), period_from: value.period_from || null, period_to: value.period_to || null,
+        description: value.description, ratings: value.ratings,
+      };
+      const { error: e } = value.id ? await supabase.from("cfu_members").update(row).eq("id", value.id) : await supabase.from("cfu_members").insert(row);
+      if (e) throw e;
+    },
+    onSuccess: () => { setDraft(null); refresh(); }, onError: fail,
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => { const { error: e } = await supabase.from("cfu_members").delete().eq("id", id); if (e) throw e; },
+    onSuccess: refresh, onError: fail,
+  });
+
+  const importMembers = useMutation({
+    mutationFn: async () => { const { data, error: e } = await supabase.rpc("cfu_import_members"); if (e) throw e; return Number(data ?? 0); },
+    onSuccess: (count) => { setNotice(count ? `Importati ${count} membri dai moduli di adesione.` : "Nessun nuovo membro da importare."); refresh(); }, onError: fail,
+  });
+
+  if (!canManage) {
+    return <div className="page-container"><PageHeader title="CFU" eyebrow="Accesso riservato" /><section className="panel panel__body"><p>Questa sezione è riservata al Team Leader.</p></section></div>;
+  }
+
+  const areaName = (id: string | null) => areas.data?.find((area) => area.id === id)?.name ?? "";
+  const makePdf = async (member: CfuMember) => {
+    setError("");
+    try { download(await cfuPdf(member, { areaName: areaName(member.area_id) }), cfuPdfFileName(member)); } catch (e) { fail(e); }
+  };
+  const onSubmit = (event: FormEvent) => { event.preventDefault(); setError(""); if (draft) saveMember.mutate(draft); };
+  const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((current) => (current ? { ...current, [key]: value } : current));
 
   return (
     <div className="page-container">
-      <PageHeader
-        title="CFU"
-        eyebrow="Riconoscimento CFU"
-        description="Scheda di valutazione ai fini del riconoscimento CFU per l'attività nel Team Galileo."
-        actions={
-          <button className="button button--primary" type="button" onClick={() => window.print()}>
-            <Printer size={17} /> Stampa
-          </button>
-        }
-      />
+      <PageHeader title="CFU" eyebrow="Riconoscimento CFU" description="Scegli quali aree possono compilare le valutazioni, controlla i punteggi e scarica la scheda PDF di ogni membro."
+        actions={<>
+          <button className="button" type="button" disabled={importMembers.isPending} onClick={() => importMembers.mutate()}><Users size={17} /> Importa dai moduli di adesione</button>
+          <button className="button button--primary" type="button" onClick={() => { setError(""); setDraft({ ...blank }); }}><Plus size={17} /> Aggiungi membro</button>
+        </>} />
+      {error && <p className="form-error" role="alert">{error}</p>}
+      {notice && <p role="status">{notice}</p>}
 
-      <article className="panel panel__body" style={{ maxWidth: 820, lineHeight: 1.6 }}>
-        <header style={{ textAlign: "center", marginBottom: 16 }}>
-          <img src="/Logo Verticale Blu.png" alt="Team Galileo" style={{ width: "5cm", maxWidth: "50%" }} onError={(e) => (e.currentTarget.style.display = "none")} />
-          <h2 style={{ margin: "8px 0 0" }}>SCHEDA DI VALUTAZIONE</h2>
-          <p style={{ margin: 0 }}><strong>Ai fini del Riconoscimento CFU — Attività all'interno del Team Galileo</strong></p>
-          <p style={{ margin: 0 }}><em>[1247I] — Laboratorio di Automazione e Robotica</em></p>
-        </header>
+      <section className="panel panel__body">
+        <h2>Link pubblico per le richieste dei membri</h2>
+        <p className="table-secondary">I membri inseriscono i propri dati da questo link; la scheda compare qui sotto e il Capo Area della loro area aggiunge descrizione e crocette.</p>
+        <label style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input type="checkbox" checked={settings.data === true} disabled={toggleRequests.isPending || settings.isPending} onChange={(event) => toggleRequests.mutate(event.target.checked)} />
+          Richieste aperte
+        </label>
+        <p><a href={`${window.location.origin}/richiesta-cfu`} target="_blank" rel="noreferrer">{`${window.location.origin}/richiesta-cfu`}</a>{" "}
+          <button className="button" type="button" onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}/richiesta-cfu`).then(() => setNotice("Link copiato."))}>Copia link</button></p>
+      </section>
 
-        <p style={{ fontSize: "0.85em" }}>
-          <em>
-            Nota esplicativa: La presente scheda viene compilata dal Team Leader e trasmessa alla Commissione d'Esame prima della prova.
-            Il giudizio espresso si riferisce esclusivamente all'attività, all'impegno e alle competenze dimostrate dal candidato nello
-            svolgimento dei compiti assegnati all'interno del Team Galileo durante l'Anno Accademico, restando esclusa la valutazione
-            dell'elaborato di progetto specifico di competenza del CdL.
-          </em>
-        </p>
+      <section className="panel panel__body">
+        <h2>Aree i cui Capi Area possono compilare</h2>
+        <p className="table-secondary">Un Capo Area abilitato vede solo nome e cognome dei membri della propria area e può scrivere la descrizione e segnare le crocette.</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 20px" }}>
+          {(areas.data ?? []).map((area) => (
+            <label key={area.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <input type="checkbox" checked={area.enabled} disabled={toggleArea.isPending}
+                onChange={(event) => toggleArea.mutate({ id: area.id, enabled: event.target.checked })} />
+              {area.name}
+            </label>
+          ))}
+        </div>
+      </section>
 
-        <section>
-          <h3>1. DATI ANAGRAFICI E INQUADRAMENTO NEL TEAM</h3>
-          <p><strong>Cognome e Nome:</strong> <Line /></p>
-          <p><strong>Matricola:</strong> <Line w="3.5cm" /> <strong>Corso di Studi:</strong> <Line w="5.5cm" /></p>
-          <p><strong>Dipartimento / Area:</strong> <Line w="5cm" /></p>
-          <p><strong>Divisione / Settore di appartenenza:</strong> <Line w="4.5cm" /></p>
-          <p><strong>Ruolo ricoperto nel Team:</strong> <Line w="5cm" /></p>
-          <p><strong>Periodo di attività valutato:</strong> Da <Line w="2.5cm" /> a <Line w="2.5cm" /></p>
-        </section>
-
-        <section>
-          <h3>2. PARERE VINCOLANTE DEI RESPONSABILI</h3>
-          <p>Il presente modulo viene compilato d'intesa con il Direttore Tecnico e Responsabile d'Area di riferimento.</p>
-          <p>
-            <strong>Parere del Responsabile di Divisione:</strong> <Box checked /> Favorevole &nbsp;&nbsp;&nbsp; <Box /> Contrario
-          </p>
-        </section>
-
-        <section>
-          <h3>3. DESCRIZIONE DETTAGLIATA DEI COMPITI E DELLE ATTIVITÀ SVOLTE</h3>
-          <p>
-            <em>(Indicare le mansioni specifiche, i progetti seguiti e le responsabilità assunte dal membro all'interno della propria divisione durante l'anno)</em>
-          </p>
-          <div style={{ minHeight: "4cm" }} />
-        </section>
-
-        <section style={{ breakBefore: "page" }}>
-          <h3>4. MATRICE DI VALUTAZIONE TRASVERSALE DELLE COMPETENZE NEL TEAM</h3>
-          <p><em>Indicare con una crocetta (×) il livello di giudizio assegnato per ciascun criterio:</em></p>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", borderTop: "2px solid currentColor", borderBottom: "2px solid currentColor", fontSize: "0.9em" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid currentColor" }}>
-                  <th style={{ textAlign: "left", padding: "6px 4px" }}>Criterio di Valutazione</th>
-                  {LEVELS.map((level) => <th key={level} style={{ padding: "6px 4px" }}>{level}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {MATRIX.map((row) => (
-                  <tr key={row.criterio}>
-                    <td style={{ padding: "8px 4px" }}>{row.criterio}</td>
-                    {LEVELS.map((level, index) => (
-                      <td key={level} style={{ textAlign: "center" }}><Box checked={row.scelta === index} /></td>
-                    ))}
+      <section className="panel">
+        <div className="data-table-wrapper">
+          <table className="data-table">
+            <thead><tr><th scope="col">Cognome e nome</th><th scope="col">Area</th><th scope="col">Valutazione finale</th><th scope="col">Giudizio</th><th scope="col"><span className="sr-only">Azioni</span></th></tr></thead>
+            <tbody>
+              {(members.data ?? []).map((member) => {
+                const score = cfuScore(member.ratings);
+                const complete = isCfuComplete(member.ratings);
+                return (
+                  <tr key={member.id}>
+                    <td>{member.last_name} {member.first_name}</td>
+                    <td>{areaName(member.area_id) || <span className="table-secondary">Non assegnata</span>}</td>
+                    <td>{member.evaluated_at ? cfuFinalGrade(score) : "—"}{member.evaluated_at && !complete && <span className="table-secondary"> (incompleta)</span>}</td>
+                    <td>{member.evaluated_at ? (cfuVerdict(score) === "favorevole" ? "Favorevole" : "Contrario") : "—"}</td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <button className="icon-button" type="button" title="Scarica PDF" aria-label={`Scarica PDF di ${member.last_name} ${member.first_name}`} onClick={() => void makePdf(member)}><Download size={17} /></button>
+                      <button className="icon-button" type="button" title="Modifica" aria-label={`Modifica ${member.last_name} ${member.first_name}`} onClick={() => { setError(""); setDraft({ ...member }); }}><Pencil size={17} /></button>
+                      <button className="icon-button" type="button" title="Elimina" aria-label={`Elimina ${member.last_name} ${member.first_name}`}
+                        onClick={() => { if (window.confirm(`Eliminare ${member.last_name} ${member.first_name} dalla lista CFU?`)) remove.mutate(member.id); }}><Trash2 size={17} /></button>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                );
+              })}
+              {members.data?.length === 0 && <tr><td colSpan={5}>Nessun membro. Importa dai moduli di adesione o aggiungine uno.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-        <section>
-          <h3>5. GIUDIZIO SINTETICO E PROPOSTA AL CORSO DI LAUREA</h3>
-          <p>Il sottoscritto Team Leader, visti i risultati conseguiti nell'ambito delle attività associative, esprime parere:</p>
-          <p><Box /> <strong>FAVOREVOLE</strong> al riconoscimento dei CFU per l'attività svolta nel Team.</p>
-          <p><Box /> <strong>CONTRARIO</strong> al riconoscimento dei CFU.</p>
-          <p><strong>Eventuali note o commenti descrittivi sull'operato:</strong></p>
-          <p><Line w="100%" /></p>
-          <p><Line w="100%" /></p>
-          <p style={{ marginTop: 24 }}>Pisa, li {today}</p>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 32 }}>
-            <div style={{ textAlign: "center", width: "45%" }}>
-              <div style={{ borderTop: "1px solid currentColor", width: "5.5cm", margin: "0 auto" }} />
-              <small>Team Leader</small>
+      {draft && (
+        <Modal title={draft.id ? "Modifica membro" : "Aggiungi membro"} onClose={() => setDraft(null)}>
+          <form className="panel__body form-grid" onSubmit={onSubmit}>
+            <label className="form-field">Nome<input className="input" required value={draft.first_name} onChange={(e) => set("first_name", e.target.value)} /></label>
+            <label className="form-field">Cognome<input className="input" required value={draft.last_name} onChange={(e) => set("last_name", e.target.value)} /></label>
+            <label className="form-field">Matricola<input className="input" value={draft.student_number} onChange={(e) => set("student_number", e.target.value)} /></label>
+            <label className="form-field">Corso di Studi<input className="input" value={draft.degree} onChange={(e) => set("degree", e.target.value)} /></label>
+            <label className="form-field">Docente del Corso di Laurea<input className="input" value={draft.professor_name} onChange={(e) => set("professor_name", e.target.value)} /></label>
+            <label className="form-field">Mail del docente<input className="input" type="email" value={draft.professor_email} onChange={(e) => set("professor_email", e.target.value)} /></label>
+            <label className="form-field">Dipartimento / Area<input className="input" value={draft.department} onChange={(e) => set("department", e.target.value)} /></label>
+            <label className="form-field">Divisione / Settore (testo sulla scheda)<input className="input" value={draft.division} onChange={(e) => set("division", e.target.value)} /></label>
+            <label className="form-field">Ruolo ricoperto nel Team<input className="input" value={draft.team_role} onChange={(e) => set("team_role", e.target.value)} /></label>
+            <label className="form-field">Area del Capo Area che valuta
+              <select className="input" value={draft.area_id ?? ""} onChange={(e) => set("area_id", e.target.value || null)}>
+                <option value="">Non assegnata</option>
+                {(areas.data ?? []).map((area) => <option key={area.id} value={area.id}>{area.name}</option>)}
+              </select>
+            </label>
+            <label className="form-field">Periodo: da<input className="input" type="date" value={draft.period_from ?? ""} onChange={(e) => set("period_from", e.target.value || null)} /></label>
+            <label className="form-field">Periodo: a<input className="input" type="date" value={draft.period_to ?? ""} onChange={(e) => set("period_to", e.target.value || null)} /></label>
+            <CfuEvaluationFields description={draft.description} ratings={draft.ratings} onDescription={(value) => set("description", value)}
+              onRating={(criterion, level) => set("ratings", { ...draft.ratings, [criterion]: level })} showResult />
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <div className="form-actions">
+              <button className="button" type="button" onClick={() => setDraft(null)}>Annulla</button>
+              <button className="button button--primary" type="submit" disabled={saveMember.isPending}>{saveMember.isPending ? "Salvataggio…" : "Salva"}</button>
             </div>
-          </div>
-        </section>
-      </article>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

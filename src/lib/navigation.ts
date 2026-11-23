@@ -62,7 +62,7 @@ const cfu = item("/admin/cfu", "CFU", GraduationCap);
  * - Magazzino: Logistica, Team Leader e Amministrazione lo gestiscono; ogni altro Capo Area lo consulta, registra i movimenti e chiede acquisti
  * - Riunione (aule e slot da 30 minuti): Team Leader, Amministrazione e tutti i Capi Area
  */
-export function buildNavigation(access: NavAccess, options: { hasOpenApplications?: boolean } = {}): NavGroup[] {
+export function buildNavigation(access: NavAccess, options: { hasOpenApplications?: boolean; hasCfuAccess?: boolean } = {}): NavGroup[] {
   const hasArea = (slug: string) => access.areas.some((area) => area.slug === slug);
   const groups: NavGroup[] = [];
 
@@ -152,6 +152,7 @@ export function buildNavigation(access: NavAccess, options: { hasOpenApplication
       { id: "logistica", title: "Logistica", items: hasArea("logistica") ? [merchandising, inventory, sponsors, orders] : [] },
       { id: "business", title: "Business", items: hasArea("business") ? [merchandising, budget, orders, businessForms] : [] },
       { id: "magazzino", title: "Magazzino", items: [inventory] },
+      { id: "cfu", title: "CFU", items: options.hasCfuAccess ? [item("/area/cfu", "CFU", GraduationCap)] : [] },
       { id: "aiuto", title: "Aiuto", items: [item("/area/assistenza", "Assistenza", HelpCircle)] },
     );
   }

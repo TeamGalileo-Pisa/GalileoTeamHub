@@ -36,6 +36,15 @@ export function AppShell() {
       return data ?? [];
     },
   });
+  const cfuAccess = useQuery({
+    queryKey: ["cfu-lead-access", access?.userId],
+    enabled: Boolean(access && !access.isAdmin && !access.isMember),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("cfu_lead_access");
+      if (error) throw error;
+      return Boolean(data);
+    },
+  });
   const [pushStatus,setPushStatus] = useState("");
   const [pushState,setPushState] = useState<{ userId: string; ready: boolean } | null>(null);
   const [pushBusy,setPushBusy] = useState(false);
@@ -94,7 +103,7 @@ export function AppShell() {
   }, [access?.userId, reportPresence]);
 
   const navigationGroups = access
-    ? buildNavigation(access, { hasOpenApplications: (openApplicationAreas.data?.length ?? 0) > 0 })
+    ? buildNavigation(access, { hasOpenApplications: (openApplicationAreas.data?.length ?? 0) > 0, hasCfuAccess: cfuAccess.data === true })
     : [];
   const unreadNotifications = unreadNotificationQuery.data ?? 0;
   const unreadAnnouncements = unreadQuery.data ?? 0;
