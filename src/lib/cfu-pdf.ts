@@ -138,9 +138,9 @@ export async function cfuPdf(member: CfuMember, options: { areaName?: string; da
   y -= 16;
   rule(LEFT, RIGHT, y, 0.6);
   y -= 6;
-  for (const criterion of CFU_CRITERIA) {
+  for (const [criterionIndex, criterion] of CFU_CRITERIA.entries()) {
     const lines = wrap(criterion.label, 9.5, regular, labelWidth - 6);
-    const rowHeight = Math.max(28, lines.length * 12 + 10);
+    const rowHeight = Math.max(32, lines.length * 12 + 12);
     ensure(rowHeight);
     lines.forEach((line, index) => text(line, LEFT, y - 14 - index * 12 + (lines.length - 1) * 6, 9.5));
     CFU_LEVELS.forEach((level, index) => {
@@ -148,6 +148,7 @@ export async function cfuPdf(member: CfuMember, options: { areaName?: string; da
       checkbox(cx - 4.5, y - 14 + 0.5, ratings[criterion.id] === level.id);
     });
     y -= rowHeight;
+    if (criterionIndex < CFU_CRITERIA.length - 1) rule(LEFT, RIGHT, y + 6, 0.4);
   }
   rule(LEFT, RIGHT, y + 4, 1.2);
   y -= 24;
